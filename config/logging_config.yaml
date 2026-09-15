@@ -1,0 +1,37 @@
+# SentinelX Phase 6 / ADR §123.6 (OD-6) + §126.2 (OD-B) — Logging Config.
+#
+# This file owns logging/observability configuration ONLY: levels, sinks,
+# rotation and retention. It contains zero canonical trading fields, does NOT
+# amend the frozen paper-configuration schema, and never participates in
+# configuration_identity.
+#
+# Redaction is mandatory and is deliberately ABSENT from this file: it is a
+# non-optional engine-side filter on every sink and MUST NOT be disableable
+# by configuration (§123.6 item 2).
+
+schema_version: "sentinelx-logging-config/v1"
+
+# Sinks are destinations only (pre-registered PROJECT_STRUCTURE.md paths).
+sinks:
+  trade_log: "logs/trade_log"        # Q88 trade log (exit reason from lifecycle evidence, §123.7)
+  error_log: "logs/error_log"        # Q89 error log (sole detail authority: timestamp, stack trace, context)
+  strategy_log: "logs/strategy_log"  # Q90 separate NON-audit per-strategy evaluation log incl. HOLD (never enters audit_events, §114.9)
+  audit_export: null                 # derived, regenerable, NON-authoritative export of SQLite audit_events (§123.5); export tooling not built
+
+levels: {}               # per-sink / per-logger levels only
+
+rotation:
+  # Size-bounded individual segment rollover ONLY (no time-based rotation).
+  # Rotated segments are NEVER deleted or pruned (ADR §126.2 OD-B).
+  trade_log:
+    max_segment_bytes: 52428800       # 50 MiB current-segment boundary
+  error_log:
+    max_segment_bytes: 10485760       # 10 MiB current-segment boundary
+  strategy_log:
+    max_segment_bytes: 52428800       # 50 MiB current-segment boundary (highest-volume sink)
+
+retention:
+  # ADR §126.2 (OD-B): automatic deletion DISABLED; no numeric days/months
+  # retention value is authorized or accepted. Any numeric duration key here
+  # is a configuration error.
+  policy: "never_auto_delete"

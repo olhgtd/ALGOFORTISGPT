@@ -1,0 +1,33 @@
+# SentinelX — Final Clean Product Source Checkpoint
+
+- **Source Repository**: `C:\Users\Ragini Music\Downloads\SentinelX_AWS_MIGRATION\SentinelX`
+- **Clean Target Path**: `C:\Users\Ragini Music\Desktop\SentinelX-CLEAN`
+- **Creation Date / Time**: 2026-09-14T07:26:28.077909+00:00
+- **Source Branch**: `main`
+- **Source Git HEAD**: `bc8d972bf9d41a72cc51386dfe1e51539f99ffe8`
+- **Source Working Tree Authority**: Current working tree (including verified Step 7 & remediation changes) is authoritative.
+- **Latest Certified Status**:
+  - Full Pytest: **3761 passed, 0 failed, 0 errors, 1 warning, exit code 0**
+  - Frontend Build: **PASS** (`tsc -b && vite build` completed cleanly)
+  - Blocker Remediation: **COMPLETE** (Recovery Authority verifier PASS, Leaf-Symlink/Junction protection PASS)
+  - Findings: **P0 = NONE, P1 = NONE, P2 = NONE**
+  - Pre-Step-8 Blockers: **NONE**
+  - Step 8 Readiness: **YES**
+- **Live Safety State**:
+  - `READ_ONLY` = `true`
+  - `DISARMED` = `true`
+  - `live_global_hold` = `true`
+  - `broker mutation` = `ZERO` (`LiveExecutionDisabled` fail-closed enforcement)
+  - `real broker connection` = `NONE`
+- **Excluded Artifact Categories**:
+  - `tests/` test suite and non-production runner harnesses (`verify_*.mjs`, `test_*_backend_runner.py`)
+  - Virtual environments (`.venv/`, `venv/`)
+  - Node dependencies and build artifacts (`node_modules/`, `dist/`, `*.tsbuildinfo`)
+  - Python caches (`__pycache__/`, `*.pyc`, `*.pyo`)
+  - Pytest & coverage caches (`.pytest_cache/`, `.coverage`)
+  - Old audit & remediation evidence directories (`_f12_f16_evidence/`, `_f23_f7_f6_f5_evidence/`, `_f24_f3_f13_f4_evidence/`, etc.)
+  - Runtime SQLite databases and transaction logs (`*.db`, `*.sqlite*`, `*.wal`, `*.shm`)
+  - Scratch and debug scripts (`scratch/`, `debug_*.py`, `_audit_*.py`, etc.)
+  - Screenshots and Playwright visual media (`*.png`, `*.webp`, `screenshots/`)
+  - Historical git metadata (`.git/`)
+- **Clean-Tree Verification Result**: **PASS** (Zero dependency on source repository, all core modules import cleanly, clean professional structure).

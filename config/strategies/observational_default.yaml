@@ -1,0 +1,7 @@
+schema_version: paper-strategy-config/v1
+strategy_id: strat_live_paper_default
+strategy_version: "1.0"
+activation: observation_only
+instrument: NIFTY
+timeframe: 1m
+protective_policy: null

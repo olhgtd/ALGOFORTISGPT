@@ -1,0 +1,10 @@
+# Declared runtime dependency names. This file is reproducibility input, not an
+# installer: use requirements-runtime.lock.txt for a supported runtime setup.
+# Exact versions remain recorded in requirements-runtime.lock.json evidence.
+openpyxl
+pandas
+protobuf
+pyarrow
+PyYAML
+websockets
+xlrd

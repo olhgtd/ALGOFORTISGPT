@@ -1,0 +1,53 @@
+# AlgoFortis V1 — Central Cloud Infrastructure Topology Contract
+# Implements ADR-16, ADR-17, ADR-25
+# Target Region: AWS Mumbai (ap-south-1)
+# NOTE: ARCHITECTURAL CONTRACT ONLY. ZERO LIVE AWS RESOURCES DEPLOYED IN V1.
+
+topology_version: "aws-topology/v1"
+region: "ap-south-1"
+
+cost_governance:
+  currency: "INR"
+  monthly_budget_ceiling: 6000
+  notification_thresholds_pct: [50, 75, 100]
+  notification_emails: ["devops-alerts@algofortis.internal"]
+  enforcement: "ALERT_ONLY_NO_AUTO_KILL"
+
+network:
+  vpc_cidr: "10.0.0.0/16"
+  public_subnets:
+    - "10.0.1.0/24" # ap-south-1a
+    - "10.0.2.0/24" # ap-south-1b
+  private_subnets:
+    - "10.0.10.0/24" # ap-south-1a
+    - "10.0.11.0/24" # ap-south-1b
+
+compute:
+  orchestrator: "AWS ECS Fargate"
+  task_family: "algofortis-auth-authority"
+  cpu: 512
+  memory: 1024
+  min_instances: 1
+  max_instances: 3
+
+database:
+  engine: "Amazon RDS PostgreSQL"
+  instance_class: "db.t4g.micro"
+  multi_az: false
+  allocated_storage_gb: 20
+  storage_type: "gp3"
+  publicly_accessible: false
+
+security:
+  secrets_manager: true
+  kms_key_rotation: true
+  acm_certificate: true
+  waf_rate_limiting: true
+
+domains_hierarchy:
+  root_domain: "${ALGOFORTIS_ROOT_DOMAIN}" # pending external domain purchase (ADR-25)
+  subdomains:
+    auth: "auth.${ALGOFORTIS_ROOT_DOMAIN}"
+    api: "api.${ALGOFORTIS_ROOT_DOMAIN}"
+    updates: "updates.${ALGOFORTIS_ROOT_DOMAIN}"
+    status: "status.${ALGOFORTIS_ROOT_DOMAIN}"

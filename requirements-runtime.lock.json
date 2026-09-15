@@ -1,0 +1,43 @@
+{
+  "dependency_policy_version": "DependencyIdentity/v1",
+  "dependencies": [
+    {
+      "name": "openpyxl",
+      "version": "3.1.5"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.5"
+    },
+    {
+      "name": "protobuf",
+      "version": "7.35.1"
+    },
+    {
+      "name": "pyarrow",
+      "version": "25.0.0"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3"
+    },
+    {
+      "name": "websockets",
+      "version": "17.0"
+    },
+    {
+      "name": "xlrd",
+      "version": "2.0.2"
+    }
+  ],
+  "parquet_backend": {
+    "name": "pyarrow",
+    "version": "25.0.0"
+  },
+  "python_runtime": {
+    "implementation": "CPython",
+    "version": "3.13.14"
+  },
+  "schema_version": "sentinelx-approved-runtime-lock/v1"
+}
+

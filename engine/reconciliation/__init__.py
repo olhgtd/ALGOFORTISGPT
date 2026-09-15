@@ -1,0 +1,1 @@
+"""Reconciliation domain package (structural relocation only; contracts unchanged)."""

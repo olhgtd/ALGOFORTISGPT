@@ -1,0 +1,4 @@
+# Build-time dependency specification for SentinelX Protobuf generation.
+# This tooling is executed strictly in an isolated build environment (.build-proto-venv)
+# and MUST NOT be installed in the SentinelX runtime environment.
+grpcio-tools==1.83.0

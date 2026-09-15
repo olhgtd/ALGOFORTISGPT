@@ -1,0 +1,9 @@
+schema_version: execution-config/v1
+paper_fill:
+  profile: RESEARCH_ZERO_SLIPPAGE
+  version: v1
+  slippage_model:
+    type: fixed_bps
+    bps: "0"
+  max_execution_tolerance_bps: "500"
+  max_slippage_bps: "50"

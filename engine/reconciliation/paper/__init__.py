@@ -1,0 +1,1 @@
+"""Paper reconciliation package (structural relocation only; contracts unchanged)."""

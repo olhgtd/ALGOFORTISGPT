@@ -1,0 +1,653 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SentinelX Secure Entry — Clean Full-HD Pure Dark System
+   Governed by OWNER VISUAL SPECIFICATION
+   - Minimal first screen with ONLY Access Gate
+   - NO outer card border / background / panel box (floating on pure black)
+   - Seamless deep black continuous background (0 banding, 0 seams, 0 lines)
+   - Exact horizontal center axis alignment for Title, Subtitle, Orb, Form
+   - High-DPI / Full-HD / 4K vector-sharp rendering
+   - Natural tight composition with zero gap drift
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --sx-canvas: #000000;
+  --sx-surface-1: #0a0a0a;
+  --sx-surface-2: #121212;
+  --sx-surface-3: #1a1a1a;
+  --sx-surface-card: transparent;
+  --sx-hairline: rgba(255, 255, 255, 0.08);
+  --sx-hairline-strong: rgba(255, 255, 255, 0.14);
+  --sx-hairline-accent: rgba(255, 255, 255, 0.3);
+  --sx-hairline-emerald: rgba(16, 185, 129, 0.35);
+  --sx-ink-primary: #ffffff;
+  --sx-ink-secondary: rgba(255, 255, 255, 0.72);
+  --sx-ink-muted: rgba(255, 255, 255, 0.50);
+  --sx-ink-dim: rgba(255, 255, 255, 0.25);
+  --sx-ink-mono: #f4f4f5;
+  --sx-cyan-primary: #38bdf8;
+  --sx-emerald: #10b981;
+  --sx-ruby: #f87171;
+  --sx-amber: #fbbf24;
+  --sx-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sx-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* ── 1. Root & Continuous Seamless Black Background ── */
+.secure-entry-root {
+  min-height: 100dvh;
+  width: 100%;
+  color-scheme: dark;
+  background: #000000 !important;
+  color: var(--sx-ink-primary);
+  font-family: var(--sx-font-sans);
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Remove all pseudo-element overlays, stripes, or radial seams */
+.secure-entry-root::before,
+.secure-entry-root::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Prototype Bar (DEV only) */
+.secure-entry-prototype-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: #09090b;
+  border-bottom: 1px solid var(--sx-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.prototype-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prototype-badge {
+  background: #27272a;
+  color: #a1a1aa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.prototype-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-pill-group {
+  display: inline-flex;
+  background: #18181b;
+  border: 1px solid var(--sx-hairline);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.mode-pill-btn {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-pill-btn.active {
+  background: #27272a;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.replay-intro-btn,
+.exit-prototype-btn {
+  background: transparent;
+  border: 1px solid var(--sx-hairline);
+  color: #d4d4d8;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dev-preview-btn {
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  color: #ffb700;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dev-preview-btn:hover {
+  background: rgba(255, 170, 0, 0.18);
+  color: #ffd043;
+  border-color: rgba(255, 170, 0, 0.45);
+}
+
+/* ── 2. Viewport Wrapper & Exact Center Axis ── */
+.viewport-frame-wrapper {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 3vh, 32px) 16px;
+  box-sizing: border-box;
+}
+
+.secure-stage {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Intro Animations */
+.intro-anim-fadein {
+  animation: sx-env-fadein 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sx-env-fadein {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.intro-identity-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.intro-identity-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── 3. Brand Header (Centered Axis Item 1 & 2) ── */
+.secure-entry-brand-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: -4px;
+  width: 100%;
+}
+
+.brand-wordmark-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.brand-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em; /* Exactly offsets letter-spacing to preserve 100.0% true horizontal center */
+  text-transform: uppercase;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.brand-subhead {
+  margin: 6px 0 0 0;
+  color: var(--sx-ink-muted);
+  font-size: 13.5px;
+  font-weight: 450;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ── 4. SentinelX Core Container (Centered Axis Item 3) ── */
+.core-display-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: -6px 0 8px 0;
+  min-height: 0;
+}
+
+.sentinelx-core-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* ── 5. Floating Form (NO Outer Card, Directly on Black) ── */
+.secure-access-card,
+.secure-floating-form {
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+  padding: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  text-align: left;
+  margin: 0 auto;
+}
+
+.card-header-block {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.card-title {
+  margin: 0 0 6px;
+  color: #ffffff;
+  font-size: clamp(23px, 2.2vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.card-subtitle {
+  max-width: 44ch;
+  margin: 0 auto;
+  color: var(--sx-ink-secondary);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ── 6. Form Fields & Controls ── */
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 20px;
+}
+
+.field-label {
+  color: #d4d4d8;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+#secure-entry-root .field-label {
+  color: #d4d4d8;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-align: center;
+  margin: 0;
+}
+
+.field-input-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.field-input {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  border: 1px solid var(--sx-hairline-strong);
+  border-radius: 8px;
+  padding: 0 15px;
+  background: #08080a;
+  color: #ffffff;
+  font: 14.5px var(--sx-font-sans);
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.field-input::placeholder {
+  color: #52525b;
+}
+
+.field-input:focus-visible {
+  border-color: rgba(255, 255, 255, 0.90);
+  box-shadow: 0 0 0 2.5px rgba(255, 255, 255, 0.12);
+  background: #0d0d11;
+  outline: none;
+}
+
+.field-helper-text {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sx-ink-muted);
+  line-height: 1.4;
+}
+
+.mono-input {
+  font-family: var(--sx-font-mono) !important;
+  letter-spacing: 0.10em;
+  font-weight: 600;
+}
+
+/* ── 7. Buttons & Actions ── */
+.btn-primary-continue {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  background: #f4f4f5;
+  color: #09090b;
+  font-family: var(--sx-font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: manipulation;
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.btn-primary-continue:hover:not(:disabled) {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.14);
+}
+
+.btn-primary-continue:active:not(:disabled) {
+  transform: translateY(0px) scale(0.99);
+}
+
+.btn-primary-continue:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  background: #1c1c1f;
+  border-color: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.30);
+}
+
+.btn-primary-continue:focus-visible,
+.footer-link-btn:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.70);
+  outline-offset: 2px;
+}
+
+.card-footer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sx-hairline);
+}
+
+.footer-link-btn {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--sx-ink-secondary);
+  font: 13px var(--sx-font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.footer-link-btn:hover {
+  color: #ffffff;
+}
+
+/* ── 8. Badges & Notices ── */
+.access-gate-badge,
+.access-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  background: rgba(56, 189, 248, 0.07);
+  color: #38bdf8;
+}
+
+.access-verified-badge {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+  color: #34d399;
+}
+
+.prototype-hints-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 9px;
+  border: 1px dashed var(--sx-hairline-strong);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  margin-bottom: 16px;
+}
+
+.hint-label {
+  font-size: 11px;
+  color: var(--sx-ink-muted);
+  font-weight: 600;
+}
+
+.hint-pill {
+  border: 1px solid var(--sx-hairline-strong);
+  border-radius: 4px;
+  padding: 2.5px 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sx-ink-secondary);
+  font-family: var(--sx-font-mono);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hint-pill:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* ── 9. Real-Time Clock Bar ── */
+.access-gate-clock-bar {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  z-index: 10;
+}
+
+.access-gate-clock-bar .v3-clock {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--sx-font-mono);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── 10. Access Denied & Calm Message ── */
+.access-denied-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 0;
+  width: 100%;
+}
+
+.access-denied-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sx-hairline-strong);
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+}
+
+.denied-cross {
+  color: #d4d4d8;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.auth-error-alert {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  text-align: left;
+}
+
+.auth-error-text {
+  color: #fca5a5;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* ── 11. Responsive Adjustments ── */
+@media (max-width: 640px) {
+  .viewport-frame-wrapper {
+    align-items: center;
+    justify-content: center;
+    padding: 16px 14px;
+  }
+
+  .secure-stage {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .brand-title {
+    font-size: 20px;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+  }
+
+  .brand-subhead {
+    font-size: 12.5px;
+  }
+
+  .core-display-container {
+    margin: -4px 0 4px 0;
+  }
+
+  .sentinelx-core-wrapper,
+  .sentinelx-core-wrapper canvas {
+    width: min(58vw, 200px) !important;
+    height: min(58vw, 200px) !important;
+  }
+
+  .secure-access-card,
+  .secure-floating-form {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .card-title {
+    font-size: 21px;
+  }
+
+  .card-subtitle {
+    font-size: 13px;
+  }
+
+  .field-input {
+    height: 46px;
+    font-size: 14px;
+  }
+
+  .btn-primary-continue {
+    min-height: 46px;
+    font-size: 12.5px;
+  }
+
+  .access-gate-clock-bar {
+    top: 10px;
+    right: 12px;
+  }
+
+  .access-gate-clock-bar .v3-clock {
+    font-size: 10.5px;
+    padding: 2px 7px;
+  }
+
+  .access-gate-clock-bar .v3-clock-sep,
+  .access-gate-clock-bar .v3-clock-date {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

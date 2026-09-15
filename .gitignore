@@ -1,0 +1,162 @@
+# ============================================================
+# AlgoFortis / SentinelX - Git Ignore
+# ============================================================
+
+# Python cache / test cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets / environment files
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.secret
+secrets.*
+credentials.*
+
+# Local databases / runtime state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.sqlite3-wal
+*.sqlite3-shm
+*.wal
+*.shm
+
+# Security / Device / Token / Session / Recovery material
+*.token
+*.session
+*.cng
+*.dpapi
+*.tpm
+recovery_codes*
+activation_secret*
+broker_credentials*
+device_key*
+private_key*
+
+# Local AppData and runtime data
+AppData/
+local_appdata/
+test_p8_localappdata/
+test_shutdown_data/
+build/test_p8_localappdata/
+build/test_shutdown_data/
+
+# Frontend build outputs and caches
+dist/
+node_modules/
+*.tsbuildinfo
+
+# Build generated outputs & stage (NOT authoritative source)
+build/stage/
+build/installer/
+build/test_*/
+build/tools/test_wv2/
+build/tools/__pycache__/
+build/install.log
+
+# Binary executables and installers (Releases distributed via GitHub Releases)
+*.exe
+*.msi
+*.dll
+
+# Test artifacts and screenshots
+screenshots/
+dashboard/web/screenshots/
+*.webp
+
+# Protect brand assets while ignoring test screenshots
+*.png
+!algofortis_logo.png
+!assets/**
+!dashboard/web/public/*.png
+
+# Runtime caches and dynamic state
+temp_cache/
+scratch/
+users/
+nul
+
+# Logs / temporary / backup files
+*.log
+*.tmp
+*.bak
+logs/
+tmp/
+temp/
+
+# Local IDE/editor files
+.vscode/
+.idea/
+
+# Local AI/agent workspace state
+.agents/
+.openclaw/
+.opencode/
+
+# Local MCP/tool configuration
+config/mcporter.json
+
+# SentinelX temporary documentation backups
+*_BACKUP_*/
+DOC_CLOSURE_BACKUP_*/
+DOC_UNICODE_REPAIR_BACKUP_*/
+ITEM*_DOC_BACKUP_*/
+SLICE*_DOC_BACKUP_*/
+
+# ── §129.18 Historical bulk market data exclusion ──
+# Bulk generated data must NEVER enter Git history.
+# Using data/path/* (contents) not data/path/ (directory) so .gitkeep is trackable.
+
+# Raw source dumps (immutable source evidence)
+data/raw/*
+!data/raw/.gitkeep
+
+# Incoming files (pre-import staging)
+data/incoming/*
+!data/incoming/.gitkeep
+
+# Normalized parquet datasets (canonical output)
+data/parquet/*
+!data/parquet/.gitkeep
+
+# Quarantined files
+data/quarantine/*
+!data/quarantine/.gitkeep
+
+# Import reports (can grow unbounded)
+data/import_reports/*
+!data/import_reports/.gitkeep
+
+# Runtime state and snapshots
+data/state/*
+data/snapshots/*
+!data/state/.gitkeep
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local AI identity / personal context files
+USER.md
+SOUL.md
+IDENTITY.md
+HEARTBEAT.md
+TOOLS.md

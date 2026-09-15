@@ -1,0 +1,63 @@
+===============================================================================
+SENTINELX CLEAN PRODUCT TREE MANIFEST
+===============================================================================
+Source: C:\Users\Ragini Music\Downloads\SentinelX_AWS_MIGRATION\SentinelX
+Target: C:\Users\Ragini Music\Desktop\SentinelX-CLEAN
+Generated: 2026-09-14T07:26:28.078361+00:00
+
+RETAINED TOP-LEVEL ENTRIES:
+  [FILE] .gitignore
+  [FILE] CLEAN_CHECKPOINT.md
+  [DIR ] config
+  [DIR ] dashboard
+  [DIR ] data
+  [DIR ] docs
+  [DIR ] engine
+  [FILE] package-lock.json
+  [FILE] package.json
+  [FILE] README.md
+  [FILE] requirements-build.in
+  [FILE] requirements-dashboard.in
+  [FILE] requirements-runtime.in
+  [FILE] requirements-runtime.lock.json
+  [FILE] requirements-runtime.lock.txt
+  [FILE] START_SENTINELX.pyw
+  [DIR ] strategies
+
+TOTAL FILES: 287
+TOTAL DIRECTORIES: 71
+TOTAL SIZE: 5.27 MB (5529099 bytes)
+
+RETAINED DATA ASSETS:
+  data\import_reports\.gitkeep | 1 bytes | SHA256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b | Directory layout anchor
+  data\incoming\.gitkeep | 1 bytes | SHA256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b | Directory layout anchor
+  data\incoming\NIFTY_2012_1m.csv | 627 bytes | SHA256: a181a137eff8f21a025a29b2b3306029c839991f81f2325b1679f3910714dc22 | Sample ingestion CSV
+  data\parquet\.gitkeep | 1 bytes | SHA256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b | Directory layout anchor
+  data\parquet\BANKNIFTY\15m\data.parquet | 5070 bytes | SHA256: f7a7b77debe2649e6a5dda2397a5fc9a4edb5f4c965067ac033bbd1e72b26971 | Deterministic fixture dataset
+  data\parquet\BANKNIFTY\1H\data.parquet | 4658 bytes | SHA256: cf4d259e756f7f7280b9c139492667ccd33a54f3521837314171b07277dc44c4 | Deterministic fixture dataset
+  data\parquet\BANKNIFTY\1m\data.parquet | 10270 bytes | SHA256: c6141eff40eed34155234a5be69603982259927e5698be34447695cfc5522703 | Deterministic fixture dataset
+  data\parquet\BANKNIFTY\30m\data.parquet | 4790 bytes | SHA256: c2f782ef7a57d193a3a5c93db38452b05bf938e8adeb767c2c385e76d3632d1a | Deterministic fixture dataset
+  data\parquet\BANKNIFTY\5m\data.parquet | 6276 bytes | SHA256: 550424645b6d09741c0f0fa0f42edbf7c10015dbe600ee4274c371c75ae48449 | Deterministic fixture dataset
+  data\parquet\NIFTY\15m\data.parquet | 5069 bytes | SHA256: ec1e03ff720d788ef11a84233e67512fe1b9caa8f499f8ab9c31767eb2c21284 | Deterministic fixture dataset
+  data\parquet\NIFTY\1H\data.parquet | 4650 bytes | SHA256: f5f5cad0b3030c6c7b00da49cb39f79441de89f944e914d4f66e283bdb511520 | Deterministic fixture dataset
+  data\parquet\NIFTY\1m\data.parquet | 10269 bytes | SHA256: 4cdeb60c2034ee376140bf2610eed3e8ca30fd51f7f055b219c9bcf1becb5e94 | Deterministic fixture dataset
+  data\parquet\NIFTY\30m\data.parquet | 4788 bytes | SHA256: a5496d46012c046f6dbb7d7e6f6f5147fd4133e78048937aa510a6718c085467 | Deterministic fixture dataset
+  data\parquet\NIFTY\5m\data.parquet | 6272 bytes | SHA256: 97bc2654a31f24d297d4b79d654525d6cc5c9df100f8d6adcb4ab1c846190fd3 | Deterministic fixture dataset
+  data\quarantine\.gitkeep | 1 bytes | SHA256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b | Directory layout anchor
+  data\state\.gitkeep | 1 bytes | SHA256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b | Directory layout anchor
+
+EXCLUDED CATEGORIES:
+  - tests/ suite & test fixtures
+  - node_modules/ & build dist/ caches
+  - .venv/ Python virtual environments
+  - __pycache__/ & .pytest_cache/ bytecodes
+  - Old evidence directories (*_evidence/)
+  - Runtime SQLite databases, WAL, SHM, and temp cache files
+  - Screenshots and visual test captures (*.png, *.webp)
+  - Historical .git tracking directory
+  - Scratch scripts, one-off audit tools, debug_*.py
+
+SOURCE INDEPENDENCE RESULT: PASS (0 direct references to old source tree)
+SECRET SCAN RESULT: PASS (0 secrets found in clean tree)
+HARDCODED PATH SCAN RESULT: PASS (0 developer-specific paths)
+===============================================================================

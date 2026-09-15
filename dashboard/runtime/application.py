@@ -1,0 +1,128 @@
+"""Compose existing authorities for a private, same-origin product runtime."""
+from contextlib import asynccontextmanager
+from decimal import Decimal
+import os
+from pathlib import Path
+
+from fastapi import Request
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from engine.persistence.sqlite_store import SQLitePaperStateStore
+from dashboard.backend.adapters import HistoricalFeedChartAuthority
+from dashboard.backend.api import create_app
+from dashboard.backend.backtest_service import BacktestService
+from dashboard.backend.historical_data_service import (
+    HistoricalDataService,
+    LocalImportDataProvider,
+)
+from dashboard.backend.paper_service import PaperService
+from dashboard.backend.core_audit import MandatoryCoreSecurityAudit
+from dashboard.backend.security_store import SQLiteSecurityStore
+from dashboard.backend.governance_store import SQLiteGovernanceStore
+from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
+from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
+from .paths import RuntimeMode, CurrentUserAcl
+
+
+def create_runtime_app(paths, origin: str, instance_id: str):
+    if not (paths.frontend / "index.html").is_file():
+        raise RuntimeError("Built AlgoFortis frontend resources are unavailable")
+    profile = paths.mode.value.lower()
+    options = dict(profile=profile, data_root=paths.databases, windows_acl_validator=CurrentUserAcl())
+    security = SQLiteSecurityStore(paths.databases / "security" / "sentinelx_security.sqlite3", seed_governance=False, **options)
+    governance = SQLiteGovernanceStore(paths.databases / "governance" / "sentinelx_governance.sqlite3", **options)
+    core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="sentinelx-local",
+                                starting_capital=Decimal("0.00"), audit_source_identity="sentinelx-local")
+    owner = local_owner(security, paths.config / "identity.json")
+    # Configurable WebAuthn RP and Origin:
+    # Read from deployment environment configuration with safe production defaults.
+    # In production, a loopback product transport cannot impersonate approved HTTPS identity origins.
+    normal_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RP_ID", "algofortis.com")).strip()
+    normal_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_ORIGIN", f"https://app.{normal_rp_id}")).strip()
+    recovery_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_RP_ID", "algofortis-recovery.com")).strip()
+    recovery_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_ORIGIN", f"https://access.{recovery_rp_id}")).strip()
+
+    ceremonies = WebAuthnCeremonyService(
+        store=security,
+        normal_rp=WebAuthnRelyingParty(normal_rp_id, normal_origin) if paths.mode is RuntimeMode.PRODUCTION
+        else WebAuthnRelyingParty("localhost", origin, development_only=True),
+        recovery_rp=WebAuthnRelyingParty(recovery_rp_id, recovery_origin) if paths.mode is RuntimeMode.PRODUCTION else None,
+    )
+    # F-21: ONE product-owned historical-data lifecycle rooted in the product
+    # runtime storage authority (never the repository path). Backtesting,
+    # historical paper replay and charting all resolve through this service.
+    market_data = HistoricalDataService(
+        paths.cache / "market-data",
+        imports_root=paths.imports,
+        security_store=security,
+    )
+    # Configuration-driven provider: an owner-configured local import source
+    # may provision missing ranges; default remains fail-closed UNCONFIGURED.
+    local_import_path = os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", os.environ.get("SENTINELX_LOCAL_IMPORT_PATH", "")).strip()
+    if local_import_path:
+        candidate = Path(local_import_path)
+        if candidate.is_file():
+            market_data.set_provider(LocalImportDataProvider(source_path=candidate))
+    app = create_app(owner=owner, config=SecurityConfiguration(normal_mtls_required=paths.mode is RuntimeMode.PRODUCTION),
+                     security_store=security, governance_store=governance, webauthn_ceremonies=ceremonies,
+                     core_security_audit=MandatoryCoreSecurityAudit(audit_store=core, security_store=security),
+                     backtest_service=BacktestService(security, feed=market_data),
+                     paper_service=PaperService(security, governance_store=governance, artifact_root=paths.artifacts, feed=market_data, dataset_feed=market_data),
+                     chart_authority=HistoricalFeedChartAuthority(
+                         feed=market_data, source_identity="algofortis-canonical-cache"),
+                     historical_data_service=market_data,
+                     artifact_root=paths.artifacts)
+    app.state.roaming_identity = UnavailableRoamingIdentity()
+
+    backtest_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        try:
+            async with backtest_lifespan(_app):
+                yield
+        finally:
+            security.close()
+            governance.close()
+            core.close()
+    app.router.lifespan_context = lifespan
+
+    @app.middleware("http")
+    async def private_origin(request: Request, call_next):
+        # Reject DNS rebinding and cross-origin mutation; no permissive CORS.
+        if request.headers.get("host") != origin.removeprefix("http://"):
+            return JSONResponse({"detail": "Unrecognized runtime host"}, status_code=403)
+        if request.headers.get("origin") not in (None, origin):
+            return JSONResponse({"detail": "Unrecognized runtime origin"}, status_code=403)
+        if paths.mode is RuntimeMode.PRODUCTION and request.url.path.startswith("/api/v1/auth/webauthn/"):
+            return JSONResponse({"detail": "Approved HTTPS identity transport is not configured for this local installation"}, status_code=503)
+        return await call_next(request)
+
+    @app.get("/api/v1/runtime/status")
+    def runtime_status():
+        try:
+            security._conn.execute("SELECT COUNT(*) FROM users").fetchone()
+            governance._conn.execute("SELECT 1").fetchone()
+            app.state.security_status.public_status(owner.user_id)
+        except Exception:
+            return JSONResponse({"state": "UNAVAILABLE", "instance_id": instance_id}, status_code=503)
+        return {"state": "READY", "mode": paths.mode.value, "instance_id": instance_id,
+                "api_base": "/api/v1", "identity": "LOCAL_WEBAUTHN",
+                "roaming_identity": "UNAVAILABLE", "device_authority": "WEBAUTHN_CREDENTIAL",
+                "local_auth_transport": "UNAVAILABLE" if paths.mode is RuntimeMode.PRODUCTION else "CONFIGURED",
+                "live_execution": "DISARMED"}
+
+    @app.post("/api/v1/identity/roaming/verify")
+    def roaming_verify():
+        return JSONResponse({"detail": "Cross-PC identity authority is not configured"}, status_code=503)
+
+    @app.get("/")
+    @app.get("/index.html")
+    def product_index():
+        html = (paths.frontend / "index.html").read_text(encoding="utf-8")
+        marker = f'<meta name="algofortis-runtime" content="{paths.mode.value}"><meta name="sentinelx-runtime" content="{paths.mode.value}">'
+        return HTMLResponse(html.replace("<head>", "<head>" + marker, 1), headers={"Cache-Control": "no-store"})
+
+    # API routes precede immutable static assets; the API client keeps /api/v1.
+    app.mount("/", StaticFiles(directory=paths.frontend, html=True), name="product")
+    return app

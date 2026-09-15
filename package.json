@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "build": "npm --prefix dashboard/web run build",
+    "typecheck": "npm --prefix dashboard/web run typecheck"
+  },
+  "devDependencies": {
+    "@playwright/cli": "^0.1.18"
+  }
+}

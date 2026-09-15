@@ -1,0 +1,19 @@
+schema_version: paper-config/v1
+environment: paper
+account:
+  account_id: ACC_LIVE_PAPER
+  starting_capital: "500000.00"
+  currency: INR
+  monetary_quantum: "0.01"
+persistence:
+  type: sqlite
+  path: ../data/paper_trading.db
+canonical_bindings:
+  risk_config_path: risk_config.yaml
+  execution_config_path: execution_config.yaml
+  strategy_config_paths:
+    - strategies/observational_default.yaml
+cost_profile:
+  profile: RESEARCH_ZERO_COST
+  version: v1
+  currency: INR
