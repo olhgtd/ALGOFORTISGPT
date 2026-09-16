@@ -64,6 +64,7 @@ from .adapters import (
     UnavailableMarketChartAuthority,
 )
 from .path_redaction import redact_server_paths, sanitize_report_for_client
+from .auth_policy import AuthPolicyManager
 
 
 class StrategySubmission(BaseModel):
@@ -419,7 +420,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
                paper_service: PaperService | None = None,
                historical_data_service: Any | None = None,
                mtls_authority: MtlsAuthority | None = None,
-               artifact_root: Path | None = None) -> FastAPI:
+               artifact_root: Path | None = None,
+               auth_policy: AuthPolicyManager | None = None) -> FastAPI:
     """Create an app that is secure-by-default and has no password endpoint."""
     app = FastAPI(title="SentinelX Control Center API", version="9.0.0")
     @app.exception_handler(StrategyProjectionPending)
@@ -443,6 +445,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     app.state.governance_store = governance_store
     app.state.webauthn_ceremonies = webauthn_ceremonies
     app.state.core_security_audit = core_security_audit
+    app.state.auth_policy = auth_policy or AuthPolicyManager()
     status_verifier = webauthn_ceremonies or app.state.webauthn_verifier
     enrollment_reader = None
     if security_store is not None and webauthn_ceremonies is not None:
@@ -552,6 +555,33 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         if session.user.role is not Role.OWNER:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="owner authorization required")
         return session
+
+    def _client_ip(req: Request) -> str:
+        forwarded = req.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return req.client.host if req.client else "127.0.0.1"
+
+    def _check_cooldown(tracker, key: str) -> None:
+        is_locked, cooldown = tracker.is_locked_out(key)
+        if is_locked:
+            raise HTTPException(
+                status_code=429,
+                detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {cooldown}s",
+                headers={"Retry-After": str(cooldown)},
+            )
+
+    def _check_expensive_throttle(user_id: str | UUID) -> None:
+        if not hasattr(app.state, "auth_policy") or app.state.auth_policy is None:
+            return
+        key = f"expensive:{str(user_id)}"
+        throttled, rem = app.state.auth_policy.expensive_limiter.record_request(key, max_requests=30, window_seconds=60)
+        if throttled:
+            raise HTTPException(
+                status_code=429,
+                detail=f"RATE_LIMIT_EXCEEDED: Too many requests. Retry after {rem}s",
+                headers={"Retry-After": str(rem)},
+            )
 
     def live_authority():
         if app.state.live_readiness_service is None:
@@ -725,8 +755,11 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             raise HTTPException(status_code=503, detail="authoritative security audit unavailable") from exc
 
     @app.post("/api/v1/auth/webauthn/authentication/options")
-    def webauthn_authentication_options(body: WebAuthnOptionsRequest) -> dict[str, object]:
+    def webauthn_authentication_options(body: WebAuthnOptionsRequest, request: Request) -> dict[str, object]:
         """Public challenge issuance only; it never creates a session."""
+        id_key = f"auth_opt:{body.identifier.strip().lower()}" if body.identifier and body.identifier.strip() else f"ip:{_client_ip(request)}"
+        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+            _check_cooldown(app.state.auth_policy.login_limiter, id_key)
         try:
             mandatory_audit("WEBAUTHN_AUTHENTICATION_CHALLENGE")
             service = ceremony_service()
@@ -738,9 +771,15 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     def webauthn_authentication_complete(body: WebAuthnAuthenticationComplete,
                                          request: Request) -> dict[str, object]:
         """The sole production API route that issues a normal bearer session."""
+        ip_key = f"ip:{_client_ip(request)}"
+        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+            _check_cooldown(app.state.auth_policy.login_limiter, ip_key)
         try:
             mandatory_audit("WEBAUTHN_AUTHENTICATION_ATTEMPT")
             user = ceremony_service().assertion_identity(body.response)
+            user_key = f"auth_user:{user.user_id}"
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                _check_cooldown(app.state.auth_policy.login_limiter, user_key)
             credential_id, rp_id = ceremony_service().complete_authentication(
                 user=user, challenge_id=body.challenge_id, response=body.response,
             )
@@ -751,19 +790,36 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
                 step_up_satisfied=True,
                 credential_id=bytes.fromhex(credential_id),
             )
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                app.state.auth_policy.login_limiter.record_success(user_key)
+                app.state.auth_policy.login_limiter.record_success(ip_key)
             return {"access_token": session.token, "expires_at_utc": session.expires_at.isoformat(), "credential_id": credential_id,
                     "subject": str(session.user.user_id), "role": session.user.role.value, "sx_id": session.user.sx_id}
         except (SecurityError, SecurityStoreError, ValueError, sqlite3.IntegrityError) as exc:
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                locked, rem = app.state.auth_policy.login_limiter.record_failure(ip_key)
+                if locked:
+                    raise HTTPException(status_code=429, detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s", headers={"Retry-After": str(rem)}) from exc
             raise HTTPException(status_code=401, detail="WebAuthn authentication failed") from exc
 
     @app.post("/api/v1/auth/webauthn/activation/redeem")
-    def redeem_user_activation(body: ActivationRedemptionRequest):
+    def redeem_user_activation(body: ActivationRedemptionRequest, request: Request):
+        act_key = f"act:{body.identifier.strip().lower()}"
+        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+            _check_cooldown(app.state.auth_policy.otp_limiter, act_key)
         try:
             service = ceremony_service()
             subject = service._store.activation_subject(body.identifier, body.activation_code)
             mandatory_audit("USER_ACTIVATION_REDEMPTION", actor_id=UUID(subject["user_id"]))
-            return service.redeem_user_activation(identifier=body.identifier, code=body.activation_code)
-        except (SecurityError, SecurityStoreError, ValueError, sqlite3.IntegrityError):
+            res = service.redeem_user_activation(identifier=body.identifier, code=body.activation_code)
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                app.state.auth_policy.otp_limiter.record_success(act_key)
+            return res
+        except (SecurityError, SecurityStoreError, ValueError, sqlite3.IntegrityError, KeyError) as exc:
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                locked, rem = app.state.auth_policy.otp_limiter.record_failure(act_key)
+                if locked:
+                    raise HTTPException(status_code=429, detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s", headers={"Retry-After": str(rem)}) from exc
             raise HTTPException(status_code=403, detail="Activation unavailable") from None
 
     @app.post("/api/v1/auth/webauthn/activation/complete")
@@ -928,6 +984,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         """F-21: Owner local import through the product service (no repo/filesystem paths)."""
         if session.user.role is not Role.OWNER:
             raise HTTPException(status_code=403, detail="owner authorization required")
+        _check_expensive_throttle(session.user.user_id)
         import pandas as _pd
         service = historical_data_service_or_503()
         if not body.rows or len(body.rows) > 50000:
@@ -935,7 +992,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         try:
             frame = _pd.DataFrame(body.rows)
         except Exception as exc:
-            raise HTTPException(status_code=422, detail=f"invalid rows payload: {exc}") from exc
+            logger.error("Invalid market data import rows: %s", exc)
+            raise HTTPException(status_code=422, detail="INVALID_IMPORT_PAYLOAD") from exc
         try:
             item = service.import_dataframe(frame, instrument=body.instrument,
                                             timeframe=body.timeframe, source_name="OWNER_LOCAL_IMPORT")
@@ -943,7 +1001,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             message = str(exc)
             if "DATA_PROVIDER_NOT_CONFIGURED" in message or "DATA_UNAVAILABLE" in message:
                 raise HTTPException(status_code=404, detail=message) from exc
-            raise HTTPException(status_code=422, detail=f"import rejected: {exc}") from exc
+            logger.error("Market data import failed: %s", exc)
+            raise HTTPException(status_code=422, detail="MARKET_DATA_IMPORT_FAILED") from exc
         _record_security_audit(
             event_type="MARKET_DATA_IMPORTED",
             actor_id=session.user.user_id,
@@ -1003,6 +1062,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
 
     @app.post("/api/v1/strategies")
     def submit_strategy(submission: StrategySubmission, session=Depends(mutable_session)) -> dict[str, object]:
+        _check_expensive_throttle(session.user.user_id)
         if not session.user.is_workspace_eligible("user") and session.user.role is not Role.OWNER:
             raise HTTPException(status_code=403, detail="active service entitlement required")
         try:
@@ -1236,7 +1296,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
                         pass
                 return str(ref)
             except Exception as exc:
-                raise HTTPException(status_code=503, detail=f"Mandatory security audit recording failed: {exc}") from exc
+                logger.error("Mandatory security audit recording failed: %s", exc)
+                raise HTTPException(status_code=503, detail="Mandatory security audit recording failed: AUDIT_RECORDING_FAILED") from exc
         return None
 
     # ── Owner Access & Service Entitlement Mutation Authority Endpoints ──
@@ -2202,6 +2263,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         body: HistoricalSyncRequest,
         session=Depends(owner_mutable_session),
     ) -> dict[str, object]:
+        _check_expensive_throttle(session.user.user_id)
         from datetime import date as _date
         service = historical_data_service_or_503()
         try:
@@ -2225,10 +2287,11 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         except Exception as exc:
             msg = str(exc)
             if "DATA_PROVIDER_NOT_CONFIGURED" in msg:
-                raise HTTPException(status_code=503, detail=msg)
+                raise HTTPException(status_code=503, detail="DATA_PROVIDER_NOT_CONFIGURED")
             elif "DATA_UNAVAILABLE" in msg or "NO_DATA" in msg:
-                raise HTTPException(status_code=404, detail=msg)
-            raise HTTPException(status_code=422, detail=f"sync failed: {exc}") from exc
+                raise HTTPException(status_code=404, detail="DATA_UNAVAILABLE")
+            logger.error("Historical dataset sync failed: %s", exc)
+            raise HTTPException(status_code=422, detail="HISTORICAL_SYNC_FAILED") from exc
 
         _record_security_audit(
             event_type="HISTORICAL_DATA_SYNCED",
@@ -2329,8 +2392,9 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         except Exception as exc:
             msg = str(exc)
             if "DATA_PROVIDER_NOT_CONFIGURED" in msg:
-                raise HTTPException(status_code=503, detail=msg)
-            raise HTTPException(status_code=422, detail=f"gap repair failed: {exc}") from exc
+                raise HTTPException(status_code=503, detail="DATA_PROVIDER_NOT_CONFIGURED")
+            logger.error("Historical gap repair failed: %s", exc)
+            raise HTTPException(status_code=422, detail="GAP_REPAIR_FAILED") from exc
 
         actor_tag = f"OWNER-{str(session.user.user_id)[:4]}"
         _record_security_audit(
@@ -2353,6 +2417,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         """Execute an authoritative backtest with fail-closed governance enforcement."""
         if app.state.security_store is None or app.state.backtest_service is None:
             raise HTTPException(status_code=503, detail="Backtest service unavailable")
+        _check_expensive_throttle(session.user.user_id)
         user_id_str = str(session.user.user_id)
         try:
             run = app.state.backtest_service.submit_backtest(
@@ -2468,6 +2533,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         service=Depends(_walkforward_authority),
     ) -> dict[str, Any]:
         """Manually RUN a walk-forward/OOS job (created and enqueued once)."""
+        _check_expensive_throttle(session.user.user_id)
         try:
             job = service.create_and_run(
                 user_id=str(session.user.user_id),
@@ -2829,7 +2895,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         try:
             return app.state.paper_service.set_live_feed_state(session_id, body.state)
         except Exception as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            logger.error("Failed to set paper live feed state for session %s: %s", session_id, exc)
+            raise HTTPException(status_code=400, detail="PAPER_LIVE_FEED_STATE_FAILED") from exc
 
     @app.post("/api/v1/paper/sessions/{session_id}/reattach")
     def reattach_paper_session(
@@ -3331,7 +3398,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         try:
             runs = store.list_backtest_runs(user_id=user_id, limit=50)
         except Exception as exc:
-            raise HTTPException(status_code=503, detail=f"Failed to query backtest runs: {exc}") from exc
+            logger.error("Failed to query backtest runs: %s", exc)
+            raise HTTPException(status_code=503, detail="QUERY_BACKTEST_RUNS_FAILED") from exc
 
         for r in runs:
             run_id = str(r.get("run_id", ""))
@@ -3407,7 +3475,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         try:
             sessions = store.list_paper_sessions(user_id=user_id, limit=50)
         except Exception as exc:
-            raise HTTPException(status_code=503, detail=f"Failed to query paper sessions: {exc}") from exc
+            logger.error("Failed to query paper sessions: %s", exc)
+            raise HTTPException(status_code=503, detail="QUERY_PAPER_SESSIONS_FAILED") from exc
 
         for s in sessions:
             session_id = str(s.get("session_id", ""))

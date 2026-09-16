@@ -61,6 +61,24 @@ class RateLimitTracker:
             return True, int(rec["cooldown_until"] - now)
         return False, 0
 
+    def record_request(self, identifier: str, max_requests: int | None = None, window_seconds: int = 60) -> Tuple[bool, int]:
+        """Record a request for throttle-tracking. If threshold exceeded, activates cooldown.
+        Returns (is_throttled, remaining_cooldown_seconds)."""
+        now = time.time()
+        threshold = max_requests if max_requests is not None else self.failure_threshold
+        rec = self._records.setdefault(identifier, {"count": 0, "cooldown_until": 0, "stage": 0, "reset_at": now + window_seconds})
+        if now < rec["cooldown_until"]:
+            return True, int(rec["cooldown_until"] - now)
+        if now > rec.get("reset_at", 0):
+            rec["count"] = 0
+            rec["reset_at"] = now + window_seconds
+        rec["count"] += 1
+        if rec["count"] > threshold:
+            duration = min(window_seconds, 60)
+            rec["cooldown_until"] = now + duration
+            return True, duration
+        return False, 0
+
 
 class AuthPolicyManager:
     """Authoritative enforcer for user quotas, activation, recovery, and security lifecycles."""
@@ -74,6 +92,7 @@ class AuthPolicyManager:
         self.login_limiter = RateLimitTracker(failure_threshold=5)
         self.otp_limiter = RateLimitTracker(failure_threshold=3)
         self.recovery_limiter = RateLimitTracker(failure_threshold=3)
+        self.expensive_limiter = RateLimitTracker(failure_threshold=30)
         
         # In-memory storage for policy demonstrations / unit tests
         self._activations: Dict[str, Dict[str, Any]] = {}  # code -> metadata
