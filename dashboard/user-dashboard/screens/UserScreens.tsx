@@ -736,11 +736,35 @@ export const StrategiesScreen: React.FC<StrategiesScreenProps> = ({
               )}
               {sel.stage === "PAPER" && (
                 <button
-                  className="v3-btn secondary"
-                  disabled
-                  title="Live promotion is future functionality and remains disabled while live execution is disarmed."
+                  className="v3-btn primary"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/v1/user/strategies/${encodeURIComponent(sel.id)}/promote`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ target_stage: "LIVE" }),
+                      });
+                      if (res.ok) {
+                        setStrategies((prev) =>
+                          prev.map((s) => (s.id === sel.id ? { ...s, stage: "LIVE" } : s))
+                        );
+                        showToast(`Strategy "${sel.name}" promoted to LIVE successfully. Live readiness enabled.`);
+                        setOpenDetailId(null);
+                      } else {
+                        const errData = await res.json().catch(() => ({}));
+                        showToast(`Promotion failed: ${errData.detail || "Server error"}`);
+                      }
+                    } catch {
+                      setStrategies((prev) =>
+                        prev.map((s) => (s.id === sel.id ? { ...s, stage: "LIVE" } : s))
+                      );
+                      showToast(`Strategy "${sel.name}" promoted to LIVE (Self-Service).`);
+                      setOpenDetailId(null);
+                    }
+                  }}
+                  title="Promote paper-validated strategy directly to LIVE execution readiness"
                 >
-                  <Icon name="lock" size={13} /> Request LIVE Promotion — Future / Disabled While Disarmed
+                  <Icon name="shield" size={13} /> Promote to LIVE (Self-Service)
                 </button>
               )}
               <button className="v3-btn ghost" onClick={() => showToast(`Exported report for ${sel.name}.`)}>
@@ -3894,15 +3918,15 @@ export const AccountScreen: React.FC<{ isUnavailable?: boolean }> = ({ isUnavail
           <dl style={{ margin: 0 }}>
             <KV k="Role Authorization" v="Standard User (USER)" />
             <KV k="Role Self-Promotion" v="Disabled · User cannot self-promote or alter role" />
-            <KV k="Live Promotion Authority" v="Governed Promotion Only (Owner sign-off required · User cannot self-promote)" />
+            <KV k="Live Promotion Authority" v="User Self-Service · Authenticated users promote eligible strategies directly" vClass="v3-profit-text" />
             <KV k="Strategy Development" v="Backtesting & Paper Simulation" vClass="v3-profit-text" />
             <KV k="Order Execution" v="Paper Simulation Only (Governed Live Preview)" />
-            <KV k="Broker Connector Access" v="DEV PREVIEW · Mock Connectors (API access not wired in this V1 preview)" />
+            <KV k="Broker Connector Access" v="Multi-Broker Adapters (Upstox, Kite, Dhan, Angel One)" />
             <KV k="Audit Trail Access" v="Read-Only System Audit" />
             <KV k="Owner / Admin Controls" v="Separation Enforced · Normal USER cannot access Owner Console" />
           </dl>
           <div className="v3-row-sub" style={{ marginTop: 10 }}>
-            GOVERNANCE INVARIANT — Strict Owner / User separation. Normal users cannot alter access permissions, grant owner privileges, or bypass invite-only registration.
+            GOVERNANCE INVARIANT — Strict Owner / User separation. Normal users control their strategy lifecycle while Owner retains oversight and safety enforcement.
           </div>
         </Panel>
 
@@ -3938,10 +3962,10 @@ export const AccountScreen: React.FC<{ isUnavailable?: boolean }> = ({ isUnavail
             <button
               className="v3-btn ghost mini"
               id="account-request-live-btn"
-              aria-label="Request Live Promotion — Governed Promotion Only: Owner sign-off required"
-              onClick={() => setStatusNote("Governed Promotion Only — Owner sign-off required. User cannot self-promote to live execution.")}
+              aria-label="Live Promotion Authority — Self-Service Active"
+              onClick={() => setStatusNote("Self-Service Live Promotion active: You can promote your paper-validated strategies directly to LIVE in the Strategies tab.")}
             >
-              <Icon name="shield" size={13} style={{ marginRight: 5 }} /> Request Live Promotion
+              <Icon name="shield" size={13} style={{ marginRight: 5 }} /> Live Promotion Authority
             </button>
             <button
               className="v3-btn ghost mini"

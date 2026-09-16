@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol, Sequence, runtime_checkable
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -88,6 +88,7 @@ class DateInterval:
         return DateInterval(min(self.start, other.start), max(self.end, other.end))
 
 
+@runtime_checkable
 class MarketDataProvider(Protocol):
     """Provider interface for provisioning historical market data."""
 

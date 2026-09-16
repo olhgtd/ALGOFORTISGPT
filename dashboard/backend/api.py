@@ -1889,6 +1889,60 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         )
         return {"success": True, "strategy": promoted}
 
+    @app.post("/api/v1/user/strategies/{strategy_id}/promote")
+    @app.post("/api/v1/strategies/{strategy_id}/promote")
+    def user_promote_strategy(
+        strategy_id: str,
+        body: PromoteStrategyRequest,
+        session=Depends(mutable_session),
+    ) -> dict[str, object]:
+        """User self-service strategy stage transition (PAPER_ELIGIBLE or LIVE_ELIGIBLE)."""
+        if app.state.security_store is None:
+            raise HTTPException(status_code=503, detail="Security store unavailable")
+
+        uid = str(session.user.user_id)
+        access = app.state.security_store.check_user_strategy_access(uid, strategy_id)
+        if not access.get("permitted"):
+            raise HTTPException(status_code=403, detail=f"strategy not available: {access.get('reason')}")
+
+        strat = app.state.security_store.get_owner_strategy(strategy_id)
+        if strat is None:
+            raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found")
+        admin_status = strat.get("adminStatus") or strat.get("admin_status") or "ACTIVE"
+        if admin_status != "ACTIVE":
+            raise HTTPException(status_code=422, detail=f"Cannot promote strategy '{strategy_id}': admin status is {admin_status}")
+
+        target_stage = (body.target_stage or "").upper().strip()
+        if target_stage == "PAPER_ELIGIBLE":
+            elig = app.state.security_store.check_self_service_paper_eligibility(strategy_id, user_id=uid)
+            if not elig.get("permitted"):
+                raise HTTPException(status_code=422, detail=str(elig.get("reason") or "Strategy is not eligible for paper"))
+        elif target_stage == "LIVE_ELIGIBLE":
+            elig = app.state.security_store.check_self_service_live_eligibility(strategy_id, user_id=uid)
+            if not elig.get("permitted"):
+                raise HTTPException(status_code=422, detail=str(elig.get("reason") or "Strategy is not eligible for live"))
+        else:
+            raise HTTPException(status_code=422, detail=f"Invalid target stage '{target_stage}'. Valid: ['PAPER_ELIGIBLE', 'LIVE_ELIGIBLE']")
+
+        actor_tag = f"USER-{uid[:4]}"
+        try:
+            promoted = app.state.security_store.promote_strategy(
+                strategy_id=strategy_id,
+                target_stage=target_stage,
+                actor=actor_tag,
+                notes=body.notes or f"User self-service promotion to {target_stage}",
+            )
+        except SecurityStoreError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        _record_security_audit(
+            event_type="STRATEGY_PROMOTED",
+            actor_id=session.user.user_id,
+            details={"strategy_id": strategy_id, "target_stage": target_stage,
+                     "version": promoted.get("version"), "actor": actor_tag},
+        )
+        return {"success": True, "strategy": promoted}
+
     @app.post("/api/v1/settings/confirm")
     def confirm_setting(body: SettingsConfirmBody, session=Depends(owner_mutable_session)) -> dict[str, object]:
         """F-18: CONFIRM → ATOMIC APPLY → VERIFY. Owner-only; success only after re-read VERIFIED."""

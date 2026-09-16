@@ -243,6 +243,9 @@ export const UserConnectionsRuntime: React.FC = () => {
             <select id="new-connection-provider" className="v3-input" value={provider} onChange={(e) => setProvider(e.target.value)}>
               <option value="PAPER_INTERNAL">PAPER_INTERNAL</option>
               <option value="UPSTOX">UPSTOX</option>
+              <option value="ZERODHA">ZERODHA (KITE)</option>
+              <option value="DHAN">DHAN</option>
+              <option value="ANGEL_ONE">ANGEL ONE</option>
             </select>
           </div>
           <div>

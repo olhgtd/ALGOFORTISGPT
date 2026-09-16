@@ -64,11 +64,16 @@ from engine.broker_adapters.contracts import (
     BrokerAdapterOrderStatus,
     BrokerAdapterUnavailableError,
     BrokerCancelResult,
+    BrokerCapability,
     BrokerConnectionState,
     BrokerFillFragment,
+    BrokerFundsSnapshot,
+    BrokerModifyResult,
     BrokerObservationCallback,
+    BrokerPositionSnapshot,
     BrokerStatusObservation,
     BrokerSubmissionResult,
+    UnsupportedCapabilityError,
     broker_execution_side,
     broker_order_identity,
 )
@@ -466,6 +471,50 @@ class MockBrokerAdapter:
         if not callable(observer):
             raise TypeError("observer must be callable")
         self._observers.append(observer)
+
+    def supported_capabilities(self) -> frozenset[BrokerCapability]:
+        """Declared mock adapter capabilities."""
+        return frozenset(
+            {
+                BrokerCapability.PLACE_ORDER,
+                BrokerCapability.CANCEL_ORDER,
+                BrokerCapability.ORDER_STATUS,
+                BrokerCapability.TRADES_FILLS,
+                BrokerCapability.RECONNECT,
+                BrokerCapability.RECONCILIATION,
+            }
+        )
+
+    def supports(self, capability: BrokerCapability) -> bool:
+        """Truthful capability query."""
+        return capability in self.supported_capabilities()
+
+    def connect(self) -> None:
+        """Connect mock transport."""
+        self._connection = BrokerConnectionState.CONNECTED
+        self._unavailable_reason = None
+
+    def modify(
+        self,
+        order_id: str,
+        *,
+        new_price: Decimal | None = None,
+        new_quantity: Decimal | None = None,
+        new_trigger_price: Decimal | None = None,
+        timestamp: datetime,
+    ) -> BrokerModifyResult:
+        """Mock modify fails truthfully as unsupported."""
+        raise UnsupportedCapabilityError(BrokerCapability.MODIFY_ORDER, self.adapter_id)
+
+    def query_positions(self) -> tuple[BrokerPositionSnapshot, ...]:
+        """Synchronous query path for positions."""
+        self._require_connected("query_positions")
+        return ()
+
+    def query_funds(self) -> BrokerFundsSnapshot | None:
+        """Synchronous query path for funds."""
+        self._require_connected("query_funds")
+        return None
 
     # ------------------------------------------------------------------
     # Internal helpers

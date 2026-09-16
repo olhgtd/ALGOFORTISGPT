@@ -79,22 +79,35 @@ from engine.reproducibility.codec import CanonicalCodec
 __all__ = [
     "BROKER_ADAPTER_CONTRACT_VERSION",
     "FILL_FRAGMENT_SCHEMA",
+    "FUNDS_SNAPSHOT_SCHEMA",
+    "MODIFY_RESULT_SCHEMA",
     "ORDER_SNAPSHOT_SCHEMA",
+    "POSITION_SNAPSHOT_SCHEMA",
     "STATUS_OBSERVATION_SCHEMA",
+    "BaseBrokerAdapter",
     "BrokerAdapter",
     "BrokerAdapterError",
     "BrokerAdapterObservation",
     "BrokerAdapterOrderSnapshot",
     "BrokerAdapterOrderStatus",
     "BrokerAdapterUnavailableError",
+    "BrokerAuthError",
     "BrokerCancelResult",
+    "BrokerCapability",
     "BrokerConnectionState",
     "BrokerFillFragment",
+    "BrokerFundsSnapshot",
+    "BrokerModifyResult",
+    "BrokerNetworkError",
     "BrokerObservationCallback",
     "BrokerOrderRecord",
+    "BrokerOrderRejectedError",
+    "BrokerPositionSnapshot",
+    "BrokerRateLimitError",
     "BrokerStatusObservation",
     "BrokerSubmissionResult",
     "BrokerTerminalEvent",
+    "UnsupportedCapabilityError",
     "broker_execution_side",
     "broker_order_identity",
 ]
@@ -109,6 +122,34 @@ BROKER_ADAPTER_CONTRACT_VERSION = "sentinelx-broker-adapter-contract/v1"
 FILL_FRAGMENT_SCHEMA = "sentinelx-broker-fill-fragment/v1"
 STATUS_OBSERVATION_SCHEMA = "sentinelx-broker-status-observation/v1"
 ORDER_SNAPSHOT_SCHEMA = "sentinelx-broker-order-snapshot/v1"
+FUNDS_SNAPSHOT_SCHEMA = "sentinelx-broker-funds-snapshot/v1"
+POSITION_SNAPSHOT_SCHEMA = "sentinelx-broker-position-snapshot/v1"
+MODIFY_RESULT_SCHEMA = "sentinelx-broker-modify-result/v1"
+
+
+# ======================================================================
+# Broker Capabilities Model
+# ======================================================================
+
+
+class BrokerCapability(str, Enum):
+    """Truthful capability declarations for broker adapters."""
+
+    AUTH = "AUTH"
+    ACCOUNT_PROFILE = "ACCOUNT_PROFILE"
+    FUNDS = "FUNDS"
+    HISTORICAL_DATA = "HISTORICAL_DATA"
+    LIVE_QUOTES = "LIVE_QUOTES"
+    WEBSOCKET = "WEBSOCKET"
+    OPTION_CHAIN = "OPTION_CHAIN"
+    PLACE_ORDER = "PLACE_ORDER"
+    MODIFY_ORDER = "MODIFY_ORDER"
+    CANCEL_ORDER = "CANCEL_ORDER"
+    ORDER_STATUS = "ORDER_STATUS"
+    TRADES_FILLS = "TRADES_FILLS"
+    POSITIONS = "POSITIONS"
+    RECONNECT = "RECONNECT"
+    RECONCILIATION = "RECONCILIATION"
 
 
 # ======================================================================
@@ -127,6 +168,45 @@ class BrokerAdapterUnavailableError(BrokerAdapterError):
     "nothing happened" answer. Callers must treat it as UNRESOLVED and must
     not resubmit or retry while it stays unresolved.
     """
+
+
+class UnsupportedCapabilityError(BrokerAdapterError):
+    """Raised when an operation is invoked that the broker adapter does not support."""
+
+    def __init__(self, capability: BrokerCapability | str, adapter_id: str = "") -> None:
+        self.capability = capability
+        self.adapter_id = adapter_id
+        super().__init__(
+            f"Capability '{capability}' is not supported by broker adapter '{adapter_id or 'unknown'}'"
+        )
+
+
+class BrokerAuthError(BrokerAdapterError):
+    """Raised when broker authentication, token resolution, or session fails."""
+
+
+class BrokerNetworkError(BrokerAdapterError):
+    """Raised when transport connection or HTTP network call fails."""
+
+
+class BrokerRateLimitError(BrokerAdapterError):
+    """Raised when broker API rate limit is exceeded."""
+
+    def __init__(
+        self,
+        message: str = "Broker rate limit exceeded",
+        retry_after_seconds: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
+class BrokerOrderRejectedError(BrokerAdapterError):
+    """Raised when an order request is immediately rejected by broker API."""
+
+    def __init__(self, message: str, rejection_code: str | None = None) -> None:
+        super().__init__(message)
+        self.rejection_code = rejection_code
 
 
 # ======================================================================
@@ -456,6 +536,213 @@ class BrokerAdapterOrderSnapshot:
 
 
 # ======================================================================
+# Broker Funds / Margins Snapshot
+# ======================================================================
+
+
+@dataclass(frozen=True)
+class BrokerFundsSnapshot:
+    """Canonical snapshot of broker funds and available margins."""
+
+    available_balance: Decimal
+    used_margin: Decimal
+    total_equity: Decimal
+    observed_at: datetime
+    currency: str = "INR"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "available_balance",
+            as_decimal(self.available_balance, "available_balance"),
+        )
+        object.__setattr__(
+            self,
+            "used_margin",
+            as_decimal(self.used_margin, "used_margin"),
+        )
+        object.__setattr__(
+            self,
+            "total_equity",
+            as_decimal(self.total_equity, "total_equity"),
+        )
+        _require_aware(self.observed_at, "observed_at")
+        _require_identifier(self.currency, "currency")
+
+    @property
+    def snapshot_identity(self) -> str:
+        """Deterministic canonical fingerprint of this funds snapshot."""
+        return CanonicalCodec.fingerprint(
+            FUNDS_SNAPSHOT_SCHEMA,
+            (
+                ("available_balance", self.available_balance),
+                ("used_margin", self.used_margin),
+                ("total_equity", self.total_equity),
+                ("currency", self.currency),
+                ("observed_at", self.observed_at),
+            ),
+        )
+
+
+# ======================================================================
+# Broker Position Snapshot
+# ======================================================================
+
+
+@dataclass(frozen=True)
+class BrokerPositionSnapshot:
+    """Canonical snapshot of an open or closed broker position."""
+
+    instrument_token: str
+    trading_symbol: str
+    quantity: Decimal
+    average_price: Decimal
+    product_type: str
+    observed_at: datetime
+    current_price: Decimal | None = None
+    pnl: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.instrument_token, "instrument_token")
+        _require_identifier(self.trading_symbol, "trading_symbol")
+        object.__setattr__(
+            self,
+            "quantity",
+            as_decimal(self.quantity, "quantity"),
+        )
+        object.__setattr__(
+            self,
+            "average_price",
+            as_decimal(self.average_price, "average_price"),
+        )
+        _require_identifier(self.product_type, "product_type")
+        _require_aware(self.observed_at, "observed_at")
+        if self.current_price is not None:
+            object.__setattr__(
+                self,
+                "current_price",
+                as_decimal(self.current_price, "current_price"),
+            )
+        if self.pnl is not None:
+            object.__setattr__(
+                self,
+                "pnl",
+                as_decimal(self.pnl, "pnl"),
+            )
+
+    @property
+    def position_identity(self) -> str:
+        """Deterministic canonical fingerprint of this position snapshot."""
+        return CanonicalCodec.fingerprint(
+            POSITION_SNAPSHOT_SCHEMA,
+            (
+                ("instrument_token", self.instrument_token),
+                ("trading_symbol", self.trading_symbol),
+                ("quantity", self.quantity),
+                ("average_price", self.average_price),
+                ("product_type", self.product_type),
+                ("current_price", self.current_price),
+                ("pnl", self.pnl),
+                ("observed_at", self.observed_at),
+            ),
+        )
+
+
+# ======================================================================
+# Broker Modify Result
+# ======================================================================
+
+
+@dataclass(frozen=True)
+class BrokerModifyResult:
+    """Canonical result of an order modification request."""
+
+    order_id: str
+    broker_order_identity: str
+    modified: bool
+    timestamp: datetime
+    rejection_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.order_id, "order_id")
+        _require_identifier(self.broker_order_identity, "broker_order_identity")
+        _require_aware(self.timestamp, "timestamp")
+        _require_optional_text(self.rejection_reason, "rejection_reason")
+
+    @property
+    def modify_identity(self) -> str:
+        """Deterministic canonical fingerprint of this modify result."""
+        return CanonicalCodec.fingerprint(
+            MODIFY_RESULT_SCHEMA,
+            (
+                ("order_id", self.order_id),
+                ("broker_order_identity", self.broker_order_identity),
+                ("modified", self.modified),
+                ("timestamp", self.timestamp),
+                ("rejection_reason", self.rejection_reason),
+            ),
+        )
+
+
+# ======================================================================
+# Base Broker Adapter
+# ======================================================================
+
+
+class BaseBrokerAdapter:
+    """Base broker adapter implementing capability enforcement and fail-closed defaults."""
+
+    adapter_id: str = "base"
+
+    def supported_capabilities(self) -> frozenset[BrokerCapability]:
+        """Subclasses declare their exact supported capabilities."""
+        return frozenset()
+
+    def supports(self, capability: BrokerCapability) -> bool:
+        """Truthfully report whether a capability is supported."""
+        return capability in self.supported_capabilities()
+
+    def _require_capability(self, capability: BrokerCapability) -> None:
+        if not self.supports(capability):
+            raise UnsupportedCapabilityError(capability, getattr(self, "adapter_id", "unknown"))
+
+    def connect(self) -> None:
+        """Establish transport connection if supported."""
+        self._require_capability(BrokerCapability.AUTH)
+
+    def disconnect(self) -> None:
+        """Disconnect transport."""
+        pass
+
+    def reconnect(self) -> None:
+        """Reconnect transport if supported."""
+        self._require_capability(BrokerCapability.RECONNECT)
+
+    def modify(
+        self,
+        order_id: str,
+        *,
+        new_price: Decimal | None = None,
+        new_quantity: Decimal | None = None,
+        new_trigger_price: Decimal | None = None,
+        timestamp: datetime,
+    ) -> BrokerModifyResult:
+        """Modify an existing working order if supported."""
+        self._require_capability(BrokerCapability.MODIFY_ORDER)
+        raise NotImplementedError("modify must be implemented by concrete adapter")
+
+    def query_positions(self) -> tuple[BrokerPositionSnapshot, ...]:
+        """Query open broker positions if supported."""
+        self._require_capability(BrokerCapability.POSITIONS)
+        raise NotImplementedError("query_positions must be implemented by concrete adapter")
+
+    def query_funds(self) -> BrokerFundsSnapshot | None:
+        """Query broker funds/margins if supported."""
+        self._require_capability(BrokerCapability.FUNDS)
+        raise NotImplementedError("query_funds must be implemented by concrete adapter")
+
+
+# ======================================================================
 # Hybrid broker adapter protocol
 # ======================================================================
 
@@ -487,6 +774,14 @@ class BrokerAdapter(Protocol):
         """Current transport availability."""
         ...
 
+    def supported_capabilities(self) -> frozenset[BrokerCapability]:
+        """Return declared supported capabilities."""
+        ...
+
+    def supports(self, capability: BrokerCapability) -> bool:
+        """Check if capability is supported."""
+        ...
+
     def submit(
         self,
         order: ExecutableOrder,
@@ -506,6 +801,18 @@ class BrokerAdapter(Protocol):
         """Request cancellation of a previously accepted order."""
         ...
 
+    def modify(
+        self,
+        order_id: str,
+        *,
+        new_price: Decimal | None = None,
+        new_quantity: Decimal | None = None,
+        new_trigger_price: Decimal | None = None,
+        timestamp: datetime,
+    ) -> BrokerModifyResult:
+        """Modify an existing working order."""
+        ...
+
     def query_order(self, order_id: str) -> BrokerAdapterOrderSnapshot | None:
         """Return the adapter view of one order, or None when unknown."""
         ...
@@ -514,8 +821,28 @@ class BrokerAdapter(Protocol):
         """Return adapter views of all non-terminal orders."""
         ...
 
+    def query_positions(self) -> tuple[BrokerPositionSnapshot, ...]:
+        """Return all open positions."""
+        ...
+
+    def query_funds(self) -> BrokerFundsSnapshot | None:
+        """Return current funds and margin state."""
+        ...
+
     def register_observer(self, observer: BrokerObservationCallback) -> None:
         """Register a callback for adapter-originated observations."""
+        ...
+
+    def connect(self) -> None:
+        """Connect to broker transport."""
+        ...
+
+    def disconnect(self) -> None:
+        """Disconnect from broker transport."""
+        ...
+
+    def reconnect(self) -> None:
+        """Reconnect to broker transport."""
         ...
 
 

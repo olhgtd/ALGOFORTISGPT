@@ -1,0 +1,23 @@
+{
+  "extends": "./dashboard/web/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": [
+      "./dashboard/web/node_modules/@types",
+      "./dashboard/web/node_modules"
+    ],
+    "paths": {
+      "react": ["./dashboard/web/node_modules/@types/react"],
+      "react-dom": ["./dashboard/web/node_modules/@types/react-dom"],
+      "react/*": ["./dashboard/web/node_modules/@types/react/*"],
+      "react-dom/*": ["./dashboard/web/node_modules/@types/react-dom/*"],
+      "vite/client": ["./dashboard/web/node_modules/vite/client.d.ts"]
+    }
+  },
+  "include": [
+    "dashboard/web/src",
+    "dashboard/user-dashboard",
+    "dashboard/owner-dashboard",
+    "dashboard/shared",
+    "dashboard/sampleData.ts"
+  ]
+}

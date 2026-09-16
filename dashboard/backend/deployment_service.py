@@ -153,6 +153,13 @@ class DeploymentService:
             elig = elig_fn(strategy_id, user_id=user_id)
             if not elig.get("permitted"):
                 raise DeploymentError(str(elig.get("reason") or "Strategy is not eligible for paper deployment"))
+        elif mode == "LIVE":
+            elig_fn = getattr(self._security, "check_self_service_live_eligibility", None)
+            if elig_fn is None:
+                raise DeploymentError("Live eligibility authority unavailable")
+            elig = elig_fn(strategy_id, user_id=user_id)
+            if not elig.get("permitted"):
+                raise DeploymentError(str(elig.get("reason") or "Strategy is not eligible for live deployment"))
         connection_readiness = self._connection_readiness(user_id, connection_id, mode)
         resolved = self._resolve_exact_version(strategy_id, version_id)
         self._verify_artifact_integrity(strategy_id, resolved["version_id"])
@@ -219,31 +226,33 @@ class DeploymentService:
             raise DeploymentError(
                 f"{block_authority} blocked deployment cannot be resumed by the user"
             )
-        if mode == "LIVE":
-            # Fail closed while live execution is DISARMED: record stays BLOCKED.
-            # Ownership was verified above; the block itself is a system-safety
-            # action, so it runs under system scope.
-            try:
-                return self._security.transition_deployment(
-                    deployment_id=deployment_id, user_id=None, action="block",
-                    reason="LIVE_EXECUTION_DISARMED: live real-money execution is disabled in this runtime",
-                    actor="SYSTEM", block_authority="SYSTEM")
-            except Exception as exc:
-                raise DeploymentError(str(exc)) from exc
         # Re-validate before reactivation: strategy eligibility, connection, artifact.
         owner = dep.get("userId") or dep.get("user_id")
-        elig_fn = getattr(self._security, "check_self_service_paper_eligibility", None)
-        if elig_fn is not None:
-            elig = elig_fn(str(dep.get("strategyId") or dep.get("strategy_id")), user_id=owner)
-            if not elig.get("permitted"):
-                # System-safety block runs under system scope (ownership already verified).
-                try:
-                    return self._security.transition_deployment(
-                        deployment_id=deployment_id, user_id=None, action="block",
-                        reason=str(elig.get("reason") or "Strategy no longer eligible"),
-                        actor="SYSTEM", block_authority="POLICY")
-                except Exception as exc:
-                    raise DeploymentError(str(exc)) from exc
+        if mode == "LIVE":
+            elig_fn = getattr(self._security, "check_self_service_live_eligibility", None)
+            if elig_fn is not None:
+                elig = elig_fn(str(dep.get("strategyId") or dep.get("strategy_id")), user_id=owner)
+                if not elig.get("permitted"):
+                    try:
+                        return self._security.transition_deployment(
+                            deployment_id=deployment_id, user_id=None, action="block",
+                            reason=str(elig.get("reason") or "Strategy is not eligible for live execution"),
+                            actor="SYSTEM", block_authority="POLICY")
+                    except Exception as exc:
+                        raise DeploymentError(str(exc)) from exc
+        else:
+            elig_fn = getattr(self._security, "check_self_service_paper_eligibility", None)
+            if elig_fn is not None:
+                elig = elig_fn(str(dep.get("strategyId") or dep.get("strategy_id")), user_id=owner)
+                if not elig.get("permitted"):
+                    # System-safety block runs under system scope (ownership already verified).
+                    try:
+                        return self._security.transition_deployment(
+                            deployment_id=deployment_id, user_id=None, action="block",
+                            reason=str(elig.get("reason") or "Strategy no longer eligible"),
+                            actor="SYSTEM", block_authority="POLICY")
+                    except Exception as exc:
+                        raise DeploymentError(str(exc)) from exc
         readiness = self._connection_readiness(
             str(owner), dep.get("connectionId") or dep.get("connection_id"), str(mode)
         )
@@ -371,9 +380,32 @@ class DeploymentService:
             if status == "BLOCKED":
                 needs.append("BLOCK_REVIEW_REQUIRED")
             if mode == "LIVE":
-                effective_status = "BLOCKED"
-                effective_block_reason = "LIVE_EXECUTION_DISARMED"
-                needs.append("LIVE_EXECUTION_DISARMED")
+                if status in {"DEPLOYED", "PAUSED"}:
+                    try:
+                        readiness = self._connection_readiness(
+                            str(dep.get("userId") or dep.get("user_id")),
+                            dep.get("connectionId") or dep.get("connection_id"),
+                            str(mode),
+                        )
+                    except DeploymentError as exc:
+                        readiness = {"permitted": False, "reason": str(exc)}
+                    live_elig_fn = getattr(self._security, "check_self_service_live_eligibility", None)
+                    live_elig = (
+                        live_elig_fn(
+                            str(dep.get("strategyId") or dep.get("strategy_id")),
+                            user_id=dep.get("userId") or dep.get("user_id"),
+                        )
+                        if live_elig_fn
+                        else {"permitted": True}
+                    )
+                    if not readiness.get("permitted"):
+                        effective_status = "BLOCKED"
+                        effective_block_reason = str(readiness.get("reason") or "CONNECTION_NOT_READY")
+                        needs.append(effective_block_reason)
+                    elif not live_elig.get("permitted"):
+                        effective_status = "BLOCKED"
+                        effective_block_reason = str(live_elig.get("reason") or "STRATEGY_NOT_LIVE_ELIGIBLE")
+                        needs.append(effective_block_reason)
             items.append({
                 "deployment": dep,
                 "effectiveStatus": effective_status,

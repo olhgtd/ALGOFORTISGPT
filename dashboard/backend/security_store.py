@@ -2832,11 +2832,13 @@ class SQLiteSecurityStore:
             })
 
             paper_readiness = "READY" if target_stage in {"PAPER_ELIGIBLE", "LIVE_ELIGIBLE"} else row["paper_system_readiness"]
+            live_readiness = "READY" if target_stage == "LIVE_ELIGIBLE" else row["live_system_readiness"]
+            live_blocker = None if target_stage == "LIVE_ELIGIBLE" else row["live_system_blocker"]
             cur.execute(
-                """UPDATE owner_strategies 
-                   SET stage = ?, paper_system_readiness = ?, governance_history_json = ?, updated_at_utc = ? 
+                """UPDATE owner_strategies
+                   SET stage = ?, paper_system_readiness = ?, live_system_readiness = ?, live_system_blocker = ?, governance_history_json = ?, updated_at_utc = ?
                    WHERE strategy_id = ?""",
-                (target_stage, paper_readiness, json.dumps(history), now_iso, row["strategy_id"]),
+                (target_stage, paper_readiness, live_readiness, live_blocker, json.dumps(history), now_iso, row["strategy_id"]),
             )
 
             # Clear pending promotion request if any
@@ -3274,9 +3276,51 @@ class SQLiteSecurityStore:
         return dict(permitted=True, code="SELF_SERVICE_BACKTEST_OK",
                     reason="Registered, validated, active strategy with automatic safety checks satisfied; no Owner promotion required for backtest.")
 
+    def check_self_service_live_eligibility(
+        self, strategy_id: str, *, user_id: str | UUID | None = None,
+    ) -> dict[str, object]:
+        """Automatic live-eligibility verdict for authenticated active user without Owner approval."""
+        def deny(code, reason):
+            return dict(permitted=False, code=code, reason=reason)
+        strat = self.get_owner_strategy(strategy_id)
+        if strat is None:
+            return deny("STRATEGY_UNKNOWN", f"Strategy '{strategy_id}' not registered")
+        admin_status = strat.get("adminStatus") or strat.get("admin_status") or "ACTIVE"
+        if admin_status != "ACTIVE":
+            return deny(f"STRATEGY_{admin_status}", f"Strategy '{strategy_id}' is {admin_status} under Owner governance")
+        if user_id is not None:
+            uid = str(user_id)
+            user = self.get_user(uid)
+            if user is None or user["lifecycle"] != "ACTIVE" or user["account_status"] != "ACTIVE":
+                return deny("SUBJECT_INACTIVE", "Active authenticated User required")
+            if (user["role"] or "") != "OWNER":
+                access = self.check_user_strategy_access(uid, strategy_id)
+                if not access.get("permitted"):
+                    return deny(str(access.get("reason", "STRATEGY_NOT_ASSIGNED")), "Cross-user strategy execution denied")
+        stage = strat.get("stage")
+        if stage not in {"PAPER_ELIGIBLE", "LIVE_ELIGIBLE"}:
+            return deny("STAGE_INELIGIBLE", f"Strategy '{strategy_id}' stage is {stage}; PAPER_ELIGIBLE or LIVE_ELIGIBLE required for live eligibility")
+        live_allowance = (
+            (strat.get("governance") or {}).get("live", {}).get("ownerAllowance")
+            if isinstance(strat.get("governance"), dict) else None
+        ) or strat.get("live_owner_allowance") or "ALLOWED"
+        if live_allowance != "ALLOWED":
+            hold_reason = (
+                ((strat.get("governance") or {}).get("live", {}) or {}).get("ownerHoldReason")
+                if isinstance(strat.get("governance"), dict) else None
+            ) or strat.get("live_owner_hold_reason") or "Owner execution hold active"
+            return deny("LIVE_OWNER_HOLD", f"Strategy '{strategy_id}' live execution is on hold: {hold_reason}")
+        return dict(
+            permitted=True,
+            code="SELF_SERVICE_LIVE_OK",
+            reason="Registered, validated, active strategy with automatic safety checks satisfied; user controls live deployment.",
+        )
+
     # ── P1-A (R-02): per-user broker/API connection authority ──
 
-    USER_CONNECTION_PROVIDERS = frozenset({"UPSTOX", "PAPER_INTERNAL"})
+    USER_CONNECTION_PROVIDERS = frozenset(
+        {"UPSTOX", "ZERODHA", "KITE", "DHAN", "ANGELONE", "ANGEL_ONE", "PAPER_INTERNAL"}
+    )
     USER_CONNECTION_USER_STATUSES = frozenset({"NOT_CONNECTED", "CONFIGURED", "DISABLED"})
     USER_CONNECTION_ALL_STATUSES = frozenset({"NOT_CONNECTED", "CONFIGURED", "DISCONNECTED", "SUSPENDED", "ERROR", "DISABLED", "RETIRED"})
     STRATEGY_CONNECTION_MODES = frozenset({"LIVE_PAPER", "LIVE"})
@@ -3415,44 +3459,95 @@ class SQLiteSecurityStore:
             "SELECT * FROM user_connections WHERE connection_id = ?", (connection_id,)).fetchone()
         return self._format_user_connection_row(updated)
 
-    def get_operational_connection(self, user_id: str | UUID | None) -> dict[str, object] | None:
+    def get_operational_connection(
+        self,
+        user_id: str | UUID | None,
+        provider: str | None = None,
+        connection_id: str | None = None,
+    ) -> dict[str, object] | None:
         """Resolve the canonical per-user operational connection (NF-R203-04).
 
-        Ownership is enforced inside SQL (tenant-scoped predicate); exactly one
-        usable record is required. Returns None when the user has no usable
-        operational authority (fail closed upstream). Raises when authority is
-        ambiguous (>1 usable record) so no normal path can silently pick a
-        foreign or arbitrary connection.
+        Ownership is enforced inside SQL (tenant-scoped predicate).
+        When neither provider nor connection_id is specified, exactly one
+        usable record is required; if multiple exist, raises ambiguous error.
+        When provider or connection_id is specified, filters by that target.
 
         Usable = not suspended, status CONFIGURED, credential_ref present.
-        NOT_CONNECTED / DISCONNECTED / ERROR / SUSPENDED / DISABLED / RETIRED
-        records never confer operational authority.
-
-        The returned dict carries the opaque credential_ref VALUE for
-        server-side provider resolution only. It must NEVER be API-projected
-        (public projections use _format_user_connection_row, presence bit only).
         """
         if user_id is None:
             raise SecurityStoreError("Operational connection requires an authenticated user")
-        rows = self._conn.execute(
-            """SELECT * FROM user_connections
-               WHERE user_id = ? AND (suspended IS NULL OR suspended = 0)
-                 AND status = 'CONFIGURED' AND credential_ref IS NOT NULL
-                 AND TRIM(credential_ref) != ''
-               ORDER BY created_at_utc ASC""",
-            (str(user_id),),
-        ).fetchall()
+
+        params: list[object] = [str(user_id)]
+        where_clauses = [
+            "user_id = ?",
+            "(suspended IS NULL OR suspended = 0)",
+            "status = 'CONFIGURED'",
+            "credential_ref IS NOT NULL",
+            "TRIM(credential_ref) != ''",
+        ]
+        if connection_id is not None:
+            where_clauses.append("connection_id = ?")
+            params.append(str(connection_id))
+        if provider is not None:
+            where_clauses.append("provider = ?")
+            params.append(str(provider).upper().strip())
+
+        query = f"""SELECT * FROM user_connections
+                   WHERE {' AND '.join(where_clauses)}
+                   ORDER BY created_at_utc ASC"""
+        rows = self._conn.execute(query, tuple(params)).fetchall()
         if not rows:
             return None
-        if len(rows) > 1:
+        if len(rows) > 1 and connection_id is None:
             raise SecurityStoreError(
                 "AMBIGUOUS_OPERATIONAL_CONNECTION: multiple usable connections; "
-                "retire extras before operational use"
+                "specify connection_id or retire extras before operational use"
             )
         row = rows[0]
         projected = self._format_user_connection_row(row)
         projected["credentialRef"] = row["credential_ref"]
         return projected
+
+    def set_connection_credentials(
+        self,
+        *,
+        connection_id: str,
+        user_id: str | UUID,
+        credentials: Any,
+        vault: Any = None,
+    ) -> str:
+        """Encrypt broker credentials in LocalCredentialVault and associate with connection."""
+        from dashboard.backend.credential_vault import LocalCredentialVault
+        v = vault or LocalCredentialVault()
+        cred_ref = v.store_credentials(str(user_id), connection_id, credentials)
+        self.update_user_connection(
+            connection_id=connection_id,
+            user_id=user_id,
+            credential_ref=cred_ref,
+            status="CONFIGURED",
+        )
+        return cred_ref
+
+    def get_connection_credentials(
+        self,
+        *,
+        connection_id: str,
+        user_id: str | UUID,
+        vault: Any = None,
+    ) -> Any:
+        """Resolve and decrypt credentials from LocalCredentialVault."""
+        from dashboard.backend.credential_vault import LocalCredentialVault
+        conn = self.get_user_connection(connection_id, user_id)
+        if not conn:
+            raise SecurityStoreError(f"Connection '{connection_id}' not found for user")
+        row = self._conn.execute(
+            "SELECT credential_ref FROM user_connections WHERE connection_id = ? AND user_id = ?",
+            (connection_id, str(user_id)),
+        ).fetchone()
+        if not row or not row["credential_ref"]:
+            raise SecurityStoreError(f"No credential associated with connection '{connection_id}'")
+        v = vault or LocalCredentialVault()
+        return v.resolve_credentials(str(user_id), row["credential_ref"])
 
     def update_user_connection(
         self,
@@ -3774,11 +3869,7 @@ class SQLiteSecurityStore:
                 account_ref = conn["account_ref"]
 
             identity_complete = bool(strategy_version_id and source_sha256)
-            if mode == "LIVE":
-                status = "BLOCKED"
-                block_reason = "LIVE_EXECUTION_DISARMED: live real-money execution is disabled in this runtime"
-                block_authority = "SYSTEM"
-            elif not identity_complete:
+            if not identity_complete:
                 status = "BLOCKED"
                 block_reason = "DEPLOYMENT_IDENTITY_INCOMPLETE: exact strategy version and artifact digest are required"
                 block_authority = "POLICY"
@@ -3786,6 +3877,21 @@ class SQLiteSecurityStore:
                 status = "BLOCKED"
                 block_reason = str(readiness.get("reason") or "CONNECTION_NOT_READY")
                 block_authority = "POLICY"
+            elif mode == "LIVE":
+                strat_row = cur.execute("SELECT stage FROM owner_strategies WHERE strategy_id = ?", (strategy_id,)).fetchone()
+                current_stage = strat_row["stage"] if strat_row else None
+                if current_stage != "LIVE_ELIGIBLE":
+                    status = "BLOCKED"
+                    block_reason = f"Strategy '{strategy_id}' stage is {current_stage}; LIVE_ELIGIBLE required for live deployment"
+                    block_authority = "POLICY"
+                else:
+                    live_elig = self.check_self_service_live_eligibility(strategy_id, user_id=uid)
+                    if not live_elig.get("permitted"):
+                        status = "BLOCKED"
+                        block_reason = str(live_elig.get("reason") or "STRATEGY_NOT_LIVE_ELIGIBLE")
+                        block_authority = "POLICY"
+                    else:
+                        status, block_reason, block_authority = "DEPLOYED", None, "NONE"
             else:
                 status, block_reason, block_authority = "DEPLOYED", None, "NONE"
 

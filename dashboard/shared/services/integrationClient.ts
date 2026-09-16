@@ -3209,4 +3209,23 @@ export async function getOwnerDeploymentsRecovery(): Promise<IntegrationResult<a
 /** Backwards-compatible alias required by P1-A task wiring. */
 export const queryOwnerDeploymentsRecovery = getOwnerDeploymentsRecovery;
 
-
+export async function promoteStrategy(
+  strategyId: string,
+  targetStage: string = "LIVE"
+): Promise<MutationResult<{ strategy_id: string; stage: string; readiness: string }>> {
+  const url = `${getApiBaseUrl()}/api/v1/user/strategies/${encodeURIComponent(strategyId)}/promote`;
+  if (!isBackendEnabled()) return { success: false, error: "BACKEND_AUTHORITY_UNAVAILABLE", isFallback: false };
+  try {
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      body: JSON.stringify({ target_stage: targetStage }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && (json.success || json.strategy)) {
+      return { success: true, data: json, isFallback: false };
+    }
+    return { success: false, error: json.detail || `Promotion failed (${res.status})`, isFallback: false };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Network error", isFallback: false };
+  }
+}
