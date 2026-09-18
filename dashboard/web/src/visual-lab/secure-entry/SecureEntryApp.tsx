@@ -3,6 +3,8 @@ import { SentinelXCore } from "./SentinelXCore";
 import { ReturningUserFlow } from "./ReturningUserFlow";
 import { FirstTimeCustomerFlow } from "./FirstTimeCustomerFlow";
 import { OwnerSetupFlow } from "./OwnerSetupFlow";
+import { LocalOwnerSetupCard } from "./LocalOwnerSetupCard";
+import { LocalLoginCard } from "./LocalLoginCard";
 import { api } from "../../api";
 import { HelpRecoveryFlow } from "./HelpRecoveryFlow";
 import { GlobalRealTimeClock } from "../../../../shared/utilities/V3Chrome";
@@ -39,9 +41,17 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
     void api.securityStatus()
       .then((status) => {
         if (!active) return;
-        if (status.owner_authenticators_ready === false) setFlow("OWNER_SETUP");
-        else if (status.owner_authenticators_ready === true) setFlow("RETURNING_USER");
-        else setFlow("UNAVAILABLE");
+        if (status.owner_initialized === false) {
+          setFlow("LOCAL_OWNER_SETUP");
+        } else if (status.owner_initialized === true) {
+          setFlow("LOCAL_LOGIN");
+        } else if (status.owner_authenticators_ready === false) {
+          setFlow("OWNER_SETUP");
+        } else if (status.owner_authenticators_ready === true) {
+          setFlow("RETURNING_USER");
+        } else {
+          setFlow("UNAVAILABLE");
+        }
       })
       .catch(() => {
         if (active) setFlow("UNAVAILABLE");
@@ -271,6 +281,18 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
                     : "Unable to verify AlgoFortis security status. Reload to try again."}
                 </p>
               </div>
+            )}
+
+            {flow === "LOCAL_OWNER_SETUP" && (
+              <LocalOwnerSetupCard
+                onSetupSuccess={() => handleWorkspaceTransition(true, "owner")}
+              />
+            )}
+
+            {flow === "LOCAL_LOGIN" && (
+              <LocalLoginCard
+                onLoginSuccess={() => handleWorkspaceTransition(true, "owner")}
+              />
             )}
             {flow === "ACCESS_GATE" && (
               <FirstTimeCustomerFlow

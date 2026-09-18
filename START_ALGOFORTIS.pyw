@@ -13,7 +13,7 @@ if __name__ == "__main__":
         else:
             from dashboard.runtime.controller import RuntimeController
             from dashboard.runtime.paths import RuntimePaths, RuntimeMode
-            runtime = RuntimeController(RuntimePaths.resolve(RuntimeMode.PRODUCTION, install_root=install_root))
+            runtime = RuntimeController(RuntimePaths.resolve(RuntimeMode.LOCAL_PRIVATE, install_root=install_root))
             info = runtime.start()
             if info.get("state") != "READY":
                 raise RuntimeError("Failed to start runtime controller")

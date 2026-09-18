@@ -66,6 +66,7 @@ begin
   Result := '';
   if FileExists(ExpandConstant('{app}\runtime\python\python.exe')) then
   begin
+    Exec(ExpandConstant('{app}\runtime\python\python.exe'), '-m dashboard.runtime.controller stop --mode LOCAL_PRIVATE', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{app}\runtime\python\python.exe'), '-m dashboard.runtime.controller stop --mode PRODUCTION', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
@@ -90,6 +91,7 @@ begin
   Result := '';
   if FileExists(ExpandConstant('{app}\runtime\python\python.exe')) then
   begin
+    Exec(ExpandConstant('{app}\runtime\python\python.exe'), '-m dashboard.runtime.controller stop --mode LOCAL_PRIVATE', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{app}\runtime\python\python.exe'), '-m dashboard.runtime.controller stop --mode PRODUCTION', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 
-StorageProfile = Literal["development", "test", "production"]
+StorageProfile = Literal["development", "test", "production", "local_private"]
 
 
 class SensitiveStorageError(RuntimeError):
@@ -65,9 +65,9 @@ def resolve_sensitive_sqlite_path(
 ) -> Path:
     """Resolve a dedicated-store path and enforce production filesystem rules."""
     candidate = Path(path).expanduser().resolve(strict=False)
-    if profile not in {"development", "test", "production"}:
+    if profile not in {"development", "test", "production", "local_private"}:
         raise SensitiveStorageError("unknown sensitive-storage profile")
-    if profile != "production":
+    if profile not in {"production", "local_private"}:
         candidate.parent.mkdir(parents=True, exist_ok=True)
         return candidate
 
@@ -103,7 +103,7 @@ def resolve_sensitive_sqlite_path(
 
 def harden_sensitive_sqlite_files(path: Path, *, profile: StorageProfile) -> None:
     """Apply POSIX owner-only permissions to database and existing WAL sidecars."""
-    if profile != "production" or os.name == "nt":
+    if profile not in {"production", "local_private"} or os.name == "nt":
         return
     for file_path in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
         if file_path.exists():

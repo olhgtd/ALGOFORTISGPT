@@ -106,9 +106,11 @@ def create_runtime_app(paths, origin: str, instance_id: str):
             app.state.security_status.public_status(owner.user_id)
         except Exception:
             return JSONResponse({"state": "UNAVAILABLE", "instance_id": instance_id}, status_code=503)
+        identity_type = "LOCAL_PRIVATE" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "LOCAL_WEBAUTHN"
+        device_authority = "LOCAL_AUTHORITY" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "WEBAUTHN_CREDENTIAL"
         return {"state": "READY", "mode": paths.mode.value, "instance_id": instance_id,
-                "api_base": "/api/v1", "identity": "LOCAL_WEBAUTHN",
-                "roaming_identity": "UNAVAILABLE", "device_authority": "WEBAUTHN_CREDENTIAL",
+                "api_base": "/api/v1", "identity": identity_type,
+                "roaming_identity": "UNAVAILABLE", "device_authority": device_authority,
                 "local_auth_transport": "UNAVAILABLE" if paths.mode is RuntimeMode.PRODUCTION else "CONFIGURED",
                 "live_execution": "DISARMED"}
 

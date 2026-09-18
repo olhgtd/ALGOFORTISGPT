@@ -63,7 +63,8 @@ export interface HealthPayload {
 }
 
 export interface SecurityStatusPayload {
-  password_authentication: "FORBIDDEN";
+  password_authentication: string;
+  owner_initialized?: boolean;
   webauthn: SecurityStatus;
   webauthn_enrollment: SecurityStatus;
   normal_mtls: SecurityStatus;

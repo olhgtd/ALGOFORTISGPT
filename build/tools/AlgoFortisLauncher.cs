@@ -71,7 +71,7 @@ namespace AlgoFortis
 
         private void InitializeComponents()
         {
-            this.Text = "AlgoFortis";
+            this.Text = "AlgoFortis - Trading Research & Risk OS";
             this.Name = "AlgoFortisMainWindow";
             this.Size = new Size(1366, 850);
             this.MinimumSize = new Size(1024, 700);
@@ -386,7 +386,7 @@ namespace AlgoFortis
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = pythonExe,
-                    Arguments = string.Format("-m dashboard.runtime.controller {0} --mode PRODUCTION --install-root \"{1}\"", action, appDir),
+                    Arguments = string.Format("-m dashboard.runtime.controller {0} --mode LOCAL_PRIVATE --install-root \"{1}\"", action, appDir),
                     WorkingDirectory = appDir,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -477,7 +477,11 @@ namespace AlgoFortis
 
             if (!createdNew)
             {
-                IntPtr hWnd = FindWindow(null, "AlgoFortis");
+                IntPtr hWnd = FindWindow(null, "AlgoFortis - Trading Research & Risk OS");
+                if (hWnd == IntPtr.Zero)
+                {
+                    hWnd = FindWindow(null, "AlgoFortis");
+                }
                 if (hWnd != IntPtr.Zero)
                 {
                     SetForegroundWindow(hWnd);

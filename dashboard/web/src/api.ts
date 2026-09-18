@@ -114,6 +114,34 @@ export const api = {
       "/auth/webauthn/bootstrap-registration/complete",
       { method: "POST", body: JSON.stringify({ bootstrap_token, challenge_id, label, is_backup_hardware: false, response }) }
     ),
+  localOwnerSetup: (data: {
+    display_name: string;
+    email: string;
+    bootstrap_token: string;
+    password: string;
+    confirm_password: string;
+  }) =>
+    request<{
+      access_token: string;
+      expires_at_utc: string;
+      subject: string;
+      role: "OWNER" | "USER";
+      sx_id: string;
+    }>("/auth/local/setup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  localLogin: (data: { email: string; password: string }) =>
+    request<{
+      access_token: string;
+      expires_at_utc: string;
+      subject: string;
+      role: "OWNER" | "USER";
+      sx_id: string;
+    }>("/auth/local/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   chart: (instrument: string, timeframe: string, mode: string, opts?: { start_date?: string; end_date?: string; limit?: number }) => {
     const params = new URLSearchParams({ instrument, timeframe, mode });
     if (opts?.start_date) params.set("start_date", opts.start_date);

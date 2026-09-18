@@ -7,7 +7,9 @@ export type EntryFlow =
   | "ACCESS_GATE"
   | "RETURNING_USER"
   | "OWNER_SETUP"
-  | "HELP_RECOVERY";
+  | "HELP_RECOVERY"
+  | "LOCAL_OWNER_SETUP"
+  | "LOCAL_LOGIN";
 
 export type AccessGateStep =
   | "ENTER_ACCESS_ID"

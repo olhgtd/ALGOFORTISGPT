@@ -368,11 +368,13 @@ class SecurityStatusAuthority:
 
     def __init__(self, *, config: SecurityConfiguration, registry: AuthenticatorRegistry,
                  verifier: WebAuthnVerifier | object,
-                 enrollment_status_reader: Callable[[UUID], SecurityStatus] | None = None) -> None:
+                 enrollment_status_reader: Callable[[UUID], SecurityStatus] | None = None,
+                 owner_initialized_reader: Callable[[], bool] | None = None) -> None:
         self._config = config
         self._registry = registry
         self._verifier = verifier
         self._enrollment_status_reader = enrollment_status_reader
+        self._owner_initialized_reader = owner_initialized_reader
 
     def public_status(self, user_id: UUID) -> dict[str, object]:
         enrollment = self._enrollment_status_reader(user_id) if self._enrollment_status_reader else self._registry.status(user_id)
@@ -386,8 +388,10 @@ class SecurityStatusAuthority:
             # not production-ready, but distinguishes empty enrollment from a
             # degraded/disabled registered set.
             webauthn = enrollment
+        owner_init = self._owner_initialized_reader() if self._owner_initialized_reader else False
         return {
-            "password_authentication": "FORBIDDEN",
+            "password_authentication": "ENABLED" if owner_init else "PENDING_SETUP",
+            "owner_initialized": owner_init,
             "webauthn": webauthn.value,
             "webauthn_enrollment": enrollment.value,
             "normal_mtls": self._config.mtls_status().value,

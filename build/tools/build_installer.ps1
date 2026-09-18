@@ -1,3 +1,7 @@
+param(
+    [string]$OutputBaseFilename = "AlgoFortis-Setup-LocalPrivate-Fixed"
+)
+
 $ErrorActionPreference = "Stop"
 
 $toolsDir = $PSScriptRoot
@@ -30,10 +34,13 @@ $isccPath = Find-ISCC
 
 Write-Host "=== BUILDING ALGOFORTIS PRODUCTION INSTALLER ==="
 
-# 1. Clean installer output directory
+# 1. Clean target installer output file if exists (preserve other installers)
 if (Test-Path $installerDir) {
-    Write-Host "Cleaning installer directory $installerDir..."
-    Get-ChildItem -Path $installerDir -Filter "*.exe" | Remove-Item -Force
+    $targetExe = Join-Path $installerDir "$OutputBaseFilename.exe"
+    if (Test-Path $targetExe) {
+        Write-Host "Removing existing $targetExe..."
+        Remove-Item -Path $targetExe -Force
+    }
 } else {
     New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
 }
@@ -47,30 +54,29 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 3. Compile Inno Setup package
-Write-Host "Compiling AlgoFortis installer via ISCC..."
+Write-Host "Compiling AlgoFortis installer via ISCC (Output: $OutputBaseFilename.exe)..."
 if (-not $isccPath) {
     Write-Error "Inno Setup compiler (ISCC.exe) not found in PATH or standard Program Files locations."
     exit 1
 }
 Write-Host "Using Inno Setup compiler: $isccPath"
 
-& $isccPath "$toolsDir\algofortis_installer.iss"
+& $isccPath "/F$OutputBaseFilename" "$toolsDir\algofortis_installer.iss"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Inno Setup compilation failed with code $LASTEXITCODE"
     exit 1
 }
 
 # 4. Verify output & apply optional Authenticode signature
-$installers = @(Get-ChildItem -Path $installerDir -Filter "*.exe")
-Write-Host "Installer directory contents:"
-$installers | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length) bytes)" }
-
-if ($installers.Count -ne 1 -or $installers[0].Name -ne "AlgoFortis-Setup.exe") {
-    Write-Error "Expected exactly ONE installer 'AlgoFortis-Setup.exe', found $($installers.Count) items"
+$setupExePath = Join-Path $installerDir "$OutputBaseFilename.exe"
+if (-not (Test-Path $setupExePath)) {
+    Write-Error "Expected installer '$OutputBaseFilename.exe' was not created in $installerDir"
     exit 1
 }
 
-$setupExePath = $installers[0].FullName
+$installers = @(Get-ChildItem -Path $installerDir -Filter "*.exe")
+Write-Host "Installer directory contents:"
+$installers | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length) bytes)" }
 
 # Optional Authenticode code signing if certificate environment variable is configured
 if ($env:SIGNTOOL_CERT_PATH -and (Test-Path $env:SIGNTOOL_CERT_PATH)) {

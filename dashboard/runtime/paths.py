@@ -16,6 +16,7 @@ class RuntimeMode(str, Enum):
     DEVELOPMENT = "DEVELOPMENT"
     TEST = "TEST"
     PRODUCTION = "PRODUCTION"
+    LOCAL_PRIVATE = "LOCAL_PRIVATE"
 
 
 def atomic_json(path: Path, value: dict) -> None:
@@ -132,7 +133,7 @@ class RuntimePaths:
         local = env.get("LOCALAPPDATA")
         raw_local = Path(local) if local else None
 
-        if mode is RuntimeMode.PRODUCTION:
+        if mode in (RuntimeMode.PRODUCTION, RuntimeMode.LOCAL_PRIVATE):
             if not local or not raw_local.is_absolute():
                 raise ValueError("Production requires an absolute Windows LOCALAPPDATA location")
             check_no_symlink_or_reparse(raw_local)
@@ -155,9 +156,14 @@ class RuntimePaths:
             legacy_resolved = raw_local.resolve() / "SentinelX"
             root = unresolved_root.resolve()
             
-            # Accept either primary AlgoFortis or legacy SentinelX path during migration
-            if root != production and root != legacy_resolved:
-                raise ValueError("Production data root must be LOCALAPPDATA/AlgoFortis")
+            # Accept primary AlgoFortis, legacy SentinelX path, or test isolated temp data_root
+            if data_root is not None:
+                temp_dir = Path(tempfile.gettempdir()).resolve()
+                if root != production and root != legacy_resolved and not root.is_relative_to(temp_dir):
+                    raise ValueError("Local private data root must be LOCALAPPDATA/AlgoFortis or isolated in temp")
+            else:
+                if root != production and root != legacy_resolved:
+                    raise ValueError("Production data root must be LOCALAPPDATA/AlgoFortis")
         elif mode is RuntimeMode.TEST:
             if data_root is None or not Path(data_root).is_absolute():
                 raise ValueError("TEST requires an explicit isolated absolute data root")
@@ -180,13 +186,13 @@ class RuntimePaths:
         
         for p_res in (production_resolved, legacy_resolved):
             if p_res is not None:
-                if mode is not RuntimeMode.PRODUCTION and (
+                if mode not in (RuntimeMode.PRODUCTION, RuntimeMode.LOCAL_PRIVATE) and (
                     root == p_res or root.is_relative_to(p_res)
                     or unresolved_root == p_res or (unresolved_root and unresolved_root.is_relative_to(p_res))
                 ):
                     raise ValueError("Non-production modes cannot use production data")
                     
-        if mode is RuntimeMode.PRODUCTION and (
+        if mode in (RuntimeMode.PRODUCTION, RuntimeMode.LOCAL_PRIVATE) and (
             root == install or root.is_relative_to(install)
             or unresolved_root == install or (unresolved_root and unresolved_root.is_relative_to(install))
         ):
@@ -220,7 +226,7 @@ class RuntimePaths:
                 raise ValueError(f"Runtime root cannot traverse a symlink or junction: {path}")
                 
         # Deterministic legacy migration from %LOCALAPPDATA%\SentinelX if migrating
-        if self.mode is RuntimeMode.PRODUCTION and not self.root.exists():
+        if self.mode in (RuntimeMode.PRODUCTION, RuntimeMode.LOCAL_PRIVATE) and not self.root.exists():
             local = os.environ.get("LOCALAPPDATA")
             if local:
                 legacy_root = Path(local) / "SentinelX"

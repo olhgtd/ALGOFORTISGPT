@@ -150,6 +150,19 @@ class WebAuthnBootstrapRegistrationComplete(WebAuthnRegistrationComplete):
     bootstrap_token: str = Field(min_length=32, max_length=512)
 
 
+class LocalOwnerSetupRequest(BaseModel):
+    display_name: str = Field(default="Super Owner", min_length=1, max_length=100)
+    email: str = Field(min_length=3, max_length=254)
+    bootstrap_token: str = Field(min_length=32, max_length=512)
+    password: str = Field(min_length=8, max_length=256)
+    confirm_password: str = Field(min_length=8, max_length=256)
+
+
+class LocalLoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+
+
 class CredentialLifecycleChange(BaseModel):
     disabled: bool = False
     revoked: bool = False
@@ -452,11 +465,13 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         enrollment_reader = lambda user_id: SecurityStatus(
             security_store.credential_status(user_id=user_id, rp_id=webauthn_ceremonies.normal_rp_id())
         )
+    owner_init_reader = security_store.has_initialized_owner if security_store is not None else None
     app.state.security_status = SecurityStatusAuthority(
         config=app.state.sessions._config,
         registry=app.state.authenticators,
         verifier=status_verifier,
         enrollment_status_reader=enrollment_reader,
+        owner_initialized_reader=owner_init_reader,
     )
     app.state.safe_mode = DashboardSafeMode()
     app.state.live_readiness_service = LiveReadinessService.from_environment(
@@ -881,6 +896,109 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             return {"credential_id": credential_id, "registered": True, "security_setup": "ENROLLMENT_INCOMPLETE"}
         except (SecurityError, SecurityStoreError, ValueError, sqlite3.IntegrityError) as exc:
             raise HTTPException(status_code=422, detail="bootstrap WebAuthn registration failed") from exc
+
+    @app.post("/api/v1/auth/local/setup")
+    def local_owner_setup(body: LocalOwnerSetupRequest, request: Request) -> dict[str, object]:
+        """First-run owner provisioning for local private desktop deployment."""
+        if app.state.security_store is None:
+            raise HTTPException(status_code=503, detail="Security store is unavailable")
+
+        if body.password != body.confirm_password:
+            raise HTTPException(status_code=422, detail="Passwords do not match")
+
+        if app.state.security_store.has_initialized_owner():
+            raise HTTPException(status_code=403, detail="Super Owner is already initialized; re-provisioning forbidden")
+
+        ip_key = f"ip:{_client_ip(request)}"
+        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+            _check_cooldown(app.state.auth_policy.login_limiter, ip_key)
+
+        try:
+            if getattr(app.state, "core_security_audit", None) is not None:
+                mandatory_audit("LOCAL_OWNER_PROVISIONING")
+            owner_identity = app.state.security_store.initialize_owner_password(
+                token=body.bootstrap_token.strip(),
+                display_name=body.display_name.strip(),
+                email=body.email.strip(),
+                password=body.password,
+            )
+            session = session_service.issue(
+                user=owner_identity,
+                route=AccessRoute.NORMAL,
+                mtls_verified=False,
+                step_up_satisfied=True,
+            )
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                app.state.auth_policy.login_limiter.record_success(ip_key)
+
+            return {
+                "access_token": session.token,
+                "expires_at_utc": session.expires_at.isoformat(),
+                "subject": str(session.user.user_id),
+                "role": session.user.role.value,
+                "sx_id": session.user.sx_id,
+            }
+        except (SecurityError, SecurityStoreError, ValueError) as exc:
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                locked, rem = app.state.auth_policy.login_limiter.record_failure(ip_key)
+                if locked:
+                    raise HTTPException(status_code=429, detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s", headers={"Retry-After": str(rem)}) from exc
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/v1/auth/local/login")
+    def local_login(body: LocalLoginRequest, request: Request) -> dict[str, object]:
+        """Local desktop email + password authentication."""
+        if app.state.security_store is None:
+            raise HTTPException(status_code=503, detail="Security store is unavailable")
+
+        clean_email = body.email.strip().lower()
+        ip_key = f"ip:{_client_ip(request)}"
+        email_key = f"auth_email:{clean_email}"
+
+        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+            _check_cooldown(app.state.auth_policy.login_limiter, ip_key)
+            _check_cooldown(app.state.auth_policy.login_limiter, email_key)
+
+        user = app.state.security_store.verify_owner_password(
+            email=clean_email,
+            password=body.password,
+        )
+
+        if user is None:
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                app.state.auth_policy.login_limiter.record_failure(email_key)
+                locked, rem = app.state.auth_policy.login_limiter.record_failure(ip_key)
+                if locked:
+                    raise HTTPException(status_code=429, detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s", headers={"Retry-After": str(rem)})
+            if getattr(app.state, "core_security_audit", None) is not None:
+                try:
+                    mandatory_audit("LOCAL_LOGIN_FAILED", rejected=True)
+                except Exception:
+                    pass
+            raise HTTPException(status_code=401, detail="INVALID_EMAIL_OR_PASSWORD")
+
+        try:
+            if getattr(app.state, "core_security_audit", None) is not None:
+                mandatory_audit("LOCAL_LOGIN_SUCCESS")
+            session = session_service.issue(
+                user=user,
+                route=AccessRoute.NORMAL,
+                mtls_verified=False,
+                step_up_satisfied=True,
+            )
+            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
+                app.state.auth_policy.login_limiter.record_success(ip_key)
+                app.state.auth_policy.login_limiter.record_success(email_key)
+
+            return {
+                "access_token": session.token,
+                "expires_at_utc": session.expires_at.isoformat(),
+                "subject": str(session.user.user_id),
+                "role": session.user.role.value,
+                "sx_id": session.user.sx_id,
+            }
+        except SecurityError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     @app.post("/api/v1/security/credentials/{credential_id}/lifecycle")
     def credential_lifecycle(credential_id: str, change: CredentialLifecycleChange, session=Depends(mutable_session)) -> dict[str, object]:

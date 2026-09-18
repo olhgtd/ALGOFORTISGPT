@@ -38,6 +38,31 @@ from .sensitive_storage import (
 SECURITY_STORE_SCHEMA_VERSION = 2
 
 
+def hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    """Hashes password with scrypt (N=16384, r=8, p=1, dklen=64) and returns (hash_hex, salt_hex)."""
+    if not isinstance(password, str) or len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    salt = salt or secrets.token_bytes(16)
+    derived = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1, dklen=64)
+    return derived.hex(), salt.hex()
+
+
+def verify_password(password: str, hash_hex: str, salt_hex: str) -> bool:
+    """Verifies password using scrypt with stored salt in constant time."""
+    if not password or not hash_hex or not salt_hex:
+        return False
+    try:
+        # Gracefully handle if caller passed (password, salt_hex, hash_hex)
+        if len(salt_hex) > len(hash_hex):
+            hash_hex, salt_hex = salt_hex, hash_hex
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+        derived = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1, dklen=64)
+        return hmac.compare_digest(derived, expected)
+    except Exception:
+        return False
+
+
 # F-18: server-setting keys that can never be mutated through the settings
 # lifecycle (no live arming, hold release, broker mutation, or gate bypass).
 _PROTECTED_SETTING_KEYS = frozenset({
@@ -123,9 +148,18 @@ class SQLiteSecurityStore:
             pass
         harden_sensitive_sqlite_files(self.path, profile=profile)
 
+    def close(self) -> None:
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+
     def _should_seed_governance(self) -> bool:
-        # Production is an explicit security boundary, even with test flags set.
-        if self._profile == "production":
+        # Production and local_private are explicit security boundaries, even with test flags set.
+        if self._profile in {"production", "local_private"}:
             return False
         # 1. Explicit caller parameter takes highest precedence
         if self._seed_governance is True:
@@ -177,7 +211,8 @@ class SQLiteSecurityStore:
                 sx_id TEXT, account_status TEXT, activation_status TEXT, service_status TEXT,
                 service_started_at TEXT, service_expires_at TEXT, service_term_type TEXT,
                 custom_term_value INTEGER, custom_term_unit TEXT,
-                bound_email TEXT, bound_phone TEXT, notes TEXT, plan TEXT, created_by TEXT
+                bound_email TEXT, bound_phone TEXT, notes TEXT, plan TEXT, created_by TEXT,
+                password_hash TEXT, password_salt TEXT, password_updated_at_utc TEXT
             )""")
             # Non-destructive additive migration for existing security-store tables
             user_cols = {row["name"] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
@@ -196,6 +231,9 @@ class SQLiteSecurityStore:
                 ("notes", "TEXT"),
                 ("plan", "TEXT"),
                 ("created_by", "TEXT"),
+                ("password_hash", "TEXT"),
+                ("password_salt", "TEXT"),
+                ("password_updated_at_utc", "TEXT"),
             ]:
                 if col_name not in user_cols:
                     cur.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
@@ -952,6 +990,31 @@ class SQLiteSecurityStore:
             cur.execute("INSERT INTO bootstrap_authorizations VALUES (?, ?, ?, NULL, ?)", (self.token_hash(token), str(user_id), expires_at.isoformat(), _utc_now().isoformat()))
         return token
 
+    def create_bootstrap_token(self, *, expires_in_hours: int = 1) -> dict[str, str]:
+        """Convenience helper to create a one-time bootstrap token for OWNER-001."""
+        owner_rows = [r for r in self.list_users() if r["role"] == "OWNER"]
+        if owner_rows:
+            owner_uid = UUID(owner_rows[0]["user_id"])
+        else:
+            owner_uid = uuid4()
+            with self._transaction() as cur:
+                now_str = _utc_now().isoformat()
+                cur.execute(
+                    """INSERT INTO users (
+                        user_id, role, lifecycle, display_name, created_at_utc, security_state,
+                        account_status, activation_status, service_status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        str(owner_uid), "OWNER", "ACTIVE", "Super Owner", now_str, "NORMAL",
+                        "ACTIVE", "REDEEMED", "ACTIVE"
+                    )
+                )
+        raw_token = self.create_owner_bootstrap(
+            user_id=owner_uid,
+            expires_at=_utc_now() + timedelta(hours=expires_in_hours)
+        )
+        return {"raw_token": raw_token, "user_id": str(owner_uid)}
+
     def consume_owner_bootstrap(self, *, token: str, user_id: UUID, now: datetime | None = None) -> None:
         now = now or _utc_now()
         with self._transaction() as cur:
@@ -975,6 +1038,104 @@ class SQLiteSecurityStore:
             raise SecurityStoreError("invalid or replayed bootstrap authorization")
         if datetime.fromisoformat(row["expires_at_utc"]) <= now or self._conn.execute("SELECT 1 FROM webauthn_credentials WHERE user_id = ? AND enabled = 1 AND revoked = 0", (str(user_id),)).fetchone():
             raise SecurityStoreError("expired or no-longer-eligible bootstrap authorization")
+
+    def has_initialized_owner(self) -> bool:
+        """Returns True if a Super Owner exists with configured bound_email and password credentials."""
+        cur = self._conn.cursor()
+        user_cols = {row["name"] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
+        if "password_hash" not in user_cols:
+            return False
+        row = cur.execute(
+            "SELECT 1 FROM users WHERE role = 'OWNER' AND bound_email IS NOT NULL AND TRIM(bound_email) != '' AND password_hash IS NOT NULL AND TRIM(password_hash) != ''"
+        ).fetchone()
+        return row is not None
+
+    def initialize_owner_password(
+        self,
+        *,
+        token: str | None = None,
+        bootstrap_token: str | None = None,
+        display_name: str,
+        email: str,
+        password: str,
+        now: datetime | None = None
+    ):
+        """First-run owner password initialization. Validates and consumes the bootstrap token,
+        guaranteeing the single Super Owner invariant (OWNER-001)."""
+        token = token or bootstrap_token
+        if not token:
+            raise ValueError("Bootstrap token is required")
+        now = now or _utc_now()
+        clean_email = email.strip().lower()
+        if not clean_email or "@" not in clean_email:
+            raise ValueError("A valid email address is required")
+        clean_name = display_name.strip() or "Super Owner"
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        if self.has_initialized_owner():
+            raise SecurityStoreError("Super Owner is already initialized; re-provisioning forbidden")
+
+        owner_rows = [r for r in self.list_users() if r["role"] == "OWNER"]
+        if len(owner_rows) > 1:
+            raise SecurityStoreError("Ambiguous local Owner authority")
+
+        if owner_rows:
+            owner_uid = UUID(owner_rows[0]["user_id"])
+        else:
+            auth_row = self._conn.execute("SELECT user_id FROM bootstrap_authorizations WHERE token_hash = ?", (self.token_hash(token),)).fetchone()
+            if auth_row is None:
+                raise SecurityStoreError("invalid bootstrap authorization")
+            owner_uid = UUID(auth_row["user_id"])
+
+        self.validate_owner_bootstrap(token=token, user_id=owner_uid, now=now)
+        self.consume_owner_bootstrap(token=token, user_id=owner_uid, now=now)
+
+        pw_hash, pw_salt = hash_password(password)
+
+        with self._transaction() as cur:
+            if owner_rows:
+                cur.execute(
+                    """UPDATE users
+                       SET display_name = ?, bound_email = ?, password_hash = ?, password_salt = ?, password_updated_at_utc = ?
+                       WHERE user_id = ?""",
+                    (clean_name, clean_email, pw_hash, pw_salt, now.isoformat(), str(owner_uid))
+                )
+            else:
+                cur.execute(
+                    """INSERT INTO users (
+                        user_id, role, lifecycle, display_name, created_at_utc, security_state,
+                        sx_id, account_status, activation_status, service_status, bound_email,
+                        password_hash, password_salt, password_updated_at_utc
+                    ) VALUES (?, 'OWNER', 'ACTIVE', ?, ?, 'SECURED', 'OWNER-001', 'ACTIVE', 'ACTIVATED', 'ACTIVE', ?, ?, ?, ?)""",
+                    (str(owner_uid), clean_name, now.isoformat(), clean_email, pw_hash, pw_salt, now.isoformat())
+                )
+
+        updated_row = self.get_user(owner_uid)
+        from .identity import persisted_identity
+        return persisted_identity(updated_row)
+
+    def verify_owner_password(self, email: str = "", password: str = ""):
+        """Verifies owner password against stored scrypt hash in constant time."""
+        clean_email = email.strip().lower()
+        if not clean_email or not password:
+            return None
+        cur = self._conn.cursor()
+        user_cols = {row["name"] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
+        if "password_hash" not in user_cols:
+            return None
+        row = cur.execute(
+            "SELECT * FROM users WHERE role = 'OWNER' AND LOWER(TRIM(bound_email)) = ?",
+            (clean_email,)
+        ).fetchone()
+        if row is None or not row["password_hash"] or not row["password_salt"]:
+            return None
+        if not verify_password(password, row["password_hash"], row["password_salt"]):
+            return None
+        if row["lifecycle"] != "ACTIVE" or row["account_status"] not in (None, "ACTIVE"):
+            return None
+        from .identity import persisted_identity
+        return persisted_identity(row)
 
     def update_sign_count(self, *, credential_id: bytes, previous: int, current: int) -> None:
         if previous and current <= previous:

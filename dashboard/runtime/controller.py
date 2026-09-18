@@ -232,7 +232,7 @@ def serve(paths):
 def main():
     parser = argparse.ArgumentParser(description="AlgoFortis local runtime controller")
     parser.add_argument("action", choices=["start", "stop", "restart", "status", "serve"])
-    parser.add_argument("--mode", choices=[mode.value for mode in RuntimeMode], default="PRODUCTION")
+    parser.add_argument("--mode", choices=[mode.value for mode in RuntimeMode], default="LOCAL_PRIVATE")
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--install-root", type=Path)
     args = parser.parse_args()

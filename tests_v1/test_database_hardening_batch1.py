@@ -74,7 +74,7 @@ class TestDatabaseHardeningBatch1(unittest.TestCase):
         store1 = SQLiteSecurityStore(db_path, profile="test", seed_governance=False)
 
         with store1._transaction() as cur:
-            cur.execute("INSERT INTO users VALUES ('user-1', 'USER', 'ACTIVE', 'Client', '2026-01-01T00:00:00Z', 'ACTIVE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'user@test.com', NULL, NULL, NULL, NULL)")
+            cur.execute("INSERT INTO users (user_id, role, lifecycle, display_name, created_at_utc, security_state, bound_email) VALUES ('user-1', 'USER', 'ACTIVE', 'Client', '2026-01-01T00:00:00Z', 'ACTIVE', 'user@test.com')")
             cur.execute("""INSERT INTO owner_strategies (
                 strategy_id, id, name, version, stage, author, visibility, updated_at_utc
             ) VALUES ('s-custom', 's-custom', 'Custom Visibility Strat', '1.0', 'PAPER', 'user-1', 'GLOBAL', '2026-01-01T00:00:00Z')""")
@@ -99,7 +99,7 @@ class TestDatabaseHardeningBatch1(unittest.TestCase):
         store1 = SQLiteSecurityStore(db_path, profile="test", seed_governance=False)
 
         with store1._transaction() as cur:
-            cur.execute("INSERT INTO users VALUES ('user-a', 'USER', 'ACTIVE', 'Alice', '2026-01-01T00:00:00Z', 'ACTIVE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'alice@test.com', NULL, NULL, NULL, NULL)")
+            cur.execute("INSERT INTO users (user_id, role, lifecycle, display_name, created_at_utc, security_state, bound_email) VALUES ('user-a', 'USER', 'ACTIVE', 'Alice', '2026-01-01T00:00:00Z', 'ACTIVE', 'alice@test.com')")
             cur.execute("""INSERT INTO owner_strategies (
                 strategy_id, id, name, version, stage, author, visibility, updated_at_utc
             ) VALUES ('strat-a', 'strat-a', 'Alice Strat', '1.0', 'PAPER', 'user-a', 'GLOBAL', '2026-01-01T00:00:00Z')""")
