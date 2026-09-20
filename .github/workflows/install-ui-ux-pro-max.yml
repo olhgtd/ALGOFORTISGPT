@@ -3,7 +3,7 @@ name: Install UI UX Pro Max skill
 on:
   push:
     branches:
-      - chore/install-ui-ux-pro-max-20260921
+      - main
     paths:
       - .github/workflows/install-ui-ux-pro-max.yml
   workflow_dispatch:
@@ -15,10 +15,10 @@ jobs:
   install-skill:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          ref: chore/install-ui-ux-pro-max-20260921
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,4 +44,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: install UI UX Pro Max skill"
-          git push origin HEAD:chore/install-ui-ux-pro-max-20260921
+          git push origin HEAD:main
