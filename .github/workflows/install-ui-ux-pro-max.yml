@@ -1,0 +1,47 @@
+name: Install UI UX Pro Max skill
+
+on:
+  push:
+    branches:
+      - chore/install-ui-ux-pro-max-20260921
+    paths:
+      - .github/workflows/install-ui-ux-pro-max.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/install-ui-ux-pro-max-20260921
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install UI UX Pro Max for Antigravity
+        run: npx --yes ui-ux-pro-max-cli@latest init --ai antigravity
+
+      - name: Verify generated skill
+        run: |
+          test -f .agents/skills/ui-ux-pro-max/SKILL.md
+          test -f .agents/skills/ui-ux-pro-max/scripts/search.py
+          find .agents/skills -maxdepth 2 -type f -name 'SKILL.md' -print
+
+      - name: Commit generated skill files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/skills
+          if git diff --cached --quiet; then
+            echo "No skill changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: install UI UX Pro Max skill"
+          git push origin HEAD:chore/install-ui-ux-pro-max-20260921
