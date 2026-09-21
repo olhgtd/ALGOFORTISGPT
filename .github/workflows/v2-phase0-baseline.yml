@@ -1,13 +1,14 @@
 name: V2 Phase 0 Baseline Verification
 
 on:
-  push:
-    branches:
-      - v2-phase0-baseline-audit
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: v2-phase0-baseline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
