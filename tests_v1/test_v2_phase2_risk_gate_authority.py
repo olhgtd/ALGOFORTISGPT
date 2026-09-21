@@ -129,7 +129,7 @@ def test_gate_mints_canonical_capability_only_after_approved_risk_and_audit() ->
     assert payload["limits_snapshot_id"] == "limits-v1"
 
 
-def test_rejected_risk_never_mints_approved_order() -> None:
+def test_rejected_risk_never_mints_approved_order_and_is_audited() -> None:
     audit = _AuditSink()
     gate = _gate(
         _Evaluator(RiskEvaluation.rejected("daily_loss_limit", risk_rule_version="risk-policy/v4", limits_snapshot_id="limits-v1")),
@@ -141,7 +141,17 @@ def test_rejected_risk_never_mints_approved_order() -> None:
     assert isinstance(result, RiskRejection)
     assert result.intent_id == "intent-001"
     assert result.reasons == ("daily_loss_limit",)
-    assert audit.events == []
+    assert audit.events == [
+        (
+            "RISK_APPROVAL_REJECTED",
+            {
+                "intent_id": "intent-001",
+                "reasons": ("daily_loss_limit",),
+                "risk_rule_version": "risk-policy/v4",
+                "limits_snapshot_id": "limits-v1",
+            },
+        )
+    ]
 
 
 def test_gate_fails_closed_when_approved_quantity_differs_from_intent_quantity() -> None:
@@ -152,7 +162,8 @@ def test_gate_fails_closed_when_approved_quantity_differs_from_intent_quantity()
 
     assert isinstance(result, RiskRejection)
     assert result.reasons == ("risk_quantity_mismatch",)
-    assert audit.events == []
+    assert audit.events[0][0] == "RISK_APPROVAL_REJECTED"
+    assert audit.events[0][1]["reasons"] == ("risk_quantity_mismatch",)
 
 
 def test_stale_intent_is_rejected_before_risk_evaluation() -> None:
@@ -165,7 +176,8 @@ def test_stale_intent_is_rejected_before_risk_evaluation() -> None:
     assert isinstance(result, RiskRejection)
     assert result.reasons == ("intent_expired",)
     assert evaluator.calls == 0
-    assert audit.events == []
+    assert audit.events[0][0] == "RISK_APPROVAL_REJECTED"
+    assert audit.events[0][1]["reasons"] == ("intent_expired",)
 
 
 def test_audit_failure_blocks_approval_capability() -> None:
