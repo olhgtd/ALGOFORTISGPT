@@ -3,12 +3,12 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.1 DRAFT — for Owner review |
+| Version | v0.2 — Phase 0 owner locks recorded |
 | Date | 2026-09-21 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
-Recommendations below are proposals. The Owner decides. Where a recommendation touches a previously locked principle, that is stated explicitly.
+Recommendations below are proposals unless the corresponding OD is marked **FROZEN**. Frozen decisions are binding build constraints and may only change through a new dated decision-log entry.
 
 ---
 
@@ -17,6 +17,7 @@ Recommendations below are proposals. The Owner decides. Where a recommendation t
 1. The Owner reviews an OD, picks an option (or writes a different one) and records it in §4 with the date.
 2. Once FROZEN, coding agents treat it as a hard constraint (Implementation Plan §6). Changing it requires a new dated entry, never a silent edit.
 3. A phase cannot start while any OD in its blocking row (§5) is OPEN.
+4. On 2026-09-21 the Owner delegated implementation execution to the assistant and authorized work to start from the required starting point. The four Phase 0 blocking decisions were therefore frozen to the documented recommended choices in §3 and recorded in §4.
 
 ---
 
@@ -43,25 +44,25 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 ---
 
-## 3. Open decisions
+## 3. Owner decisions
 
 ### Scope and structure
 
 **OD-V2-01 — Build-order authority** · Blocks Phase 0
 - *Question:* Which phase structure governs the build: MC A–I, the existing V2 plan (P0–P10), or the revised plan?
 - *Options:* (A) adopt the revised plan and map old P0–P10 into it; (B) keep P0–P10 and fold in MC corrections; (C) keep MC A–I unchanged.
-- *Recommendation:* **A**, after a section-by-section mapping of the existing 35-section V2 documents. Two live build orders cause agent-loop drift.
-- *Status:* OPEN
+- *Decision:* **A — adopt the revised Phase 0–10 plan as the canonical build order and map legacy plans into it.**
+- *Status:* **FROZEN**
 
 **OD-V2-02 — Deployment model** · Blocks Phase 0
 - *Question:* Is V2.0 local-first (one engine per install, cloud = account authority only) or a hosted multi-tenant engine?
-- *Recommendation:* Local-first for V2.0 (matches locked decisions). Hosted engine is V2.4+. "Tenant" then means an account in the central plane.
-- *Status:* OPEN
+- *Decision:* **Local-first for V2.0.** Trading engines, trading state and broker secrets remain local; cloud remains account/device/entitlement authority. Hosted engine remains a future V2.4+ seam, not V2.0 scope.
+- *Status:* **FROZEN**
 
 **OD-V2-03 — Tier assignment and "V2.0 complete"** · Blocks Phase 0
 - *Question:* Accept the T0/T1/T2 assignments in the Requirements file?
-- *Recommendation:* Accept with edits; define V2.0 complete = all T0 + all T1 (with a written exceptions list). T2 stays as designed seams only.
-- *Status:* OPEN
+- *Decision:* **Accepted. V2.0 complete means all T0 + all T1, except only explicitly documented Owner-approved exceptions. T2 is seam/design-only and is not required for V2.0.**
+- *Status:* **FROZEN**
 
 **OD-V2-04 — Crypto (BTCUSD) scope** · Blocks Phase 3
 - *Options:* (A) in V2.0; (B) V2.3 behind the same instrument abstraction.
@@ -73,7 +74,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 **OD-V2-05 — Multi-device live exclusivity** · Blocks Phase 6
 - *Problem:* Up to 3 devices per account can each hold the same broker credentials; two armed engines could trade the same account.
 - *Options:* (A) local only: arm ownership recorded locally, broker-truth reconciliation detects foreign activity and halts; (B) cloud-issued live lease; (C) hybrid: A as the hard backstop plus an *advisory* cloud "armed device" record that blocks a second device from arming while the cloud is reachable.
-- *Recommendation:* **A as mandatory backstop; C only if you explicitly accept it.** Note C brushes against the locked principle that the cloud does not control live trading. It never stops a running engine, but it does add a cloud dependency to *arming*. B is not recommended.
+- *Recommendation:* **A as mandatory backstop; C only if explicitly accepted later.** B is not recommended.
 - *Status:* OPEN
 
 **OD-V2-06 — Foreign order / position policy** · Blocks Phase 6
@@ -89,12 +90,12 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-08 — Broker-resident protective orders** · Blocks Phase 6
 - *Question:* Must SL/target rest at the broker so a local crash cannot leave a position unprotected?
-- *Recommendation:* Required for live wherever the broker supports it. For BUY-only options the worst case is the premium paid, which bounds the tail, but resting protection still preserves capital during outages. Where unsupported, document the degraded policy and restrict the pilot accordingly.
+- *Recommendation:* Required for live wherever the broker supports it. Where unsupported, document the degraded policy and keep live mutation disarmed until the safety policy is explicitly qualified.
 - *Status:* OPEN
 
 **OD-V2-09 — Regulatory and broker path** · Blocks Phase 6
 - *Question:* Which compliant route governs live algorithmic orders for retail users?
-- *To verify (current rules must be checked, not assumed):* SEBI/exchange retail-algo framework applicability and effective dates; broker-side requirements (static IP whitelisting, algo tagging/registration, order-rate thresholds); whether **personal use** differs from **distributing the software to other users** (it may change the category).
+- *To verify (current rules must be checked, not assumed):* SEBI/exchange retail-algo framework applicability and effective dates; broker-side requirements (static IP whitelisting, algo tagging/registration, order-rate thresholds); whether personal use differs from distributing the software to other users.
 - *Recommendation:* Do a dated review with the chosen broker's compliance documentation and a qualified adviser before Phase 6 exit. Record the outcome as a design input. This is not legal advice.
 - *Status:* OPEN
 
@@ -107,7 +108,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-10 — Options data source and synthetic policy** · Blocks Phase 3
 - *Options:* licensed historical option-chain data / broker-provided history / synthetic pricing from underlying + IV model.
-- *Recommendation:* Choose the source by licence terms first, cost second. Any synthetic pricing must be labelled in every backtest report and excluded from promotion evidence unless the Owner explicitly accepts it.
+- *Recommendation:* Choose the source by licence terms first, cost second. Any synthetic pricing must be labelled in every backtest report and excluded from promotion evidence unless explicitly accepted.
 - *Status:* OPEN
 
 **OD-V2-11 — Multiple-testing / overfitting control** · Blocks Phase 4
@@ -116,8 +117,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* OPEN
 
 **OD-V2-12 — Numeric policy** · Blocks Phase 0
-- *Recommendation:* Decimal/fixed-point for money, price, quantity and risk; floats only in analytics with declared tolerance; explicit rounding mode and per-instrument tick-size rules.
-- *Status:* OPEN
+- *Decision:* **Decimal/fixed-point for money, price, quantity and risk. Floats are allowed only in analytics with declared tolerance. Rounding mode and per-instrument tick-size rules must be explicit and versioned.**
+- *Status:* **FROZEN**
 
 **OD-V2-13 — Historical store technology** · Blocks Phase 3
 - *Options:* (a) columnar files + embedded query engine + catalog in the operational DB; (b) embedded analytical DB only; (c) local Postgres/time-series server.
@@ -158,7 +159,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* OPEN
 
 **OD-V2-21 — Licence / entitlement** · Blocks Track P1
-- *Recommendation:* Cached entitlement with a time-boxed offline grace; new activations fail closed. **Licence expiry or outage must never disable protective exits, reconciliation or read-only access to positions** — a user must never be trapped in a position by a licensing event.
+- *Recommendation:* Cached entitlement with a time-boxed offline grace; new activations fail closed. Licence expiry or outage must never disable protective exits, reconciliation or read-only access to positions.
 - *Status:* OPEN
 
 **OD-V2-22 — Telemetry and privacy** · Blocks Track P1
@@ -166,20 +167,20 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* OPEN
 
 **OD-V2-23 — Publisher, version scheme, canonical domain** · Blocks Track P1
-- *Recommendation:* Finalize the publisher identity (needed for code signing), a semantic-version scheme aligned with V2.x, and the canonical production domain (auth host `auth.<domain>`); domain purchase is pending.
+- *Recommendation:* Finalize the publisher identity (needed for code signing), a semantic-version scheme aligned with V2.x, and the canonical production domain. Domain purchase is pending.
 - *Status:* OPEN
 
 **OD-V2-25 — Data-protection (DPDP) and retention** · Blocks Phase 9
 - *Question:* Owner's obligations for identity data held in the central plane: consent, retention, deletion, breach handling.
-- *Recommendation:* Confirm current applicability and timelines with a qualified adviser; keep the central data set minimal (already the locked design).
+- *Recommendation:* Confirm current applicability and timelines with a qualified adviser; keep the central data set minimal.
 - *Status:* OPEN
 
 ### Rollout
 
 **OD-V2-18 — Live pilot policy** · Blocks Phase 10
 - *Parameters:* capital cap, lot size, one-strategy limit, hard daily-loss cap, minimum number of sessions, stop conditions, who monitors.
-- *Recommendation:* Minimum lot, single strategy, a hard daily-loss cap far below the platform maximum, and a minimum session count with zero P0/P1 incidents before ramping (numbers proposed in the Test & Release Plan).
 - *Status:* OPEN
+- *Safety note:* V2 implementation and qualification may proceed through research, backtest, paper, shadow, read-only broker integration and dry-run evidence while live mutation remains DISARMED. No automatic live-money enablement is authorized by this register.
 
 **OD-V2-26 — Release-qualification thresholds** · Blocks Phase 10
 - *Question:* Freeze soak length, drift tolerances, performance baselines and severity definitions.
@@ -188,11 +189,14 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 ---
 
-## 4. Decision log (fill in as decisions are taken)
+## 4. Decision log
 
 | OD | Decision | Date | Notes / ADR link |
 |---|---|---|---|
-| | | | |
+| OD-V2-01 | Revised Phase 0–10 plan is canonical; legacy plans map into it. | 2026-09-21 | Phase 0 owner lock; ADR-001 to formalize mapping. |
+| OD-V2-02 | V2.0 is local-first; cloud is account authority only. Hosted execution deferred. | 2026-09-21 | Preserves existing local-first trust boundary. |
+| OD-V2-03 | V2.0 requires all T0 + T1; T2 remains seam-only unless explicitly excepted. | 2026-09-21 | Exceptions, if any, must be written and Owner-approved. |
+| OD-V2-12 | Decimal/fixed-point for money/price/quantity/risk; analytics floats require declared tolerance. | 2026-09-21 | Rounding and tick-size rules must be explicit/versioned; ADR-008 to formalize details. |
 
 ---
 
@@ -200,7 +204,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 | Gate | ODs that must be FROZEN before it starts |
 |---|---|
-| Phase 0 | 01, 02, 03, 12 |
+| Phase 0 | 01, 02, 03, 12 — **FROZEN 2026-09-21** |
 | Phase 1 | 14 |
 | Phase 2 | 07 |
 | Phase 3 | 04, 10, 13 |
