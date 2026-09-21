@@ -1,0 +1,139 @@
+name: V2 Phase 0 Baseline Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: v2-phase0-baseline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  current-head-regression-a:
+    name: Current HEAD regression A (Windows latest / Python 3.13.14)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install locked runtime and test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Record environment
+        shell: pwsh
+        run: |
+          python --version
+          python -m pip --version
+          git rev-parse HEAD
+          Get-ComputerInfo | Select-Object WindowsProductName,WindowsVersion,OsBuildNumber | Format-List
+      - name: Full V1 test suite
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+      - name: Existing regression certification
+        shell: pwsh
+        run: python build/tools/run_regression_certification.py
+      - name: Phase 0 deterministic golden probe
+        shell: pwsh
+        run: |
+          @'
+          from datetime import datetime, timezone
+          from engine.backtest.engine import BarEvent
+          from engine.market import StreamKey
+          from engine.portfolio.model import InstrumentIdentity
+          from engine.reproducibility.market_data import MarketDataPolicy, MarketDataStream, MarketDataSnapshot
+          from engine.reproducibility.model import RuntimeConfigurationSnapshot
+
+          identity = InstrumentIdentity("NSE", "NIFTY", "index")
+          stream = StreamKey(identity, "1m")
+          policy = MarketDataPolicy("phase0/v1", "ohlcv-decimal", "nse-bars")
+          bars = (
+              BarEvent(symbol="NIFTY", timestamp=datetime(2026, 1, 5, 9, 15, tzinfo=timezone.utc), timeframe="1m", open="22000.10", high="22010.50", low="21995.25", close="22005.00", volume=1000, source_sequence=1),
+              BarEvent(symbol="NIFTY", timestamp=datetime(2026, 1, 5, 9, 16, tzinfo=timezone.utc), timeframe="1m", open="22005.00", high="22020.00", low="22002.00", close="22015.00", volume=1200, source_sequence=2),
+          )
+          market_stream = MarketDataStream(stream, bars, policy)
+          snapshot = MarketDataSnapshot(policy, (market_stream,))
+          config = RuntimeConfigurationSnapshot("config/v1", "orb-v1", "risk-v1", "execution-v1", "paper-v1", "slippage-v1", "phase0")
+          print(f"PHASE0_MARKET_DATA_FINGERPRINT={snapshot.fingerprint}")
+          print(f"PHASE0_RUNTIME_CONFIG_FINGERPRINT={config.fingerprint}")
+          '@ | python -
+
+  current-head-regression-b:
+    name: Current HEAD regression B (Windows 2022 / Python 3.13.14)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install locked runtime and test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Record environment
+        shell: pwsh
+        run: |
+          python --version
+          python -m pip --version
+          git rev-parse HEAD
+          Get-ComputerInfo | Select-Object WindowsProductName,WindowsVersion,OsBuildNumber | Format-List
+      - name: Full V1 test suite
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+      - name: Existing regression certification
+        shell: pwsh
+        run: python build/tools/run_regression_certification.py
+      - name: Phase 0 deterministic golden probe
+        shell: pwsh
+        run: |
+          @'
+          from datetime import datetime, timezone
+          from engine.backtest.engine import BarEvent
+          from engine.market import StreamKey
+          from engine.portfolio.model import InstrumentIdentity
+          from engine.reproducibility.market_data import MarketDataPolicy, MarketDataStream, MarketDataSnapshot
+          from engine.reproducibility.model import RuntimeConfigurationSnapshot
+
+          identity = InstrumentIdentity("NSE", "NIFTY", "index")
+          stream = StreamKey(identity, "1m")
+          policy = MarketDataPolicy("phase0/v1", "ohlcv-decimal", "nse-bars")
+          bars = (
+              BarEvent(symbol="NIFTY", timestamp=datetime(2026, 1, 5, 9, 15, tzinfo=timezone.utc), timeframe="1m", open="22000.10", high="22010.50", low="21995.25", close="22005.00", volume=1000, source_sequence=1),
+              BarEvent(symbol="NIFTY", timestamp=datetime(2026, 1, 5, 9, 16, tzinfo=timezone.utc), timeframe="1m", open="22005.00", high="22020.00", low="22002.00", close="22015.00", volume=1200, source_sequence=2),
+          )
+          market_stream = MarketDataStream(stream, bars, policy)
+          snapshot = MarketDataSnapshot(policy, (market_stream,))
+          config = RuntimeConfigurationSnapshot("config/v1", "orb-v1", "risk-v1", "execution-v1", "paper-v1", "slippage-v1", "phase0")
+          print(f"PHASE0_MARKET_DATA_FINGERPRINT={snapshot.fingerprint}")
+          print(f"PHASE0_RUNTIME_CONFIG_FINGERPRINT={config.fingerprint}")
+          '@ | python -
