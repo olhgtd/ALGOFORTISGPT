@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.2 — Phase 0 owner locks recorded |
+| Version | v0.3 — Phase 1 plugin scope lock recorded |
 | Date | 2026-09-21 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
@@ -18,6 +18,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 2. Once FROZEN, coding agents treat it as a hard constraint (Implementation Plan §6). Changing it requires a new dated entry, never a silent edit.
 3. A phase cannot start while any OD in its blocking row (§5) is OPEN.
 4. On 2026-09-21 the Owner delegated implementation execution to the assistant and authorized work to start from the required starting point. The four Phase 0 blocking decisions were therefore frozen to the documented recommended choices in §3 and recorded in §4.
+5. On 2026-09-21 the Owner authorized completion of Phase 1. OD-V2-14 was therefore frozen to the documented V2.0 internal-registry recommendation and formalized by `docs/v2/adr/ADR-009-v2-plugin-scope.md`; external third-party plugin loading remains deferred.
 
 ---
 
@@ -134,8 +135,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-14 — Plugin scope for V2.0** · Blocks Phase 1
 - *Options:* (a) internal adapter registry only; (b) + signed third-party packages; (c) + sandboxed/process-isolated.
-- *Recommendation:* **(a)**. Manifests, permissions and compatibility checks now; isolation later.
-- *Status:* OPEN
+- *Decision:* **(a) — V2.0 uses the internal adapter registry only.** Manifests, declared permissions, capability discovery and compatibility checks are implemented now; signed third-party package loading and sandbox/process isolation are deferred to future V2.x.
+- *Status:* **FROZEN**
 
 **OD-V2-19 — Alert channels and independence** · Blocks Phase 5
 - *Recommendation:* Critical alerts on at least two independent channels (on-screen + Telegram; email as third). Consider an optional non-sensitive "engine silent" heartbeat to the central service so a dead PC still triggers an alert — this links to OD-V2-22 (telemetry).
@@ -197,6 +198,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-02 | V2.0 is local-first; cloud is account authority only. Hosted execution deferred. | 2026-09-21 | Preserves existing local-first trust boundary. |
 | OD-V2-03 | V2.0 requires all T0 + T1; T2 remains seam-only unless explicitly excepted. | 2026-09-21 | Exceptions, if any, must be written and Owner-approved. |
 | OD-V2-12 | Decimal/fixed-point for money/price/quantity/risk; analytics floats require declared tolerance. | 2026-09-21 | Rounding and tick-size rules must be explicit/versioned; ADR-008 to formalize details. |
+| OD-V2-14 | V2.0 uses the internal adapter registry only; external signed packages and sandbox/process isolation are deferred. | 2026-09-21 | `docs/v2/adr/ADR-009-v2-plugin-scope.md` |
 
 ---
 
@@ -205,7 +207,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Gate | ODs that must be FROZEN before it starts |
 |---|---|
 | Phase 0 | 01, 02, 03, 12 — **FROZEN 2026-09-21** |
-| Phase 1 | 14 |
+| Phase 1 | 14 — **FROZEN 2026-09-21** |
 | Phase 2 | 07 |
 | Phase 3 | 04, 10, 13 |
 | Phase 4 | 11, 17, ORB protective-policy ODs (§2) |
