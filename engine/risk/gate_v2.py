@@ -22,6 +22,7 @@ from engine.orders.contracts_v2 import (
     client_order_id_for_intent,
     _mint_approved_order,
 )
+from engine.risk.limits import ResolvedHardLimits
 
 
 class RiskApprovalError(RuntimeError):
@@ -45,8 +46,7 @@ def _text(value: object, field_name: str) -> str:
 def _reasons(values: tuple[str, ...]) -> tuple[str, ...]:
     if not isinstance(values, tuple) or not values:
         raise ValueError("reasons must be a non-empty tuple")
-    normalized = tuple(_text(value, "reason") for value in values)
-    return normalized
+    return tuple(_text(value, "reason") for value in values)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +150,7 @@ class RiskGateV2:
         clock: Clock,
         id_generator: IdGenerator,
         audit_sink: RiskAuditSink,
+        hard_limits: ResolvedHardLimits,
     ) -> None:
         if not callable(getattr(evaluator, "evaluate", None)):
             raise TypeError("evaluator must provide evaluate(intent)")
@@ -159,10 +160,13 @@ class RiskGateV2:
             raise TypeError("id_generator must provide new_id(kind)")
         if not callable(getattr(audit_sink, "write", None)):
             raise TypeError("audit_sink must provide write(event_type, payload)")
+        if not isinstance(hard_limits, ResolvedHardLimits):
+            raise TypeError("hard_limits must be ResolvedHardLimits")
         self._evaluator = evaluator
         self._clock = clock
         self._id_generator = id_generator
         self._audit_sink = audit_sink
+        self._hard_limits = hard_limits
 
     def evaluate_entry(self, intent: OrderIntent) -> ApprovedOrder | RiskRejection:
         if not isinstance(intent, OrderIntent):
@@ -172,7 +176,26 @@ class RiskGateV2:
         if now.tzinfo is None or now.utcoffset() is None:
             raise RiskApprovalError("clock returned a non-timezone-aware value")
         if now >= intent.valid_until:
-            return self._reject(intent, ("intent_expired",))
+            return self._reject(
+                intent,
+                ("intent_expired",),
+                limits_snapshot_id=self._hard_limits.snapshot_id,
+            )
+
+        if intent.instrument_ref.segment == "options" and intent.side != "BUY":
+            return self._reject(
+                intent,
+                ("options_buy_only",),
+                limits_snapshot_id=self._hard_limits.snapshot_id,
+            )
+
+        max_order_qty = self._hard_limits.values.get("max_order_qty")
+        if max_order_qty is not None and intent.qty > max_order_qty:
+            return self._reject(
+                intent,
+                ("max_order_qty",),
+                limits_snapshot_id=self._hard_limits.snapshot_id,
+            )
 
         try:
             evaluation = self._evaluator.evaluate(intent)
@@ -181,12 +204,20 @@ class RiskGateV2:
         if not isinstance(evaluation, RiskEvaluation):
             raise RiskApprovalError("risk evaluator returned invalid evidence")
 
+        if evaluation.limits_snapshot_id != self._hard_limits.snapshot_id:
+            return self._reject(
+                intent,
+                ("limits_snapshot_mismatch",),
+                risk_rule_version=evaluation.risk_rule_version,
+                limits_snapshot_id=self._hard_limits.snapshot_id,
+            )
+
         if evaluation.decision is RiskDecisionKind.REJECTED:
             return self._reject(
                 intent,
                 evaluation.reasons,
                 risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=evaluation.limits_snapshot_id,
+                limits_snapshot_id=self._hard_limits.snapshot_id,
             )
 
         # REDUCED is a recorded risk decision but is not executable in this
@@ -197,7 +228,7 @@ class RiskGateV2:
                 intent,
                 ("reduced_order_requires_explicit_contract",),
                 risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=evaluation.limits_snapshot_id,
+                limits_snapshot_id=self._hard_limits.snapshot_id,
             )
 
         if evaluation.approved_qty != intent.qty:
@@ -205,7 +236,7 @@ class RiskGateV2:
                 intent,
                 ("risk_quantity_mismatch",),
                 risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=evaluation.limits_snapshot_id,
+                limits_snapshot_id=self._hard_limits.snapshot_id,
             )
 
         approval_token = self._id_generator.new_id("risk_approval")
@@ -214,7 +245,7 @@ class RiskGateV2:
             decision=RiskDecisionKind.APPROVED,
             reasons=(),
             risk_rule_version=evaluation.risk_rule_version,
-            limits_snapshot_id=evaluation.limits_snapshot_id,
+            limits_snapshot_id=self._hard_limits.snapshot_id,
             approved_qty=evaluation.approved_qty,
             approval_token=approval_token,
         )
@@ -228,7 +259,7 @@ class RiskGateV2:
                 "intent_id": intent.intent_id,
                 "risk_decision_ref": decision_ref,
                 "risk_rule_version": evaluation.risk_rule_version,
-                "limits_snapshot_id": evaluation.limits_snapshot_id,
+                "limits_snapshot_id": self._hard_limits.snapshot_id,
             },
         )
 
