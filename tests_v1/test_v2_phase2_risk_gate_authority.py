@@ -11,6 +11,13 @@ from engine.orders.contracts_v2 import ApprovedOrder, OrderIntent, OrderSource, 
 from engine.orders.model import OrderType
 from engine.portfolio.model import InstrumentIdentity
 from engine.risk.gate_v2 import RiskApprovalError, RiskEvaluation, RiskGateV2, RiskRejection
+from engine.risk.limits import HardLimitHierarchy, LimitDirection
+
+
+_LIMITS = HardLimitHierarchy(
+    definitions={"max_order_qty": LimitDirection.MAXIMUM},
+    platform={"max_order_qty": "10"},
+).resolve()
 
 
 @dataclass
@@ -78,7 +85,7 @@ def _approved_evaluation(*, quantity: str = "2") -> RiskEvaluation:
     return RiskEvaluation.approved(
         approved_qty=Decimal(quantity),
         risk_rule_version="risk-policy/v4",
-        limits_snapshot_id="limits-v1",
+        limits_snapshot_id=_LIMITS.snapshot_id,
     )
 
 
@@ -89,6 +96,7 @@ def _gate(evaluator: _Evaluator, audit: _AuditSink, *, clock: FixedClock | None 
         clock=runtime_clock,
         id_generator=_ids(runtime_clock),
         audit_sink=audit,
+        hard_limits=_LIMITS,
     )
 
 
@@ -126,13 +134,19 @@ def test_gate_mints_canonical_capability_only_after_approved_risk_and_audit() ->
     assert payload["intent_id"] == intent.intent_id
     assert payload["risk_decision_ref"] == result.risk_decision_ref
     assert payload["risk_rule_version"] == "risk-policy/v4"
-    assert payload["limits_snapshot_id"] == "limits-v1"
+    assert payload["limits_snapshot_id"] == _LIMITS.snapshot_id
 
 
 def test_rejected_risk_never_mints_approved_order_and_is_audited() -> None:
     audit = _AuditSink()
     gate = _gate(
-        _Evaluator(RiskEvaluation.rejected("daily_loss_limit", risk_rule_version="risk-policy/v4", limits_snapshot_id="limits-v1")),
+        _Evaluator(
+            RiskEvaluation.rejected(
+                "daily_loss_limit",
+                risk_rule_version="risk-policy/v4",
+                limits_snapshot_id=_LIMITS.snapshot_id,
+            )
+        ),
         audit,
     )
 
@@ -148,7 +162,7 @@ def test_rejected_risk_never_mints_approved_order_and_is_audited() -> None:
                 "intent_id": "intent-001",
                 "reasons": ("daily_loss_limit",),
                 "risk_rule_version": "risk-policy/v4",
-                "limits_snapshot_id": "limits-v1",
+                "limits_snapshot_id": _LIMITS.snapshot_id,
             },
         )
     ]
@@ -178,6 +192,7 @@ def test_stale_intent_is_rejected_before_risk_evaluation() -> None:
     assert evaluator.calls == 0
     assert audit.events[0][0] == "RISK_APPROVAL_REJECTED"
     assert audit.events[0][1]["reasons"] == ("intent_expired",)
+    assert audit.events[0][1]["limits_snapshot_id"] == _LIMITS.snapshot_id
 
 
 def test_audit_failure_blocks_approval_capability() -> None:
