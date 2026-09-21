@@ -2,20 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the single, testable path from an entry intent through the central Risk Gate to a capability-bearing approved order, while proving the Phase 2 safety invariants without enabling real broker mutation.
+**Goal:** Build the single, testable path from an `OrderIntent` through the central Risk Gate to a capability-bearing `ApprovedOrder`, while proving the Phase 2 safety invariants without enabling real broker mutation.
 
-**Architecture:** Extend the frozen V1 risk/order foundations through additive V2 contracts. `ApprovedOrder` is an opaque capability issued only by the V2 Risk Gate; lifecycle, mode isolation, kill-switch semantics, audit fail-closed behavior, and no-auto-arm are layered around that authority. Real broker mutation remains unreachable because Phase 2 is qualification-only and live stays READ_ONLY/DISARMED.
+**Architecture:** Extend the frozen V1 risk/order foundations through additive V2 contracts. Canonical `OrderIntent`, `RiskDecision`, and `ApprovedOrder` contracts follow `ALGOFORTIS_V2_ARCHITECTURE.md` §4.2; `ApprovedOrder` is an opaque capability issued only by `RiskGateV2`. Lifecycle, mode isolation, kill-switch semantics, audit fail-closed behavior, and no-auto-arm are layered around that authority. Real broker mutation remains unreachable because Phase 2 is qualification-only and live stays READ_ONLY/DISARMED.
 
 **Tech Stack:** Python 3.13.14, dataclasses/enums/Decimal, existing AlgoFortis audit/runtime/config foundations, pytest 9.1.1, GitHub Actions dual-Windows verification.
 
-**Spec:** `ALGOFORTIS_V2_REQUIREMENTS.md`, `ALGOFORTIS_V2_TEST_AND_RELEASE_PLAN.md`, `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`, `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`
+**Spec:** `ALGOFORTIS_V2_REQUIREMENTS.md`, `ALGOFORTIS_V2_ARCHITECTURE.md`, `ALGOFORTIS_V2_TEST_AND_RELEASE_PLAN.md`, `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`, `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`
 
 ## Global Constraints
 
 - Preserve V1 behavior unless a V2 contract explicitly wraps it; no big-bang rewrite.
 - Money, price, quantity and risk use Decimal/fixed-point semantics.
 - Live remains `READ_ONLY=true`, `DISARMED=true`; zero real broker mutation is introduced in Phase 2.
-- `ApprovedOrder` may be created only by the central Risk Gate (INV-03).
+- Canonical `ApprovedOrder` carries `client_order_id`, `intent_id`, `risk_decision_ref`, `run_mode`, and `expires_at`; only the central Risk Gate can construct it.
+- `client_order_id` is deterministically derived from `intent_id` for idempotency (INV-01).
+- `valid_until` is checked at the gate and again at routing (INV-02).
 - Options scope remains BUY-only at the gate (INV-17).
 - Backtest and paper must remain structurally unable to reach live broker mutation (INV-05/06).
 - IN_DOUBT is never blindly retried (INV-08).
@@ -33,21 +35,21 @@
 
 ---
 
-### Task 1: ApprovedOrder capability and Risk Gate authority
+### Task 1: Canonical OrderIntent / RiskDecision / ApprovedOrder capability and Risk Gate authority
 
 **Files:**
-- Create: `engine/risk/approval.py`
+- Create: `engine/orders/contracts_v2.py`
+- Create: `engine/risk/gate_v2.py`
 - Create: `tests_v1/test_v2_phase2_risk_gate_authority.py`
-- Modify only if needed: `engine/risk/__init__.py`
 
 **Interfaces:**
-- Consumes: existing V1 `RiskGate`, `RiskDecision`, order intent/model types, Phase-1 audit/runtime primitives.
-- Produces: `OrderIntent`, `ApprovedOrder`, `RiskGateV2`, `RiskRejection`; only `RiskGateV2.evaluate_entry()` can mint a valid approval capability.
+- Consumes: `InstrumentIdentity`, existing `OrderType`, injected `Clock` / `IdGenerator`, Phase-1 audit primitives through a narrow sink protocol.
+- Produces: canonical `RunMode`, `OrderIntent`, `RiskDecision`, opaque `ApprovedOrder`, `RiskEvaluation`, `RiskGateV2`, `RiskRejection`.
 
-- [ ] Write RED tests proving direct `ApprovedOrder(...)` construction is rejected; an approved BUY entry can be minted only through the gate; rejected risk never yields an approval; approval carries intent ID, risk-rule version and deterministic approval ID; audit failure blocks approval.
-- [ ] Run focused test and capture expected RED because `engine.risk.approval` is absent.
-- [ ] Implement the minimal additive V2 capability module without rewriting V1 `risk_manager.py`.
-- [ ] Run focused test GREEN, then full `tests_v1` regression and architecture/golden checks.
+- [ ] Write RED tests proving direct `ApprovedOrder(...)` construction is rejected; the gate stamps the canonical fields exactly; `client_order_id` is deterministic from `intent_id`; stale intents are rejected before evaluation; rejected/mismatched risk never yields a capability; audit failure blocks approval.
+- [ ] Run focused test and capture expected RED because `engine.orders.contracts_v2` / `engine.risk.gate_v2` are absent.
+- [ ] Implement immutable canonical contracts and minimal gate authority without rewriting V1 `risk_manager.py`.
+- [ ] Run focused test GREEN, then full `tests_v1`, architecture certification and golden checks.
 - [ ] Commit implementation only after exact-head verification.
 
 ### Task 2: Hard-limit hierarchy and options BUY-only
@@ -55,14 +57,14 @@
 **Files:**
 - Create: `engine/risk/limits.py`
 - Create: `tests_v1/test_v2_phase2_hard_limits.py`
-- Extend: `engine/risk/approval.py`
+- Extend: `engine/risk/gate_v2.py`
 
 **Interfaces:**
-- Consumes: `RiskGateV2`, `OrderIntent`.
-- Produces: immutable `HardLimitHierarchy` and deterministic limit decision evidence.
+- Consumes: `RiskGateV2`, `OrderIntent`, `InstrumentIdentity.segment`.
+- Produces: immutable `HardLimitHierarchy`, resolved limit snapshot identity and deterministic limit decision evidence.
 
 - [ ] RED tests for platform > owner > user > strategy > run monotonic limits; lower layers cannot widen higher limits; malformed/missing limits fail closed.
-- [ ] RED tests enforce option entry side BUY-only at the gate while protective exit intents remain separately classified.
+- [ ] RED tests enforce option entry side BUY-only at the gate while protective/exit flows remain separately classified.
 - [ ] Implement Decimal-safe hierarchy resolution and integrate it into `RiskGateV2`.
 - [ ] Verify INV-11 and INV-17 focused GREEN plus full regression.
 
@@ -73,10 +75,10 @@
 - Create: `tests_v1/test_v2_phase2_intent_guard.py`
 
 **Interfaces:**
-- Consumes: approved intent identity and injected Clock.
-- Produces: deterministic intent acceptance/rejection with idempotent identity tracking.
+- Consumes: canonical `OrderIntent`, `ApprovedOrder.client_order_id`, injected Clock.
+- Produces: deterministic intent acceptance/rejection with restorable idempotency evidence.
 
-- [ ] RED tests for same intent ID duplicate, same client-order identity replay, expired/stale intent, restart-restored consumed identity and deterministic reason codes.
+- [ ] RED tests for duplicate intent ID, duplicate client-order ID, expired/stale intent, restart-restored consumed identity and deterministic reason codes.
 - [ ] Implement fail-closed guard with no broker calls.
 - [ ] Verify INV-01/INV-02 focused GREEN plus full regression.
 
@@ -90,7 +92,7 @@
 - Consumes: `ApprovedOrder`, broker-truth resolution result.
 - Produces: versioned lifecycle transition authority including IN_DOUBT.
 
-- [ ] RED tests enumerate legal/illegal transitions; SENT-without-ack enters IN_DOUBT; IN_DOUBT cannot transition through blind retry; only explicit broker-truth resolution can resolve it.
+- [ ] RED tests enumerate legal/illegal transitions; SENT_UNACKED can enter IN_DOUBT; IN_DOUBT cannot transition through blind retry; broker query resolves to ACKED / REJECTED / NOT_FOUND; NOT_FOUND retry preserves same client_order_id and requires unexpired intent plus re-approval.
 - [ ] Implement state transition table and immutable transition evidence.
 - [ ] Verify INV-07/INV-08 focused GREEN plus full regression.
 
@@ -103,10 +105,10 @@
 - Reuse/extend the existing paper adapter only through the new port.
 
 **Interfaces:**
-- Consumes: `ApprovedOrder` and lifecycle contract.
+- Consumes: canonical `ApprovedOrder` and lifecycle contract.
 - Produces: broker-neutral port contract and paper conformance test-kit.
 
-- [ ] RED tests prove backtest cannot import/load a live mutation implementation, paper cannot receive real broker credentials/mutation adapter, and paper adapter passes the broker-neutral contract shell.
+- [ ] RED tests prove an adapter rejects an `ApprovedOrder` whose `run_mode` differs; backtest cannot import/load a live mutation implementation; paper cannot receive real broker credentials/mutation adapter; paper adapter passes the broker-neutral contract shell.
 - [ ] Implement structural mode binding at process/adapter construction time.
 - [ ] Verify INV-05/INV-06 focused GREEN plus module-boundary gate/full regression.
 
@@ -117,10 +119,10 @@
 - Create: `tests_v1/test_v2_phase2_live_state_machine.py`
 
 **Interfaces:**
-- Produces states DISABLED, READY, CONNECTING, ACTIVE, DEGRADED, PAUSED, EMERGENCY_STOP, RECOVERY and explicit transition events.
+- Produces states DISABLED, READY, CONNECTING, ACTIVE, DEGRADED, PAUSED, EMERGENCY_STOP, RECOVERY and explicit transition events; separate armed latch defaults false.
 
-- [ ] RED tests cover all legal transitions and representative illegal transitions.
-- [ ] RED tests prove restart, crash recovery, reconnect and RECOVERY never auto-transition to ACTIVE; explicit arm authority is required and remains disabled in Phase 2 runtime configuration.
+- [ ] RED tests cover the architecture §6.1 legal transitions and representative illegal transitions.
+- [ ] RED tests prove process start after restart/crash/update/sleep-resume enters RECOVERY and never ACTIVE; RECOVERY → READY requires reconciliation evidence; CONNECTING → ACTIVE requires explicit ARM authority; armed latch starts false.
 - [ ] Implement transition table with audit-before-state semantics.
 - [ ] Verify INV-07/INV-15 focused GREEN plus full regression.
 
@@ -144,7 +146,7 @@
 
 **Files:**
 - Create: `build/tools/check_phase2_safety_spine.py`
-- Update: `.github/workflows/v2-phase0-baseline.yml` or successor workflow name to include Phase-2 gates.
+- Update: `.github/workflows/v2-phase0-baseline.yml` or successor workflow to include Phase-2 gates.
 - Create: `docs/v2/phase2/G2_EVIDENCE.md`
 
 **Interfaces:**
