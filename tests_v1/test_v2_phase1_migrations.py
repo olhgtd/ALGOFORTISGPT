@@ -163,15 +163,15 @@ def test_migration_plan_rejects_duplicates_gaps_and_missing_rollback(tmp_path) -
     with pytest.raises(MigrationError, match="contiguous"):
         runner.migrate((first, gap), target_version=4)
 
-    irreversible = Migration(
-        migration_id="001_irreversible",
-        from_version=1,
-        to_version=2,
-        apply_sql=("CREATE TABLE irreversible (id INTEGER)",),
-        rollback_sql=(),
-    )
+    # Irreversible migrations are invalid even before a plan can be executed.
     with pytest.raises(MigrationError, match="rollback"):
-        runner.migrate((irreversible,), target_version=2)
+        Migration(
+            migration_id="001_irreversible",
+            from_version=1,
+            to_version=2,
+            apply_sql=("CREATE TABLE irreversible (id INTEGER)",),
+            rollback_sql=(),
+        )
 
 
 def test_migration_refuses_unknown_current_or_downgrade_target(tmp_path) -> None:
