@@ -153,10 +153,6 @@ def verify_audit_chain(entries: Sequence[AuditChainEntry]) -> bool:
             raise AuditChainError("audit chain previous hash mismatch")
 
         _validate_event_identity(entry.event)
-        normalized_versions = _normalized_versions(entry.event, dict(entry.versions))
-        if normalized_versions != entry.versions:
-            raise AuditChainError("audit chain version evidence is not canonical")
-
         expected_hash = _entry_hash(
             sequence=entry.sequence,
             previous_hash=entry.previous_hash,
@@ -165,6 +161,10 @@ def verify_audit_chain(entries: Sequence[AuditChainEntry]) -> bool:
         )
         if entry.chain_hash != expected_hash:
             raise AuditChainError("audit chain hash mismatch")
+
+        normalized_versions = _normalized_versions(entry.event, dict(entry.versions))
+        if normalized_versions != entry.versions:
+            raise AuditChainError("audit chain version evidence is not canonical")
         previous_hash = entry.chain_hash
 
     return True
