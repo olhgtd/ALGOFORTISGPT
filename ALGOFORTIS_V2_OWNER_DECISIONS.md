@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.3 — Phase 1 plugin scope lock recorded |
+| Version | v0.4 — Phase 2 kill-switch semantics lock recorded |
 | Date | 2026-09-21 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
@@ -19,6 +19,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 3. A phase cannot start while any OD in its blocking row (§5) is OPEN.
 4. On 2026-09-21 the Owner delegated implementation execution to the assistant and authorized work to start from the required starting point. The four Phase 0 blocking decisions were therefore frozen to the documented recommended choices in §3 and recorded in §4.
 5. On 2026-09-21 the Owner authorized completion of Phase 1. OD-V2-14 was therefore frozen to the documented V2.0 internal-registry recommendation and formalized by `docs/v2/adr/ADR-009-v2-plugin-scope.md`; external third-party plugin loading remains deferred.
+6. On 2026-09-21 the Owner authorized Phase 1 merge and immediate Phase 2 execution. OD-V2-07 was therefore frozen to the documented safe kill-switch recommendation and formalized by `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`.
 
 ---
 
@@ -30,7 +31,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 |---|---|
 | Brand | AlgoFortis; tagline "Trading Research & Risk OS"; logo/icon frozen. Rename scope is visible surfaces only (exe, installer, shortcuts, splash, title bar, UI name, publisher/version metadata), not internal DB/schema IDs. |
 | V1 safety contract | `READ_ONLY = true`, `DISARMED = true`, zero broker mutation, no real broker connection, until explicitly changed by a future release. |
-| Anywhere-login | Central account authority + local app per PC; WebAuthn for interactive auth; separate device-binding key (TPM/CNG non-exportable, DPAPI fallback); 15-min access token; refresh 30-day absolute / 7-day inactivity, rotating with reuse detection; max 3 devices, no silent eviction; step-up on new device; server-side revoke; high-assurance recovery revokes all sessions, refresh families and device keys. |
+| Anywhere-login | Central account authority + local app per PC; WebAuthn for interactive auth; separate TPM/CNG-backed device-binding key (DPAPI fallback); 15-min access token; rotating refresh token with reuse detection; max 3 devices, no silent eviction; step-up on new device; server-side revoke; high-assurance recovery revokes all sessions, refresh families and device keys. |
 | Sync scope | Server: account, devices, security/session state, entitlement, non-sensitive settings. Local only: broker secrets, strategy configs, trade logs, live positions. Broker credentials re-entered per device. |
 | Outage rule | Cloud auth outage never stops the local engine or loosens local safety; new login/enrollment/recovery/entitlement changes fail closed; UI shows "AUTH SERVICE OFFLINE — LOCAL SAFETY CONTINUES". |
 | Cloud stack | AWS ap-south-1; ECS/Fargate behind ALB; RDS PostgreSQL private; ACM, Route 53, Secrets Manager, KMS, CloudWatch, CloudTrail; no App Runner. Monthly budget ₹6,000 with alert tiers; no auto-shutdown; 1-task start. Not allowed in V1: server-side broker credentials, cloud strategy/trade-state sync, cloud live-order execution. |
@@ -86,8 +87,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-07 — Kill-switch semantics** · Blocks Phase 2
 - *Define three distinct actions:* `HALT_ENTRIES` (block new entries), `CANCEL_PENDING` (cancel unfilled entry orders), `FLATTEN_ALL` (close positions).
-- *Recommendation:* "Emergency Stop" = `HALT_ENTRIES` + `CANCEL_PENDING` for entries, protective exits stay active. `FLATTEN_ALL` is a separate, explicitly confirmed action. Reconciliation mismatch triggers halt-and-alert, not flatten.
-- *Status:* OPEN
+- *Decision:* **Emergency Stop = `HALT_ENTRIES` + `CANCEL_PENDING` for unfilled entry orders; protective exits remain active. `FLATTEN_ALL` is a separate, explicitly confirmed and audited action. Reconciliation mismatch triggers halt-and-alert/recovery, never automatic flattening.**
+- *Status:* **FROZEN**
 
 **OD-V2-08 — Broker-resident protective orders** · Blocks Phase 6
 - *Question:* Must SL/target rest at the broker so a local crash cannot leave a position unprotected?
@@ -199,6 +200,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-03 | V2.0 requires all T0 + T1; T2 remains seam-only unless explicitly excepted. | 2026-09-21 | Exceptions, if any, must be written and Owner-approved. |
 | OD-V2-12 | Decimal/fixed-point for money/price/quantity/risk; analytics floats require declared tolerance. | 2026-09-21 | Rounding and tick-size rules must be explicit/versioned; ADR-008 to formalize details. |
 | OD-V2-14 | V2.0 uses the internal adapter registry only; external signed packages and sandbox/process isolation are deferred. | 2026-09-21 | `docs/v2/adr/ADR-009-v2-plugin-scope.md` |
+| OD-V2-07 | Emergency Stop halts entries and cancels pending entry orders; protective exits stay active; FLATTEN_ALL is separate and explicit. | 2026-09-21 | `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md` |
 
 ---
 
@@ -208,7 +210,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 |---|---|
 | Phase 0 | 01, 02, 03, 12 — **FROZEN 2026-09-21** |
 | Phase 1 | 14 — **FROZEN 2026-09-21** |
-| Phase 2 | 07 |
+| Phase 2 | 07 — **FROZEN 2026-09-21** |
 | Phase 3 | 04, 10, 13 |
 | Phase 4 | 11, 17, ORB protective-policy ODs (§2) |
 | Phase 5 | 19, 24 |
