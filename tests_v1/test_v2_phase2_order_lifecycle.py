@@ -33,6 +33,14 @@ class _AuditSink:
         return None
 
 
+class _MutableClock:
+    def __init__(self, current: datetime) -> None:
+        self.current = current
+
+    def now_utc(self) -> datetime:
+        return self.current
+
+
 def _clock(*, minute: int = 16) -> FixedClock:
     return FixedClock(
         datetime(2026, 9, 21, 9, minute, tzinfo=timezone.utc),
@@ -104,6 +112,28 @@ def _approved_order(
     result = gate.evaluate_entry(intent)
     assert isinstance(result, ApprovedOrder)
     return result
+
+
+def test_allowed_transition_table_matches_canonical_architecture() -> None:
+    expected = {
+        OrderExecutionState.RISK_APPROVED: frozenset({OrderExecutionState.SUBMITTING, OrderExecutionState.EXPIRED}),
+        OrderExecutionState.SUBMITTING: frozenset({OrderExecutionState.SENT_UNACKED}),
+        OrderExecutionState.SENT_UNACKED: frozenset({OrderExecutionState.ACKED, OrderExecutionState.IN_DOUBT}),
+        OrderExecutionState.IN_DOUBT: frozenset({OrderExecutionState.ACKED, OrderExecutionState.REJECTED, OrderExecutionState.NOT_FOUND}),
+        OrderExecutionState.ACKED: frozenset({OrderExecutionState.PARTIALLY_FILLED, OrderExecutionState.CANCEL_PENDING, OrderExecutionState.REJECTED}),
+        OrderExecutionState.PARTIALLY_FILLED: frozenset({OrderExecutionState.FILLED, OrderExecutionState.CANCEL_PENDING}),
+        OrderExecutionState.CANCEL_PENDING: frozenset({OrderExecutionState.CANCELLED}),
+        OrderExecutionState.NOT_FOUND: frozenset({OrderExecutionState.SUBMITTING}),
+        OrderExecutionState.FILLED: frozenset(),
+        OrderExecutionState.CANCELLED: frozenset(),
+        OrderExecutionState.REJECTED: frozenset(),
+        OrderExecutionState.EXPIRED: frozenset(),
+    }
+
+    assert {
+        state: OrderExecutionLifecycle.allowed_transitions(state)
+        for state in OrderExecutionState
+    } == expected
 
 
 def test_canonical_happy_path_reaches_filled() -> None:
@@ -185,14 +215,19 @@ def test_not_found_retry_requires_fresh_approval_same_client_id_and_valid_ttl() 
 
 
 def test_not_found_retry_rejects_different_client_identity_and_expired_reapproval() -> None:
-    original = _approved_order(intent_id="intent-original")
-    lifecycle = OrderExecutionLifecycle(original, clock=_clock(minute=26))
-    lifecycle = lifecycle._replace_state_for_test(OrderExecutionState.NOT_FOUND)
+    original = _approved_order(intent_id="intent-original", valid_for_minutes=20)
+    clock = _MutableClock(datetime(2026, 9, 21, 9, 16, tzinfo=timezone.utc))
+    lifecycle = OrderExecutionLifecycle(original, clock=clock)
+    lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
+    lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
+    lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
+    lifecycle = lifecycle.resolve_in_doubt(BrokerTruth.NOT_FOUND)
 
     different = _approved_order(intent_id="intent-different")
     with pytest.raises(OrderLifecycleError, match="same client_order_id"):
         lifecycle.retry_not_found(different)
 
     expired = _approved_order(intent_id="intent-original", valid_for_minutes=5, id_namespace="expired-reapproval")
+    clock.current = datetime(2026, 9, 21, 9, 26, tzinfo=timezone.utc)
     with pytest.raises(OrderLifecycleError, match="TTL"):
         lifecycle.retry_not_found(expired)
