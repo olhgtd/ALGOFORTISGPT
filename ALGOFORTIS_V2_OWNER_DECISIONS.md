@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.4 — Phase 2 kill-switch semantics lock recorded |
-| Date | 2026-09-21 |
+| Version | v0.5 — Phase 3 data decisions lock recorded |
+| Date | 2026-09-23 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
@@ -20,6 +20,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 4. On 2026-09-21 the Owner delegated implementation execution to the assistant and authorized work to start from the required starting point. The four Phase 0 blocking decisions were therefore frozen to the documented recommended choices in §3 and recorded in §4.
 5. On 2026-09-21 the Owner authorized completion of Phase 1. OD-V2-14 was therefore frozen to the documented V2.0 internal-registry recommendation and formalized by `docs/v2/adr/ADR-009-v2-plugin-scope.md`; external third-party plugin loading remains deferred.
 6. On 2026-09-21 the Owner authorized Phase 1 merge and immediate Phase 2 execution. OD-V2-07 was therefore frozen to the documented safe kill-switch recommendation and formalized by `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`.
+7. On 2026-09-23 the Owner authorized Phase 3 execution. OD-V2-04, OD-V2-10 and OD-V2-13 were frozen to the documented safe/recommended data choices and formalized by `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md`.
 
 ---
 
@@ -68,8 +69,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-04 — Crypto (BTCUSD) scope** · Blocks Phase 3
 - *Options:* (A) in V2.0; (B) V2.3 behind the same instrument abstraction.
-- *Recommendation:* **B**. It needs a 24×7 calendar, its own adapter, fee and margin model, and different regulatory handling. Keep the calendar and instrument abstractions free of "index-options-only" assumptions so B costs no rewrite.
-- *Status:* OPEN
+- *Decision:* **B — BTCUSD is deferred to V2.3 behind the same instrument/calendar abstractions. Phase 3 must remain free of assumptions that would force a rewrite for a future 24×7 market.**
+- *Status:* **FROZEN**
 
 ### Trading safety
 
@@ -110,8 +111,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-10 — Options data source and synthetic policy** · Blocks Phase 3
 - *Options:* licensed historical option-chain data / broker-provided history / synthetic pricing from underlying + IV model.
-- *Recommendation:* Choose the source by licence terms first, cost second. Any synthetic pricing must be labelled in every backtest report and excluded from promotion evidence unless explicitly accepted.
-- *Status:* OPEN
+- *Decision:* **Licensed historical option-chain data is the authoritative path for promotion-eligible research. Broker-provided history is permitted only when its terms explicitly allow the intended use/retention. Synthetic pricing is development/exploration fallback only, must be labelled `SYNTHETIC` with model/version provenance, and is excluded from promotion evidence unless a later dated Owner Decision explicitly accepts it.**
+- *Status:* **FROZEN**
 
 **OD-V2-11 — Multiple-testing / overfitting control** · Blocks Phase 4
 - *Options:* (a) trial count + mandatory WFO/OOS thresholds; (b) (a) + deflated performance metric and backtest-overfitting probability estimate; (c) (b) + reality-check style tests.
@@ -124,8 +125,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-13 — Historical store technology** · Blocks Phase 3
 - *Options:* (a) columnar files + embedded query engine + catalog in the operational DB; (b) embedded analytical DB only; (c) local Postgres/time-series server.
-- *Recommendation:* **(a)** — no server process to install or babysit on a user's PC.
-- *Status:* OPEN
+- *Decision:* **(a) — immutable Parquet/Arrow columnar files, queried in-process through PyArrow Dataset, with dataset catalog metadata in the existing operational SQLite store. No local database server is introduced for V2.0.**
+- *Status:* **FROZEN**
 
 **OD-V2-17 — Promotion criteria defaults** · Blocks Phase 4
 - *Parameters to set:* minimum trade count, OOS share, WFO windows and pass rate, Monte Carlo drawdown percentile cap, cost/slippage stress margin, minimum paper duration, paper-vs-backtest drift tolerance.
@@ -201,6 +202,9 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-12 | Decimal/fixed-point for money/price/quantity/risk; analytics floats require declared tolerance. | 2026-09-21 | Rounding and tick-size rules must be explicit/versioned; ADR-008 to formalize details. |
 | OD-V2-14 | V2.0 uses the internal adapter registry only; external signed packages and sandbox/process isolation are deferred. | 2026-09-21 | `docs/v2/adr/ADR-009-v2-plugin-scope.md` |
 | OD-V2-07 | Emergency Stop halts entries and cancels pending entry orders; protective exits stay active; FLATTEN_ALL is separate and explicit. | 2026-09-21 | `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md` |
+| OD-V2-04 | BTCUSD deferred to V2.3 behind the common instrument/calendar abstractions. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
+| OD-V2-10 | Licensed option-chain data is authoritative for promotion evidence; synthetic data is labelled fallback only. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
+| OD-V2-13 | Parquet/Arrow + in-process PyArrow Dataset + operational SQLite catalog; no local server. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
 
 ---
 
@@ -211,7 +215,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 0 | 01, 02, 03, 12 — **FROZEN 2026-09-21** |
 | Phase 1 | 14 — **FROZEN 2026-09-21** |
 | Phase 2 | 07 — **FROZEN 2026-09-21** |
-| Phase 3 | 04, 10, 13 |
+| Phase 3 | 04, 10, 13 — **FROZEN 2026-09-23** |
 | Phase 4 | 11, 17, ORB protective-policy ODs (§2) |
 | Phase 5 | 19, 24 |
 | Phase 6 | 05, 06, 08, 09 |
