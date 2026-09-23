@@ -1,4 +1,4 @@
-name: V2 Phase 1 Foundation Verification
+name: V2 Phase 2 Safety Spine Verification
 
 on:
   pull_request:
@@ -48,7 +48,7 @@ jobs:
       - name: V2 module-boundary policy
         shell: pwsh
         run: python build/tools/check_module_boundaries.py
-      - name: Phase 1 compile gate
+      - name: V2 compile gate
         shell: pwsh
         run: python -m compileall -q engine dashboard/backend build/tools tests_v1
       - name: Phase 1 foundation static policy
@@ -65,6 +65,21 @@ jobs:
           tests_v1/test_v2_phase1_observability.py
           tests_v1/test_v2_phase1_migrations.py
           tests_v1/test_v2_phase1_adapter_registry.py
+          -q
+      - name: Phase 2 safety-spine static policy
+        shell: pwsh
+        run: python build/tools/check_phase2_safety_spine.py
+      - name: Phase 2 focused invariant validation
+        shell: pwsh
+        run: >-
+          python -m pytest
+          tests_v1/test_v2_phase2_risk_gate_authority.py
+          tests_v1/test_v2_phase2_hard_limits.py
+          tests_v1/test_v2_phase2_intent_guard.py
+          tests_v1/test_v2_phase2_order_lifecycle.py
+          tests_v1/test_v2_phase2_mode_isolation.py
+          tests_v1/test_v2_phase2_live_state_machine.py
+          tests_v1/test_v2_phase2_kill_switch.py
           -q
       - name: Full regression test suite
         shell: pwsh
@@ -131,7 +146,7 @@ jobs:
       - name: V2 module-boundary policy
         shell: pwsh
         run: python build/tools/check_module_boundaries.py
-      - name: Phase 1 compile gate
+      - name: V2 compile gate
         shell: pwsh
         run: python -m compileall -q engine dashboard/backend build/tools tests_v1
       - name: Phase 1 foundation static policy
@@ -148,6 +163,21 @@ jobs:
           tests_v1/test_v2_phase1_observability.py
           tests_v1/test_v2_phase1_migrations.py
           tests_v1/test_v2_phase1_adapter_registry.py
+          -q
+      - name: Phase 2 safety-spine static policy
+        shell: pwsh
+        run: python build/tools/check_phase2_safety_spine.py
+      - name: Phase 2 focused invariant validation
+        shell: pwsh
+        run: >-
+          python -m pytest
+          tests_v1/test_v2_phase2_risk_gate_authority.py
+          tests_v1/test_v2_phase2_hard_limits.py
+          tests_v1/test_v2_phase2_intent_guard.py
+          tests_v1/test_v2_phase2_order_lifecycle.py
+          tests_v1/test_v2_phase2_mode_isolation.py
+          tests_v1/test_v2_phase2_live_state_machine.py
+          tests_v1/test_v2_phase2_kill_switch.py
           -q
       - name: Full regression test suite
         shell: pwsh
