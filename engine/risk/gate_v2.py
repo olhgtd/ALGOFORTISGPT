@@ -37,6 +37,11 @@ class RiskAuditSink(Protocol):
     def write(self, event_type: str, payload: dict[str, object]) -> None: ...
 
 
+class EntryPolicy(Protocol):
+    @property
+    def entries_allowed(self) -> bool: ...
+
+
 def _text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
@@ -151,6 +156,7 @@ class RiskGateV2:
         id_generator: IdGenerator,
         audit_sink: RiskAuditSink,
         hard_limits: ResolvedHardLimits,
+        entry_policy: EntryPolicy | None = None,
     ) -> None:
         if not callable(getattr(evaluator, "evaluate", None)):
             raise TypeError("evaluator must provide evaluate(intent)")
@@ -162,11 +168,19 @@ class RiskGateV2:
             raise TypeError("audit_sink must provide write(event_type, payload)")
         if not isinstance(hard_limits, ResolvedHardLimits):
             raise TypeError("hard_limits must be ResolvedHardLimits")
+        if entry_policy is not None:
+            try:
+                allowed = entry_policy.entries_allowed
+            except Exception as error:
+                raise TypeError("entry_policy must expose entries_allowed") from error
+            if not isinstance(allowed, bool):
+                raise TypeError("entry_policy.entries_allowed must be bool")
         self._evaluator = evaluator
         self._clock = clock
         self._id_generator = id_generator
         self._audit_sink = audit_sink
         self._hard_limits = hard_limits
+        self._entry_policy = entry_policy
 
     def evaluate_entry(self, intent: OrderIntent) -> ApprovedOrder | RiskRejection:
         if not isinstance(intent, OrderIntent):
@@ -181,6 +195,20 @@ class RiskGateV2:
                 ("intent_expired",),
                 limits_snapshot_id=self._hard_limits.snapshot_id,
             )
+
+        if self._entry_policy is not None:
+            try:
+                entries_allowed = self._entry_policy.entries_allowed
+            except Exception as error:
+                raise RiskApprovalError(
+                    "entry policy unavailable; risk action blocked"
+                ) from error
+            if entries_allowed is not True:
+                return self._reject(
+                    intent,
+                    ("entries_halted",),
+                    limits_snapshot_id=self._hard_limits.snapshot_id,
+                )
 
         if intent.instrument_ref.segment == "options" and intent.side != "BUY":
             return self._reject(
@@ -220,9 +248,6 @@ class RiskGateV2:
                 limits_snapshot_id=self._hard_limits.snapshot_id,
             )
 
-        # REDUCED is a recorded risk decision but is not executable in this
-        # initial capability slice.  A future explicit quantity-adjustment
-        # contract may consume it; Phase 2 currently fails closed.
         if evaluation.decision is RiskDecisionKind.REDUCED:
             return self._reject(
                 intent,
@@ -263,7 +288,6 @@ class RiskGateV2:
             },
         )
 
-        # Minting occurs strictly after the audit write above succeeds.
         return _mint_approved_order(
             client_order_id=client_order_id,
             intent=intent,
