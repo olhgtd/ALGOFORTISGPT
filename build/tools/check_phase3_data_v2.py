@@ -83,7 +83,7 @@ REQUIRED_MARKERS: dict[str, tuple[str, ...]] = {
     "engine/data/catalog.py": (
         "dataset_id",
         "version_id",
-        "checksum",
+        "content_sha256",
         "provenance",
     ),
 }
