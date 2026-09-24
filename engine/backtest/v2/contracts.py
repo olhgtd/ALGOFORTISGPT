@@ -47,6 +47,7 @@ class ExecutionModel:
     brokerage_per_order: Decimal = Decimal(0)
     fill_edge: str = "OPEN"
     rejected_order_indices: tuple[int, ...] = ()
+    seed: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.version, str) or "@" not in self.version:
@@ -57,6 +58,8 @@ class ExecutionModel:
             finite(getattr(self, field), field)
         if self.fill_edge not in ("OPEN", "CLOSE"):
             raise V2Error("fill_edge must be OPEN or CLOSE")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise V2Error("seed must be a nonnegative integer")
         if (not isinstance(self.rejected_order_indices, tuple)
                 or any(isinstance(x, bool) or not isinstance(x, int) or x < 0 for x in self.rejected_order_indices)
                 or tuple(sorted(set(self.rejected_order_indices))) != self.rejected_order_indices):

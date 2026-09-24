@@ -19,7 +19,7 @@ def test_execution_is_replayable_with_costs_partial_fills_and_rejections():
     first = simulate(bars, orders, model)
     assert first.fingerprint == simulate(bars, orders, model).fingerprint
     assert first.events[0].filled_quantity == Decimal("2.5")
-    assert replay(first.events, model).fingerprint == first.fingerprint
+    assert replay(first.events, model, input_fingerprint=first.input_fingerprint).fingerprint == first.fingerprint
 
 
 def test_invalid_future_order_and_gapped_stop_fail_closed():
@@ -50,3 +50,19 @@ def test_versioned_rejection_input_yields_no_fill():
     result = simulate((bar,), (OrderIntent(0, "BUY", Decimal("1")),), model)
     assert result.events[0].status == "REJECTED_MODEL"
     assert result.events[0].filled_quantity == 0
+
+
+def test_seed_is_part_of_backtest_replay_identity():
+    t = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    bars = (Bar(t, Decimal("100"), Decimal("101"), Decimal("99"), Decimal("100"), Decimal("10")),)
+    order = (OrderIntent(0, "BUY", Decimal("1")),)
+    assert simulate(bars, order, ExecutionModel("exec@v2", seed=17)).fingerprint != simulate(
+        bars, order, ExecutionModel("exec@v2", seed=18)).fingerprint
+
+
+def test_dataset_identity_changes_result_even_when_no_orders_fill():
+    t = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    bar_a = Bar(t, Decimal("100"), Decimal("101"), Decimal("99"), Decimal("100"), Decimal("10"))
+    bar_b = Bar(t, Decimal("200"), Decimal("201"), Decimal("199"), Decimal("200"), Decimal("10"))
+    model = ExecutionModel("exec@v2")
+    assert simulate((bar_a,), (), model).fingerprint != simulate((bar_b,), (), model).fingerprint

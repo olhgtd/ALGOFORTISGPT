@@ -99,20 +99,25 @@ class PromotionEvidenceBundle:
     values: Mapping[str, object]
     fingerprint: str
     _attested: bool = field(default=False, init=False, repr=False)
+    _metrics_verified: bool = field(default=False, init=False, repr=False)
 
     @classmethod
     def from_authorities(cls, *, ledger: object, validation: object,
-                         overfitting: object, licence: object,
+                         overfitting: object, licence_metadata: object, market: str,
                          metrics: Mapping[str, int | Decimal]) -> "PromotionEvidenceBundle":
         from engine.research.durable_ledger import DurableTrialsLedger
         from engine.research.validation_v2 import ValidationBundle
         from engine.research.overfitting import OverfittingEvidence
-        from engine.data.licensing import DataLicenceDecision
+        from engine.data.licensing import DataLicenceMetadata
+        if not isinstance(licence_metadata, DataLicenceMetadata):
+            raise PromotionError("source licence metadata required")
+        licence = _promotion_licence(licence_metadata, market=market)
         if (not isinstance(ledger, DurableTrialsLedger)
                 or not isinstance(validation, ValidationBundle)
                 or not isinstance(overfitting, OverfittingEvidence)
-                or not isinstance(licence, DataLicenceDecision)
                 or not licence.allowed or "SYNTHETIC" in licence.labels
+                or not validation.dataset_ref.startswith(licence_metadata.source_id + "@")
+                or validation.dataset_ref not in ledger.experiment.dataset_versions
                 or ledger.trial_count != overfitting.trial_count or ledger.trial_count < 2
                 or not ledger.oos_viewed or validation.wfo_evidence is None
                 or validation.final_oos is None or validation.robustness is None):
@@ -135,6 +140,18 @@ class PromotionEvidenceBundle:
         return bundle
 
 
+def _promotion_licence(metadata: object, *, market: str):
+    from engine.data.licensing import DataLicenceMetadata, DataLicencePolicy, DataUse
+    if not isinstance(metadata, DataLicenceMetadata):
+        raise PromotionError("source licence metadata required")
+    return DataLicencePolicy().evaluate(metadata, market=market,
+        requested_use=DataUse.PROMOTION, programmatic_acquisition=False)
+
+
+def licensed_for_promotion(metadata: object, *, market: str) -> bool:
+    return _promotion_licence(metadata, market=market).allowed
+
+
 def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object] | PromotionEvidenceBundle) -> PromotionDecision:
     if not isinstance(profile, PromotionProfile) or not isinstance(evidence, (Mapping, PromotionEvidenceBundle)):
         raise PromotionError("profile and evidence required")
@@ -142,6 +159,8 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
         return PromotionDecision("NON_PROMOTABLE", ("RESEARCH_ONLY",))
     if not isinstance(evidence, PromotionEvidenceBundle) or not evidence._attested:
         return PromotionDecision("NON_PROMOTABLE", ("MISSING_EVIDENCE",))
+    if not evidence._metrics_verified:
+        return PromotionDecision("NON_PROMOTABLE", ("UNVERIFIED_METRICS",))
     evidence = evidence.values
     required = ("trades", "oos_share", "wfo_windows", "wfo_pass_rate", "mc_drawdown",
                 "stress_margin")

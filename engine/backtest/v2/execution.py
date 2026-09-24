@@ -26,13 +26,17 @@ class FillEvent:
 class SimulationResult:
     events: tuple[FillEvent, ...]
     fingerprint: str
+    input_fingerprint: str
 
 
-def _fingerprint(events: tuple[FillEvent, ...], model: ExecutionModel) -> str:
+def _fingerprint(events: tuple[FillEvent, ...], model: ExecutionModel,
+                 input_fingerprint: str) -> str:
     return CanonicalCodec.fingerprint("algofortis-backtest-v2-replay/v1", (
+        ("input_fingerprint", input_fingerprint),
         ("model", (model.version, model.latency_bars, model.spread, model.slippage,
                     model.fee_per_unit, model.liquidity_fraction, model.tax_per_unit,
-                    model.brokerage_per_order, model.fill_edge, model.rejected_order_indices)),
+                    model.brokerage_per_order, model.fill_edge, model.rejected_order_indices,
+                    model.seed)),
         ("events", tuple((e.bar_index, e.timestamp, e.side, e.requested_quantity,
                           e.filled_quantity, e.price, e.fee, e.status) for e in events)),
     ))
@@ -81,7 +85,11 @@ def simulate(bars: tuple[Bar, ...], orders: tuple[OrderIntent, ...],
                                 + (model.brokerage_per_order if filled else Decimal(0)),
                                 "REJECTED_LIQUIDITY" if not filled else "PARTIAL" if filled < order.quantity else "FILLED"))
     ordered = tuple(events)
-    return SimulationResult(ordered, _fingerprint(ordered, model))
+    input_fingerprint = CanonicalCodec.fingerprint("algofortis-backtest-v2-inputs/v1", (
+        ("bars", tuple((b.timestamp, b.open, b.high, b.low, b.close, b.volume) for b in bars)),
+        ("orders", tuple((o.bar_index, o.side, o.quantity, o.stop_price) for o in orders)),
+    ))
+    return SimulationResult(ordered, _fingerprint(ordered, model, input_fingerprint), input_fingerprint)
 
 
 def simulate_strategy(bars: tuple[Bar, ...], strategy: Callable[[tuple[Bar, ...]], tuple[OrderIntent, ...]],

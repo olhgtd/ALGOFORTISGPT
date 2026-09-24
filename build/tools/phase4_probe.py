@@ -76,12 +76,14 @@ def promotion_probe() -> tuple[str, str]:
             (Decimal("1"), Decimal("2"), Decimal("-1"), Decimal("3"), Decimal("2"), Decimal("-2"), Decimal("1"), Decimal("3")),
             (Decimal("2"), Decimal("-1"), Decimal("3"), Decimal("1"), Decimal("-1"), Decimal("2"), Decimal("2"), Decimal("1"))),
             ledger_trial_count=2)
-        licence = DataLicencePolicy().evaluate(DataLicenceMetadata(
-            "TEST_ONLY", "fixture@v1", AcquisitionPermission.ALLOWED, (DataUse.RESEARCH, DataUse.PROMOTION), synthetic=True),
+        metadata = DataLicenceMetadata(
+            "fixture", "fixture@v1", AcquisitionPermission.ALLOWED, (DataUse.RESEARCH, DataUse.PROMOTION), synthetic=True)
+        licence = DataLicencePolicy().evaluate(metadata,
             market="NSE", requested_use=DataUse.PROMOTION, programmatic_acquisition=False)
         try:
             PromotionEvidenceBundle.from_authorities(
-                ledger=ledger, validation=validation, overfitting=overfit, licence=licence,
+                ledger=ledger, validation=validation, overfitting=overfit,
+                licence_metadata=metadata, market="NSE",
                 metrics={"trades": 2})
         except PromotionError:
             attempt = CanonicalCodec.fingerprint("algofortis-test-only-promotion-attempt/v1", (
