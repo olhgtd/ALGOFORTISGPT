@@ -41,3 +41,12 @@ def test_explicit_tax_brokerage_and_close_edge_are_applied():
     fill = simulate((bar,), (OrderIntent(0, "BUY", Decimal("2")),), model).events[0]
     assert fill.price == Decimal("105")
     assert fill.fee == Decimal("5")
+
+
+def test_versioned_rejection_input_yields_no_fill():
+    bar = Bar(datetime(2026, 1, 1, tzinfo=timezone.utc),
+              Decimal("100"), Decimal("101"), Decimal("99"), Decimal("100"), Decimal("10"))
+    model = ExecutionModel("exec@v2", rejected_order_indices=(0,))
+    result = simulate((bar,), (OrderIntent(0, "BUY", Decimal("1")),), model)
+    assert result.events[0].status == "REJECTED_MODEL"
+    assert result.events[0].filled_quantity == 0

@@ -26,11 +26,16 @@ class StrategyLifecycle:
         if self.live_state != "READ_ONLY/DISARMED":
             raise LifecycleError("Phase 4 never arms Live")
 
-    def advance(self, stage: str, *, evidence_fingerprint: str) -> "StrategyLifecycle":
+    def advance(self, stage: str, *, evidence_fingerprint: str,
+                decision: object | None = None) -> "StrategyLifecycle":
         if self.stage == "DEACTIVATED" or self.stage not in STAGES or STAGES.index(self.stage) + 1 >= len(STAGES) or stage != STAGES[STAGES.index(self.stage) + 1]:
             raise LifecycleError("only one forward evidence transition is allowed")
         if not isinstance(evidence_fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", evidence_fingerprint):
             raise LifecycleError("versioned evidence fingerprint required")
+        if stage == "ELIGIBLE_FOR_LIVE":
+            from .promotion_v2 import PromotionDecision
+            if not isinstance(decision, PromotionDecision) or decision.status != "ELIGIBLE_FOR_LIVE_EVIDENCE_ONLY" or decision.live_state != "READ_ONLY/DISARMED":
+                raise LifecycleError("eligible evidence requires a passing promotion decision")
         return replace(self, stage=stage, evidence=self.evidence + (evidence_fingerprint,))
 
     def rollback(self) -> "StrategyLifecycle":

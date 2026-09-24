@@ -46,6 +46,7 @@ class ExecutionModel:
     tax_per_unit: Decimal = Decimal(0)
     brokerage_per_order: Decimal = Decimal(0)
     fill_edge: str = "OPEN"
+    rejected_order_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.version, str) or "@" not in self.version:
@@ -56,6 +57,10 @@ class ExecutionModel:
             finite(getattr(self, field), field)
         if self.fill_edge not in ("OPEN", "CLOSE"):
             raise V2Error("fill_edge must be OPEN or CLOSE")
+        if (not isinstance(self.rejected_order_indices, tuple)
+                or any(isinstance(x, bool) or not isinstance(x, int) or x < 0 for x in self.rejected_order_indices)
+                or tuple(sorted(set(self.rejected_order_indices))) != self.rejected_order_indices):
+            raise V2Error("rejected_order_indices must be sorted unique nonnegative integers")
         finite(self.liquidity_fraction, "liquidity_fraction", positive=True)
         if self.liquidity_fraction > 1:
             raise V2Error("liquidity_fraction cannot exceed one")

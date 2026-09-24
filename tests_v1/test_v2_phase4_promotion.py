@@ -36,3 +36,13 @@ def test_unverified_fabricated_dict_cannot_promote():
                       trials_ledger_fingerprint="b" * 64,
                       overfitting_fingerprint="c" * 64)
     assert evaluate_promotion(profile, fabricated).status == "NON_PROMOTABLE"
+
+
+def test_backtest_to_paper_profile_is_distinct_from_paper_to_live():
+    profile = PromotionProfile.backtest_to_paper(
+        version="baseline@v1", minimum_trades=200,
+        minimum_oos_share=Decimal("0.2"), minimum_wfo_windows=3,
+        minimum_wfo_pass_rate=Decimal("0.6"), maximum_mc_drawdown=Decimal("0.2"),
+        minimum_stress_margin=Decimal("0"))
+    assert profile.stage == "BACKTEST_TO_PAPER"
+    assert "minimum_paper_days" not in profile.criteria

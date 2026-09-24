@@ -19,10 +19,25 @@ class PromotionProfile:
     version: str
     criteria: Mapping[str, int | Decimal]
     is_research_only: bool
+    stage: str = "PAPER_TO_ELIGIBLE_FOR_LIVE"
 
     @classmethod
     def research_only(cls) -> "PromotionProfile":
-        return cls("research-only/v1", MappingProxyType({}), True)
+        return cls("research-only/v1", MappingProxyType({}), True, "RESEARCH_ONLY")
+
+    @classmethod
+    def backtest_to_paper(cls, *, version: str, minimum_trades: int,
+                          minimum_oos_share: Decimal, minimum_wfo_windows: int,
+                          minimum_wfo_pass_rate: Decimal, maximum_mc_drawdown: Decimal,
+                          minimum_stress_margin: Decimal) -> "PromotionProfile":
+        complete = cls.numeric(version=version, minimum_trades=minimum_trades,
+            minimum_oos_share=minimum_oos_share, minimum_wfo_windows=minimum_wfo_windows,
+            minimum_wfo_pass_rate=minimum_wfo_pass_rate, maximum_mc_drawdown=maximum_mc_drawdown,
+            minimum_stress_margin=minimum_stress_margin, minimum_paper_days=1,
+            maximum_paper_drift=Decimal(0))
+        criteria = {key: value for key, value in complete.criteria.items()
+                    if key not in ("minimum_paper_days", "maximum_paper_drift")}
+        return cls(version, MappingProxyType(criteria), False, "BACKTEST_TO_PAPER")
 
     @classmethod
     def numeric(cls, *, version: str, minimum_trades: int, minimum_oos_share: Decimal,
@@ -100,8 +115,13 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
         return PromotionDecision("NON_PROMOTABLE", ("MISSING_EVIDENCE",))
     evidence = evidence.values
     required = ("trades", "oos_share", "wfo_windows", "wfo_pass_rate", "mc_drawdown",
-                "stress_margin", "paper_days", "paper_drift", "validation_fingerprint",
-                "trials_ledger_fingerprint", "overfitting_fingerprint", "licensed_data")
+                "stress_margin")
+    if profile.stage == "PAPER_TO_ELIGIBLE_FOR_LIVE":
+        required += ("paper_days", "paper_drift")
+    elif profile.stage != "BACKTEST_TO_PAPER":
+        return PromotionDecision("NON_PROMOTABLE", ("INVALID_PROFILE_STAGE",))
+    required += ("validation_fingerprint", "trials_ledger_fingerprint",
+                 "overfitting_fingerprint", "licensed_data")
     if any(key not in evidence for key in required):
         return PromotionDecision("NON_PROMOTABLE", ("MISSING_EVIDENCE",))
     if evidence["licensed_data"] is not True:
@@ -110,6 +130,7 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
               ("wfo_windows", "minimum_wfo_windows", False), ("wfo_pass_rate", "minimum_wfo_pass_rate", False),
               ("mc_drawdown", "maximum_mc_drawdown", True), ("stress_margin", "minimum_stress_margin", False),
               ("paper_days", "minimum_paper_days", False), ("paper_drift", "maximum_paper_drift", True))
+    checks = tuple(item for item in checks if item[1] in profile.criteria)
     try:
         failures = tuple(key.upper() + "_FAIL" for key, threshold, maximum in checks
                          if isinstance(evidence[key], bool) or not isinstance(evidence[key], (int, Decimal))
@@ -118,6 +139,8 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
                          or ((evidence[key] > profile.criteria[threshold]) if maximum else (evidence[key] < profile.criteria[threshold])))
     except (TypeError, ValueError):
         return PromotionDecision("NON_PROMOTABLE", ("INVALID_EVIDENCE",))
-    if failures or any(not isinstance(evidence[k], str) or not re.fullmatch(r"[0-9a-f]{64}", evidence[k]) for k in required[8:11]):
+    identity_fields = ("validation_fingerprint", "trials_ledger_fingerprint", "overfitting_fingerprint")
+    if failures or any(not isinstance(evidence[k], str) or not re.fullmatch(r"[0-9a-f]{64}", evidence[k]) for k in identity_fields):
         return PromotionDecision("NON_PROMOTABLE", failures or ("INVALID_EVIDENCE",))
-    return PromotionDecision("ELIGIBLE_FOR_LIVE_EVIDENCE_ONLY", ())
+    status = "ELIGIBLE_FOR_PAPER_EVIDENCE_ONLY" if profile.stage == "BACKTEST_TO_PAPER" else "ELIGIBLE_FOR_LIVE_EVIDENCE_ONLY"
+    return PromotionDecision(status, ())

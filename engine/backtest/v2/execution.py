@@ -32,7 +32,7 @@ def _fingerprint(events: tuple[FillEvent, ...], model: ExecutionModel) -> str:
     return CanonicalCodec.fingerprint("algofortis-backtest-v2-replay/v1", (
         ("model", (model.version, model.latency_bars, model.spread, model.slippage,
                     model.fee_per_unit, model.liquidity_fraction, model.tax_per_unit,
-                    model.brokerage_per_order, model.fill_edge)),
+                    model.brokerage_per_order, model.fill_edge, model.rejected_order_indices)),
         ("events", tuple((e.bar_index, e.timestamp, e.side, e.requested_quantity,
                           e.filled_quantity, e.price, e.fee, e.status) for e in events)),
     ))
@@ -48,8 +48,13 @@ def simulate(bars: tuple[Bar, ...], orders: tuple[OrderIntent, ...],
         raise V2Error("orders must refer to an available bar")
     events = []
     remaining_liquidity: dict[int, Decimal] = {}
-    for order in sorted(orders, key=lambda item: item.bar_index):
+    for ordinal, order in enumerate(sorted(orders, key=lambda item: item.bar_index)):
         index = order.bar_index + model.latency_bars
+        if ordinal in model.rejected_order_indices:
+            events.append(FillEvent(index, bars[min(index, len(bars) - 1)].timestamp,
+                                    order.side, order.quantity, Decimal(0), None,
+                                    Decimal(0), "REJECTED_MODEL"))
+            continue
         if index >= len(bars):
             events.append(FillEvent(index, bars[-1].timestamp, order.side, order.quantity,
                                     Decimal(0), None, Decimal(0), "REJECTED_LATENCY"))
