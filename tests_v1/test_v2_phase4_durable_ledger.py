@@ -45,3 +45,23 @@ def test_durable_ledger_rejects_external_update_and_experiment_change(tmp_path):
     with sqlite3.connect(path) as db, pytest.raises(sqlite3.IntegrityError):
         db.execute("UPDATE trials SET reason = 'changed' WHERE ordinal = 1")
     assert DurableTrialsLedger(path, experiment).records()[0].reason == "invalid"
+
+
+def test_sqlite_connections_close_after_ledger_operations(tmp_path, monkeypatch):
+    import engine.research.durable_ledger as module
+    real_connect = sqlite3.connect
+    opened = []
+    closed = []
+    class TrackingConnection(sqlite3.Connection):
+        def close(self):
+            closed.append(self)
+            return super().close()
+    def tracked(*args, **kwargs):
+        connection = real_connect(*args, factory=TrackingConnection, **kwargs)
+        opened.append(connection)
+        return connection
+    monkeypatch.setattr(module.sqlite3, "connect", tracked)
+    ledger = DurableTrialsLedger(tmp_path / "ledger.sqlite", _experiment())
+    ledger.mark_oos_viewed()
+    assert ledger.oos_viewed
+    assert len(opened) == len(closed)

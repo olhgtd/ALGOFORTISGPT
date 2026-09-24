@@ -12,6 +12,11 @@ The built-in `research-only/v1` profile is `NON_PROMOTABLE`.
 - The CI workflow requires matching ORB and Backtest V2 fingerprints from both
   Windows runners. The next exact-head run must also pass after this document
   and later fixes are committed. The run above does **not** qualify a later head.
+- [Run 111](https://github.com/olhgtd/ALGOFORTISGPT/actions/runs/36003976140)
+  on `5751f98bb2fd6faa0d140d0e5b4cbce7ec7bddfb` failed on both Windows
+  runners: `TemporaryDirectory` could not remove `ledger.sqlite` because the
+  SQLite connection context committed but did not close its Windows file handle.
+  The connection lifecycle has been corrected and needs a fresh exact-head run.
 - `TEST_ONLY`/synthetic probe data must yield `NON_PROMOTABLE`; a fixture is
   never evidence for a numeric production promotion profile.
 

@@ -9,6 +9,8 @@ REQUIRED = (
     "engine/strategy/contracts_v2.py", "engine/strategy/state_v2.py",
     "engine/strategy/promotion_v2.py", "engine/research/trials.py",
     "engine/research/validation_v2.py", "engine/research/overfitting.py",
+    "engine/research/walk_forward_v2.py", "engine/research/durable_ledger.py",
+    "engine/research/robustness_v2.py",
     "engine/backtest/v2/execution.py", "engine/backtest/v2/replay.py",
     "engine/backtest/v2/options.py", "engine/backtest/v2/batch.py",
     "strategies/orb/orb_v2.py", "tests_v1/test_v2_phase4_no_lookahead.py",

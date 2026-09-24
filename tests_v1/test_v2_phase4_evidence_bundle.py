@@ -9,6 +9,8 @@ from engine.research.experiments import ExperimentSpec
 from engine.research.overfitting import overfitting_evidence
 from engine.research.trials import TrialRecord, TrialStatus
 from engine.research.validation_v2 import SplitWindow, STRESS_FAMILIES, ValidationBundle
+from engine.research.walk_forward_v2 import WalkForwardPlan, execute_walk_forward, evaluate_final_holdout
+from engine.research.robustness_v2 import evaluate_robustness
 from engine.strategy.promotion_v2 import PromotionError, PromotionEvidenceBundle, PromotionProfile, evaluate_promotion
 
 
@@ -22,10 +24,18 @@ def test_promotion_bundle_requires_closed_ledger_and_licensed_data(tmp_path):
         ledger.append(TrialRecord.create(experiment=exp, ordinal=n,
             parameters={"lookback": n * 10}, status=TrialStatus.COMPLETED,
             result_fingerprint="c" * 64, reason=""))
+    wfo = execute_walk_forward(tuple(Decimal(i) for i in range(50)), WalkForwardPlan(8, 2, 2, 1, 13),
+        select=lambda train, val: "params@v1", score=lambda params, test: sum(test) / len(test))
+    final_oos = evaluate_final_holdout(tuple(Decimal(i) for i in range(50)),
+        start=40, end=50, wfo=wfo, score=lambda params, test: sum(test) / len(test))
+    series = tuple(Decimal(i % 5 - 2) for i in range(30))
+    robustness = evaluate_robustness({key: series for key in STRESS_FAMILIES},
+                                     seed=17, draws=100, block_length=3)
     validation = ValidationBundle.create(
-        train=SplitWindow(0, 10), validation=SplitWindow(10, 12), test=SplitWindow(12, 15),
-        dataset_ref="nifty@v1", wfo_scores=(Decimal("1"),), oos_score=Decimal("1"),
-        stress_scores={name: Decimal("0") for name in STRESS_FAMILIES})
+        train=SplitWindow(0, 20), validation=SplitWindow(20, 40), test=SplitWindow(40, 50),
+        dataset_ref="nifty@v1", wfo_scores=tuple(w.oos_score for w in wfo.windows),
+        oos_score=final_oos.score, stress_scores=robustness.scores,
+        wfo_evidence=wfo, final_oos=final_oos, robustness=robustness)
     overfit = overfitting_evidence((
         (Decimal("1"), Decimal("2"), Decimal("-1"), Decimal("3"),
          Decimal("2"), Decimal("-2"), Decimal("1"), Decimal("3")),

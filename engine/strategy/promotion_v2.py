@@ -88,7 +88,8 @@ class PromotionEvidenceBundle:
                 or not isinstance(licence, DataLicenceDecision)
                 or not licence.allowed or "SYNTHETIC" in licence.labels
                 or ledger.trial_count != overfitting.trial_count or ledger.trial_count < 2
-                or not ledger.oos_viewed):
+                or not ledger.oos_viewed or validation.wfo_evidence is None
+                or validation.final_oos is None or validation.robustness is None):
             raise PromotionError("complete durable, licensed and closed research authorities required")
         if not isinstance(metrics, Mapping) or any(isinstance(value, bool) or not isinstance(value, (int, Decimal))
                  or (isinstance(value, Decimal) and not value.is_finite()) for value in metrics.values()):

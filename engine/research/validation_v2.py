@@ -7,14 +7,12 @@ from types import MappingProxyType
 from typing import Mapping
 
 from engine.reproducibility.codec import CanonicalCodec
+from .walk_forward_v2 import WalkForwardEvidence, FinalHoldoutEvidence
+from .robustness_v2 import RobustnessReport, STRESS_FAMILIES
 
 
 class EvidenceError(ValueError):
     pass
-
-
-STRESS_FAMILIES = frozenset(("bootstrap", "monte_carlo", "sensitivity", "regime",
-                             "cost", "slippage", "delay", "missing_feed", "bad_feed"))
 
 
 def _finite(value: object) -> Decimal:
@@ -44,11 +42,17 @@ class ValidationBundle:
     stress_scores: Mapping[str, Decimal]
     fingerprint: str
     schema_version: str = "algofortis-validation-bundle/v1"
+    wfo_evidence: WalkForwardEvidence | None = None
+    final_oos: FinalHoldoutEvidence | None = None
+    robustness: RobustnessReport | None = None
 
     @classmethod
     def create(cls, *, train: SplitWindow, validation: SplitWindow, test: SplitWindow,
                dataset_ref: str, wfo_scores: tuple[Decimal, ...], oos_score: Decimal,
-               stress_scores: Mapping[str, Decimal]) -> "ValidationBundle":
+               stress_scores: Mapping[str, Decimal],
+               wfo_evidence: WalkForwardEvidence | None = None,
+               final_oos: FinalHoldoutEvidence | None = None,
+               robustness: RobustnessReport | None = None) -> "ValidationBundle":
         if not all(isinstance(x, SplitWindow) for x in (train, validation, test)):
             raise EvidenceError("all splits must be SplitWindow")
         if train.end > validation.start or validation.end > test.start:
@@ -62,10 +66,29 @@ class ValidationBundle:
         if not isinstance(stress_scores, Mapping) or set(stress_scores) != STRESS_FAMILIES:
             raise EvidenceError("all robustness and feed-stress families required")
         stresses = MappingProxyType({key: _finite(stress_scores[key]) for key in sorted(STRESS_FAMILIES)})
+        if robustness is not None and (not isinstance(robustness, RobustnessReport)
+                                      or dict(robustness.scores) != dict(stresses)):
+            raise EvidenceError("stress scores must match executed robustness scenarios")
+        if wfo_evidence is not None:
+            if (not isinstance(wfo_evidence, WalkForwardEvidence)
+                    or tuple(w.oos_score for w in wfo_evidence.windows) != scores
+                    or any(w.test_end > test.start for w in wfo_evidence.windows)):
+                raise EvidenceError("WFO execution must match scores and precede final OOS holdout")
+        if final_oos is not None:
+            if (not isinstance(final_oos, FinalHoldoutEvidence) or wfo_evidence is None
+                    or final_oos.wfo_fingerprint != wfo_evidence.fingerprint
+                    or (final_oos.start, final_oos.end) != (test.start, test.end)
+                    or final_oos.score != oos):
+                raise EvidenceError("final OOS execution must bind frozen WFO and holdout split")
         fingerprint = CanonicalCodec.fingerprint("algofortis-validation-bundle/v1", (
             ("train", (train.start, train.end)), ("validation", (validation.start, validation.end)),
             ("test", (test.start, test.end)), ("dataset_ref", dataset_ref),
             ("wfo_scores", scores), ("oos_score", oos),
             ("stress_scores", tuple(stresses.items())),
+            ("wfo_evidence", None if wfo_evidence is None else wfo_evidence.fingerprint),
+            ("final_oos", None if final_oos is None else final_oos.fingerprint),
+            ("robustness", None if robustness is None else robustness.fingerprint),
         ))
-        return cls(train, validation, test, dataset_ref, scores, oos, stresses, fingerprint)
+        return cls(train, validation, test, dataset_ref, scores, oos, stresses,
+                   fingerprint, wfo_evidence=wfo_evidence, final_oos=final_oos,
+                   robustness=robustness)

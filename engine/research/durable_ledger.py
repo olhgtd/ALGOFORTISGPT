@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
 import sqlite3
-from typing import Mapping
+from typing import Iterator, Mapping
 
 from .experiments import ExperimentSpec
 from .trials import TrialRecord, TrialStatus, TrialsLedger, TrialsLedgerError
@@ -60,8 +61,14 @@ class DurableTrialsLedger(TrialsLedger):
                 raise DurableLedgerError("experiment identity/budget changed")
         self._refresh()
 
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path, timeout=10)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        db = sqlite3.connect(self.path, timeout=10)
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def _refresh(self) -> None:
         with self._connect() as db:
