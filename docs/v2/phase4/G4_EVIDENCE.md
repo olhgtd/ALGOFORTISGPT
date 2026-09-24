@@ -1,6 +1,6 @@
-# G4 qualification evidence — candidate, not accepted
+# G4 qualification evidence — research-only gate
 
-Phase 4 remains **draft** and Live remains `READ_ONLY` / `DISARMED`.
+Phase 4 remains **draft pending review** and Live remains `READ_ONLY` / `DISARMED`.
 The built-in `research-only/v1` profile is `NON_PROMOTABLE`.
 
 ## Automated checks
@@ -41,6 +41,13 @@ The built-in `research-only/v1` profile is `NON_PROMOTABLE`.
   `DEFAULT_PROMOTION_STATUS=NON_PROMOTABLE`. This qualifies the implementation
   at that head only. The present evidence-document commit requires its own
   exact-head dual-Windows qualification before G4 acceptance.
+- [Run 116](https://github.com/olhgtd/ALGOFORTISGPT/actions/runs/36041408377)
+  on evidence commit `ec182b258a967da012f0880a35130140ccca3b7c` passed
+  Windows latest and Windows 2022, Python 3.13.14, all focused/full regression,
+  prior static/golden gates and the cross-Windows fingerprint comparison. The
+  comparison printed identical ORB and Backtest fingerprints and
+  `DEFAULT_PROMOTION_STATUS=NON_PROMOTABLE`. Both artifacts are attached to
+  the run; differing archive digests do not imply differing contained text.
 - `TEST_ONLY`/synthetic probe data must yield `NON_PROMOTABLE`; a fixture is
   never evidence for a numeric production promotion profile.
 
@@ -59,6 +66,8 @@ Supplied trade metrics are not independently calculated from a trusted paper
 authority, so even an explicit numeric profile remains `NON_PROMOTABLE` with
 `UNVERIFIED_METRICS` until that authority is implemented and tested.
 
-G4 is **not accepted** until the evidence commit itself receives a fresh
-exact-head dual-Windows green run and the remaining research-only evidence
-limitations are reviewed. No G4 result can enable Live or promote a strategy.
+G4 research-only qualification requires a successful exact-head dual-Windows
+run on this document's final commit and review of the limitations above. The
+implementation and previous evidence commit passed run 116; the final document
+commit must also pass before acceptance. No G4 result can enable Live or promote
+a strategy.
