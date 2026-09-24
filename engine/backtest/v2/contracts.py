@@ -43,14 +43,19 @@ class ExecutionModel:
     slippage: Decimal = Decimal(0)
     fee_per_unit: Decimal = Decimal(0)
     liquidity_fraction: Decimal = Decimal(1)
+    tax_per_unit: Decimal = Decimal(0)
+    brokerage_per_order: Decimal = Decimal(0)
+    fill_edge: str = "OPEN"
 
     def __post_init__(self) -> None:
         if not isinstance(self.version, str) or "@" not in self.version:
             raise V2Error("versioned execution model required")
         if isinstance(self.latency_bars, bool) or not isinstance(self.latency_bars, int) or self.latency_bars < 0:
             raise V2Error("latency_bars must be nonnegative integer")
-        for field in ("spread", "slippage", "fee_per_unit"):
+        for field in ("spread", "slippage", "fee_per_unit", "tax_per_unit", "brokerage_per_order"):
             finite(getattr(self, field), field)
+        if self.fill_edge not in ("OPEN", "CLOSE"):
+            raise V2Error("fill_edge must be OPEN or CLOSE")
         finite(self.liquidity_fraction, "liquidity_fraction", positive=True)
         if self.liquidity_fraction > 1:
             raise V2Error("liquidity_fraction cannot exceed one")

@@ -31,7 +31,8 @@ class SimulationResult:
 def _fingerprint(events: tuple[FillEvent, ...], model: ExecutionModel) -> str:
     return CanonicalCodec.fingerprint("algofortis-backtest-v2-replay/v1", (
         ("model", (model.version, model.latency_bars, model.spread, model.slippage,
-                    model.fee_per_unit, model.liquidity_fraction)),
+                    model.fee_per_unit, model.liquidity_fraction, model.tax_per_unit,
+                    model.brokerage_per_order, model.fill_edge)),
         ("events", tuple((e.bar_index, e.timestamp, e.side, e.requested_quantity,
                           e.filled_quantity, e.price, e.fee, e.status) for e in events)),
     ))
@@ -63,7 +64,7 @@ def simulate(bars: tuple[Bar, ...], orders: tuple[OrderIntent, ...],
                 continue
             base = max(bar.open, order.stop_price) if order.side == "BUY" else min(bar.open, order.stop_price)
         else:
-            base = bar.open
+            base = bar.open if model.fill_edge == "OPEN" else bar.close
         filled = min(order.quantity, remaining_liquidity[index])
         remaining_liquidity[index] -= filled
         sign = Decimal(1) if order.side == "BUY" else Decimal(-1)
@@ -71,7 +72,8 @@ def simulate(bars: tuple[Bar, ...], orders: tuple[OrderIntent, ...],
         if price is not None and price <= 0:
             raise V2Error("modeled fill price must be positive")
         events.append(FillEvent(index, bar.timestamp, order.side, order.quantity, filled,
-                                price, filled * model.fee_per_unit,
+                                price, filled * (model.fee_per_unit + model.tax_per_unit)
+                                + (model.brokerage_per_order if filled else Decimal(0)),
                                 "REJECTED_LIQUIDITY" if not filled else "PARTIAL" if filled < order.quantity else "FILLED"))
     ordered = tuple(events)
     return SimulationResult(ordered, _fingerprint(ordered, model))

@@ -30,3 +30,14 @@ def test_invalid_future_order_and_gapped_stop_fail_closed():
     model = ExecutionModel(version="exec@v1")
     result = simulate(bars, (OrderIntent(0, "SELL", Decimal("1"), stop_price=Decimal("95")),), model)
     assert result.events[0].price == Decimal("90")
+
+
+def test_explicit_tax_brokerage_and_close_edge_are_applied():
+    t = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    bar = Bar(t, Decimal("100"), Decimal("110"), Decimal("99"), Decimal("105"), Decimal("10"))
+    model = ExecutionModel("exec@v2", fee_per_unit=Decimal("1"),
+                           tax_per_unit=Decimal("0.5"), brokerage_per_order=Decimal("2"),
+                           fill_edge="CLOSE")
+    fill = simulate((bar,), (OrderIntent(0, "BUY", Decimal("2")),), model).events[0]
+    assert fill.price == Decimal("105")
+    assert fill.fee == Decimal("5")

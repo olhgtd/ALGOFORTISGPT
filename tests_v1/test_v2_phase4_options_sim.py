@@ -22,3 +22,13 @@ def test_as_of_lot_and_expiry_are_enforced():
     assert result.promotion_eligible is False
     with pytest.raises(OptionsError):
         price_option_fill(_terms(), date(2026, 2, 1), Decimal("100"), 1, model)
+
+
+def test_theta_reduces_premium_across_days_and_never_invents_nonpositive_quote():
+    model = OptionModel("option@v1", Decimal("1"), Decimal("0"),
+                        Decimal("0"), Decimal("0"))
+    today = price_option_fill(_terms(), date(2026, 1, 15), Decimal("10"), 1, model, days_forward=0)
+    tomorrow = price_option_fill(_terms(), date(2026, 1, 15), Decimal("10"), 1, model, days_forward=1)
+    assert tomorrow.premium == today.premium - Decimal("1")
+    with pytest.raises(OptionsError):
+        price_option_fill(_terms(), date(2026, 1, 15), Decimal("1"), 1, model, days_forward=2)
