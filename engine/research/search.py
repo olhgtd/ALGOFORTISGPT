@@ -7,7 +7,8 @@ and viewing OOS evidence permanently closes further search for that session.
 from __future__ import annotations
 
 from hashlib import sha256
-from itertools import product
+from itertools import product, islice
+from math import prod
 from types import MappingProxyType
 from typing import Mapping
 
@@ -86,8 +87,10 @@ def grid_candidates(
     """Return the first deterministic grid candidates up to the hard budget."""
 
     budget = _positive_int(max_trials, "max_trials")
-    candidates = _all_candidates(parameter_space)
-    return candidates[:budget]
+    normalized = _normalize_space(parameter_space)
+    names = tuple(name for name, _ in normalized)
+    return tuple(MappingProxyType(dict(zip(names, values, strict=True)))
+                 for values in islice(product(*(values for _, values in normalized)), budget))
 
 
 def _candidate_fingerprint(candidate: Mapping[str, object]) -> str:
@@ -110,22 +113,39 @@ def random_candidates(
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise SearchError("seed must be a non-negative integer")
     budget = _positive_int(max_trials, "max_trials")
-    candidates = _all_candidates(parameter_space)
-    if budget > len(candidates):
+    normalized = _normalize_space(parameter_space)
+    total = prod(len(values) for _, values in normalized)
+    if budget > total:
         raise SearchError("max_trials exceeds the unique parameter-space size")
-
-    def rank(candidate: Mapping[str, object]) -> tuple[bytes, str]:
-        fingerprint = _candidate_fingerprint(candidate)
-        payload = b"\0".join(
-            (
-                b"algofortis-seeded-random-search/v1",
-                str(seed).encode("ascii"),
-                fingerprint.encode("ascii"),
-            )
-        )
-        return sha256(payload).digest(), fingerprint
-
-    return tuple(sorted(candidates, key=rank)[:budget])
+    # Hash a counter into the Cartesian index space. Rejection sampling
+    # prevents modulo bias; memory is bounded by max_trials, not |space|.
+    width = max(1, (total.bit_length() + 7) // 8)
+    ceiling = 1 << (width * 8)
+    limit = ceiling - ceiling % total
+    seen: set[int] = set()
+    counter = 0
+    selected: list[Mapping[str, object]] = []
+    while len(selected) < budget:
+        payload = f"algofortis-seeded-random-search/v2:{seed}:{counter}".encode("ascii")
+        digest = sha256(payload).digest()
+        # Widen the digest deterministically if the index needs >256 bits.
+        while len(digest) < width:
+            digest += sha256(digest).digest()
+        counter += 1
+        number = int.from_bytes(digest[:width], "big")
+        if number >= limit:
+            continue
+        index = number % total
+        if index in seen:
+            continue
+        seen.add(index)
+        values = []
+        for _, choices in reversed(normalized):
+            index, remainder = divmod(index, len(choices))
+            values.append(choices[remainder])
+        values.reverse()
+        selected.append(MappingProxyType(dict(zip((name for name, _ in normalized), values, strict=True))))
+    return tuple(selected)
 
 
 class SearchSession:
@@ -140,8 +160,8 @@ class SearchSession:
             raise SearchError("ledger is bound to a different experiment")
         self._experiment = experiment
         self._ledger = ledger
-        self._oos_viewed = False
-        self._search_closed = False
+        self._oos_viewed = bool(getattr(ledger, "oos_viewed", False))
+        self._search_closed = self._oos_viewed
 
     @property
     def remaining_budget(self) -> int:
@@ -158,6 +178,9 @@ class SearchSession:
     def mark_oos_viewed(self) -> None:
         """Permanently close parameter search after OOS evidence is viewed."""
 
+        persist = getattr(self._ledger, "mark_oos_viewed", None)
+        if persist is not None:
+            persist()
         self._oos_viewed = True
         self._search_closed = True
 

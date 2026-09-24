@@ -151,3 +151,16 @@ def test_parameter_stability_rejects_float_scores_and_invalid_top_n():
         api.ParameterStabilityReport.create((observation,), top_n=0)
     with pytest.raises(api.StabilityError):
         api.ParameterStabilityReport.create((observation,), top_n=2)
+
+
+def test_grid_budget_does_not_materialize_the_entire_cartesian_product(monkeypatch):
+    api = _search()
+    original = api.product
+    def capped_product(*args):
+        for index, candidate in enumerate(original(*args)):
+            if index > 2:
+                raise AssertionError("exhausted unbounded search space")
+            yield candidate
+    monkeypatch.setattr(api, "product", capped_product)
+    candidates = api.grid_candidates({"a": tuple(range(30)), "b": tuple(range(30))}, max_trials=2)
+    assert len(candidates) == 2

@@ -1,4 +1,4 @@
-name: V2 Phase 3 Data Verification
+name: V2 Phase 4 Research and Backtest Verification
 
 on:
   pull_request:
@@ -97,6 +97,12 @@ jobs:
           tests_v1/test_v2_phase3_live_feed.py
           tests_v1/test_v2_phase3_ci_guard.py
           -q
+      - name: Phase 4 static research and backtest policy
+        shell: pwsh
+        run: python build/tools/check_phase4_research_backtest.py
+      - name: Phase 4 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k phase4 -q
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -211,6 +217,12 @@ jobs:
           tests_v1/test_v2_phase3_live_feed.py
           tests_v1/test_v2_phase3_ci_guard.py
           -q
+      - name: Phase 4 static research and backtest policy
+        shell: pwsh
+        run: python build/tools/check_phase4_research_backtest.py
+      - name: Phase 4 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k phase4 -q
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
