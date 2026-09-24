@@ -1,13 +1,17 @@
 """Deterministic cross-run ORB reference and Backtest V2 probe."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from engine.backtest.v2.contracts import Bar, ExecutionModel, OrderIntent
 from engine.backtest.v2.execution import simulate
+from engine.backtest.v2.orb_reference import run_orb_option_backtest
+from engine.backtest.v2.options import OptionModel
+from engine.data.instruments import InstrumentTerms
+from engine.strategy.protective_policy_v2 import ProtectivePolicyV2
 from strategies.orb.orb_v2 import ORBReferenceStrategyV2, ORBSignalSnapshot
 from engine.data.licensing import AcquisitionPermission, DataLicenceMetadata, DataLicencePolicy, DataUse
 from engine.research.durable_ledger import DurableTrialsLedger
@@ -30,6 +34,25 @@ def run() -> tuple[str, str]:
                       ExecutionModel("research-execution@v1", latency_bars=1,
                                      spread=Decimal("0.2"), slippage=Decimal("0.1")))
     return signal.fingerprint, result.fingerprint
+
+
+def orb_option_probe() -> str:
+    now = datetime(2026, 1, 5, 9, 30, tzinfo=timezone.utc)
+    snapshot = ORBSignalSnapshot("NIFTY", now, Decimal("22011"),
+                                  Decimal("22010"), Decimal("21990"))
+    terms = InstrumentTerms("ce", "NSE", "NIFTY-CE", "options",
+        date(2026, 1, 1), date(2026, 1, 29), 65, Decimal("0.05"),
+        "NIFTY", date(2026, 1, 29), 22000, "CE", "monthly")
+    bars = (Bar(now + timedelta(minutes=5), Decimal("100"), Decimal("101"), Decimal("99"), Decimal("100"), Decimal("100")),
+            Bar(now + timedelta(minutes=10), Decimal("100"), Decimal("125"), Decimal("99"), Decimal("120"), Decimal("100")))
+    policy = ProtectivePolicyV2("TEST_ONLY/orb@v1", Decimal("10"), Decimal("20"),
+                                 Decimal("5"), True, Decimal("0.05"), "ROUND_HALF_UP")
+    model = OptionModel("options@v1", Decimal(0), Decimal(0), Decimal(0), Decimal(0))
+    result = run_orb_option_backtest(snapshot, terms=terms, option_bars=bars,
+                                     policy=policy, option_model=model)
+    if result.promotion_eligible:
+        raise AssertionError("TEST_ONLY ORB option fixture became promotable")
+    return result.fingerprint
 
 
 def promotion_probe() -> tuple[str, str]:
@@ -72,6 +95,7 @@ if __name__ == "__main__":
     signal, run_fingerprint = run()
     print("ORB_SIGNAL=" + signal)
     print("BACKTEST_RUN=" + run_fingerprint)
+    print("TEST_ONLY_ORB_OPTION_RUN=" + orb_option_probe())
     bundle, status = promotion_probe()
     print("TEST_ONLY_PROMOTION_ATTEMPT=" + bundle)
     print("DEFAULT_PROMOTION_STATUS=" + status)

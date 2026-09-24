@@ -1,7 +1,7 @@
 """Fail-closed promotion evidence evaluation; never arms Live."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from types import MappingProxyType
 from typing import Mapping
@@ -20,6 +20,31 @@ class PromotionProfile:
     criteria: Mapping[str, int | Decimal]
     is_research_only: bool
     stage: str = "PAPER_TO_ELIGIBLE_FOR_LIVE"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.version, str) or not isinstance(self.criteria, Mapping) or not isinstance(self.is_research_only, bool):
+            raise PromotionError("invalid immutable promotion profile")
+        if self.is_research_only:
+            if self.version != "research-only/v1" or self.stage != "RESEARCH_ONLY" or self.criteria:
+                raise PromotionError("research-only/v1 cannot carry numeric criteria")
+        else:
+            if "@" not in self.version or self.stage not in ("BACKTEST_TO_PAPER", "PAPER_TO_ELIGIBLE_FOR_LIVE"):
+                raise PromotionError("numeric profile needs a version and supported stage")
+            shared = {"minimum_trades", "minimum_oos_share", "minimum_wfo_windows",
+                      "minimum_wfo_pass_rate", "maximum_mc_drawdown", "minimum_stress_margin"}
+            expected = shared if self.stage == "BACKTEST_TO_PAPER" else shared | {"minimum_paper_days", "maximum_paper_drift"}
+            if set(self.criteria) != expected:
+                raise PromotionError("all stage criteria must be explicit")
+            for key, value in self.criteria.items():
+                if isinstance(value, bool) or not isinstance(value, (int, Decimal)) or (isinstance(value, Decimal) and not value.is_finite()) or value < 0:
+                    raise PromotionError(f"invalid criterion {key}")
+            if any(self.criteria[key] <= 0 for key in ("minimum_trades", "minimum_wfo_windows")):
+                raise PromotionError("sample minimums must be positive")
+            if self.stage == "PAPER_TO_ELIGIBLE_FOR_LIVE" and self.criteria["minimum_paper_days"] <= 0:
+                raise PromotionError("minimum paper duration must be positive")
+            if any(self.criteria[key] > 1 for key in ("minimum_oos_share", "minimum_wfo_pass_rate")):
+                raise PromotionError("share and pass rate must not exceed one")
+        object.__setattr__(self, "criteria", MappingProxyType(dict(sorted(self.criteria.items()))))
 
     @classmethod
     def research_only(cls) -> "PromotionProfile":
@@ -73,6 +98,7 @@ class PromotionDecision:
 class PromotionEvidenceBundle:
     values: Mapping[str, object]
     fingerprint: str
+    _attested: bool = field(default=False, init=False, repr=False)
 
     @classmethod
     def from_authorities(cls, *, ledger: object, validation: object,
@@ -104,7 +130,9 @@ class PromotionEvidenceBundle:
             ("metrics", tuple(sorted(metrics.items()))),
             ("validation", validation.fingerprint), ("ledger", ledger_fp),
             ("overfitting", overfitting.fingerprint), ("licence", licence.fingerprint)))
-        return cls(MappingProxyType(values), fingerprint)
+        bundle = cls(MappingProxyType(values), fingerprint)
+        object.__setattr__(bundle, "_attested", True)
+        return bundle
 
 
 def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object] | PromotionEvidenceBundle) -> PromotionDecision:
@@ -112,7 +140,7 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
         raise PromotionError("profile and evidence required")
     if profile.is_research_only:
         return PromotionDecision("NON_PROMOTABLE", ("RESEARCH_ONLY",))
-    if not isinstance(evidence, PromotionEvidenceBundle):
+    if not isinstance(evidence, PromotionEvidenceBundle) or not evidence._attested:
         return PromotionDecision("NON_PROMOTABLE", ("MISSING_EVIDENCE",))
     evidence = evidence.values
     required = ("trades", "oos_share", "wfo_windows", "wfo_pass_rate", "mc_drawdown",

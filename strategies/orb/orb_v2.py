@@ -15,6 +15,7 @@ from typing import Mapping
 from engine.reproducibility.codec import CanonicalCodec
 from engine.strategy.contracts_v2 import StrategySDKError
 from strategies.orb.manifest_v2 import ORB_MANIFEST_V2
+from engine.strategy.protective_policy_v2 import PolicyRegistryV2, ProtectivePolicyError
 
 
 class ORBReferenceError(ValueError):
@@ -102,6 +103,19 @@ class ORBReferenceStrategyV2:
     """
 
     manifest = ORB_MANIFEST_V2
+
+    def prepare_policy_bound_simulation(self, protective_policy_ref: str,
+                                        registry: PolicyRegistryV2) -> ORBSimulationPreparation:
+        """Bind simulation preparation to actual versioned economics."""
+        if not isinstance(registry, PolicyRegistryV2):
+            raise ProtectivePolicyError("explicit policy registry required")
+        policy = registry.resolve(protective_policy_ref)
+        prepared = self.prepare_simulation(protective_policy_ref=policy.ref)
+        fingerprint = CanonicalCodec.fingerprint("algofortis-orb-policy-bound-preparation/v1", (
+            ("preparation", prepared.fingerprint), ("policy", policy.fingerprint)))
+        return ORBSimulationPreparation(prepared.protective_policy_ref,
+                                        prepared.evidence_scope, False,
+                                        prepared.manifest_fingerprint, fingerprint)
 
     def generate_signal(
         self,

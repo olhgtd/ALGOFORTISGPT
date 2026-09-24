@@ -1,6 +1,7 @@
 from decimal import Decimal
+import pytest
 
-from engine.strategy.promotion_v2 import PromotionProfile, evaluate_promotion
+from engine.strategy.promotion_v2 import PromotionProfile, PromotionError, PromotionEvidenceBundle, evaluate_promotion
 
 
 def test_default_is_non_promotable_even_with_positive_score():
@@ -46,3 +47,22 @@ def test_backtest_to_paper_profile_is_distinct_from_paper_to_live():
         minimum_stress_margin=Decimal("0"))
     assert profile.stage == "BACKTEST_TO_PAPER"
     assert "minimum_paper_days" not in profile.criteria
+
+
+def test_direct_profile_construction_cannot_bypass_frozen_criteria():
+    with pytest.raises(PromotionError):
+        PromotionProfile("unversioned", {"minimum_trades": 0}, False)
+
+
+def test_direct_evidence_bundle_constructor_does_not_attest_authorities():
+    profile = PromotionProfile.backtest_to_paper(
+        version="baseline@v1", minimum_trades=1, minimum_oos_share=Decimal(0),
+        minimum_wfo_windows=1, minimum_wfo_pass_rate=Decimal(0),
+        maximum_mc_drawdown=Decimal(1), minimum_stress_margin=Decimal(0))
+    values = dict(trades=100, oos_share=Decimal(1), wfo_windows=3,
+                  wfo_pass_rate=Decimal(1), mc_drawdown=Decimal(0),
+                  stress_margin=Decimal(1), validation_fingerprint="a" * 64,
+                  trials_ledger_fingerprint="b" * 64,
+                  overfitting_fingerprint="c" * 64, licensed_data=True)
+    forged = PromotionEvidenceBundle(values, "d" * 64)
+    assert evaluate_promotion(profile, forged).status == "NON_PROMOTABLE"
