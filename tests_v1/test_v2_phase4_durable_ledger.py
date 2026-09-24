@@ -2,6 +2,8 @@ from engine.research.experiments import ExperimentSpec
 from engine.research.durable_ledger import DurableTrialsLedger, DurableLedgerError
 from engine.research.trials import TrialRecord, TrialStatus
 from engine.research.search import SearchSession, SearchError
+import sqlite3
+import pytest
 
 
 def _experiment():
@@ -31,3 +33,15 @@ def test_durable_ledger_reopens_without_losing_trials_or_oos_latch(tmp_path):
         pass
     else:
         raise AssertionError("search reopened after viewing OOS")
+
+
+def test_durable_ledger_rejects_external_update_and_experiment_change(tmp_path):
+    experiment = _experiment()
+    path = tmp_path / "trials.sqlite"
+    ledger = DurableTrialsLedger(path, experiment)
+    ledger.append(TrialRecord.create(experiment=experiment, ordinal=1,
+        parameters={"lookback": 20}, status=TrialStatus.FAILED,
+        result_fingerprint=None, reason="invalid"))
+    with sqlite3.connect(path) as db, pytest.raises(sqlite3.IntegrityError):
+        db.execute("UPDATE trials SET reason = 'changed' WHERE ordinal = 1")
+    assert DurableTrialsLedger(path, experiment).records()[0].reason == "invalid"

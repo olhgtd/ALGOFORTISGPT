@@ -1,7 +1,7 @@
 """Deterministic research fills; no broker or live path."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Callable
@@ -88,4 +88,7 @@ def simulate_strategy(bars: tuple[Bar, ...], strategy: Callable[[tuple[Bar, ...]
         if not isinstance(generated, tuple) or any(not isinstance(x, OrderIntent) or x.bar_index != index for x in generated):
             raise V2Error("strategy may issue intents for the current bar only")
         intents.extend(generated)
-    return simulate(bars, tuple(intents), model)
+    # A strategy observes the current completed bar. Its earliest fill is
+    # the following bar's open, regardless of a zero-latency model setting.
+    effective_model = replace(model, latency_bars=max(1, model.latency_bars))
+    return simulate(bars, tuple(intents), effective_model)

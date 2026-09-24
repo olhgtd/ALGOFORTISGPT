@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
 from typing import Mapping
+import re
+
+from engine.reproducibility.codec import CanonicalCodec
 
 
 class PromotionError(ValueError):
@@ -51,11 +54,51 @@ class PromotionDecision:
     live_state: str = "READ_ONLY/DISARMED"
 
 
-def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]) -> PromotionDecision:
-    if not isinstance(profile, PromotionProfile) or not isinstance(evidence, Mapping):
+@dataclass(frozen=True, slots=True)
+class PromotionEvidenceBundle:
+    values: Mapping[str, object]
+    fingerprint: str
+
+    @classmethod
+    def from_authorities(cls, *, ledger: object, validation: object,
+                         overfitting: object, licence: object,
+                         metrics: Mapping[str, int | Decimal]) -> "PromotionEvidenceBundle":
+        from engine.research.durable_ledger import DurableTrialsLedger
+        from engine.research.validation_v2 import ValidationBundle
+        from engine.research.overfitting import OverfittingEvidence
+        from engine.data.licensing import DataLicenceDecision
+        if (not isinstance(ledger, DurableTrialsLedger)
+                or not isinstance(validation, ValidationBundle)
+                or not isinstance(overfitting, OverfittingEvidence)
+                or not isinstance(licence, DataLicenceDecision)
+                or not licence.allowed or "SYNTHETIC" in licence.labels
+                or ledger.trial_count != overfitting.trial_count or ledger.trial_count < 2
+                or not ledger.oos_viewed):
+            raise PromotionError("complete durable, licensed and closed research authorities required")
+        if not isinstance(metrics, Mapping) or any(isinstance(value, bool) or not isinstance(value, (int, Decimal))
+                 or (isinstance(value, Decimal) and not value.is_finite()) for value in metrics.values()):
+            raise PromotionError("metrics must be finite numeric values")
+        ledger_fp = CanonicalCodec.fingerprint("algofortis-trials-closed/v1", (
+            ("experiment", ledger.experiment.experiment_id),
+            ("records", tuple(item.fingerprint for item in ledger.records())), ("oos_viewed", True)))
+        values = dict(metrics, validation_fingerprint=validation.fingerprint,
+                      trials_ledger_fingerprint=ledger_fp,
+                      overfitting_fingerprint=overfitting.fingerprint, licensed_data=True)
+        fingerprint = CanonicalCodec.fingerprint("algofortis-promotion-evidence/v1", (
+            ("metrics", tuple(sorted(metrics.items()))),
+            ("validation", validation.fingerprint), ("ledger", ledger_fp),
+            ("overfitting", overfitting.fingerprint), ("licence", licence.fingerprint)))
+        return cls(MappingProxyType(values), fingerprint)
+
+
+def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object] | PromotionEvidenceBundle) -> PromotionDecision:
+    if not isinstance(profile, PromotionProfile) or not isinstance(evidence, (Mapping, PromotionEvidenceBundle)):
         raise PromotionError("profile and evidence required")
     if profile.is_research_only:
         return PromotionDecision("NON_PROMOTABLE", ("RESEARCH_ONLY",))
+    if not isinstance(evidence, PromotionEvidenceBundle):
+        return PromotionDecision("NON_PROMOTABLE", ("MISSING_EVIDENCE",))
+    evidence = evidence.values
     required = ("trades", "oos_share", "wfo_windows", "wfo_pass_rate", "mc_drawdown",
                 "stress_margin", "paper_days", "paper_drift", "validation_fingerprint",
                 "trials_ledger_fingerprint", "overfitting_fingerprint", "licensed_data")
@@ -75,6 +118,6 @@ def evaluate_promotion(profile: PromotionProfile, evidence: Mapping[str, object]
                          or ((evidence[key] > profile.criteria[threshold]) if maximum else (evidence[key] < profile.criteria[threshold])))
     except (TypeError, ValueError):
         return PromotionDecision("NON_PROMOTABLE", ("INVALID_EVIDENCE",))
-    if failures or any(not isinstance(evidence[k], str) or not evidence[k] for k in required[8:11]):
+    if failures or any(not isinstance(evidence[k], str) or not re.fullmatch(r"[0-9a-f]{64}", evidence[k]) for k in required[8:11]):
         return PromotionDecision("NON_PROMOTABLE", failures or ("INVALID_EVIDENCE",))
     return PromotionDecision("ELIGIBLE_FOR_LIVE_EVIDENCE_ONLY", ())

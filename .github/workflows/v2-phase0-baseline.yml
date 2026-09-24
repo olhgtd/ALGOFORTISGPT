@@ -103,6 +103,14 @@ jobs:
       - name: Phase 4 focused validation
         shell: pwsh
         run: python -m pytest tests_v1 -k phase4 -q
+      - name: Phase 4 deterministic fingerprint probe A
+        shell: pwsh
+        run: python build/tools/phase4_probe.py | Set-Content phase4.txt
+      - name: Upload Phase 4 fingerprint A
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-fingerprint-a
+          path: phase4.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -133,6 +141,29 @@ jobs:
           print(f"PHASE0_MARKET_DATA_FINGERPRINT={snapshot.fingerprint}")
           print(f"PHASE0_RUNTIME_CONFIG_FINGERPRINT={config.fingerprint}")
           '@ | python -
+
+  g4-fingerprint-compare:
+    name: G4 cross-Windows deterministic fingerprint comparison
+    needs: [current-head-regression-a, current-head-regression-b]
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows latest fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase4-fingerprint-a
+          path: a
+      - name: Download Windows 2022 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase4-fingerprint-b
+          path: b
+      - name: Require identical fingerprint output
+        shell: pwsh
+        run: |
+          $a = Get-Content a/phase4.txt -Raw
+          $b = Get-Content b/phase4.txt -Raw
+          if ($a -ne $b) { throw "G4 cross-Windows fingerprint mismatch" }
+          Write-Output $a
 
   current-head-regression-b:
     name: Current HEAD regression B (Windows 2022 / Python 3.13.14)
@@ -223,6 +254,14 @@ jobs:
       - name: Phase 4 focused validation
         shell: pwsh
         run: python -m pytest tests_v1 -k phase4 -q
+      - name: Phase 4 deterministic fingerprint probe B
+        shell: pwsh
+        run: python build/tools/phase4_probe.py | Set-Content phase4.txt
+      - name: Upload Phase 4 fingerprint B
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-fingerprint-b
+          path: phase4.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
