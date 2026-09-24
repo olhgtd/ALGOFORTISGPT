@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.5 — Phase 3 data decisions lock recorded |
-| Date | 2026-09-23 |
+| Version | v0.6 — Phase 4 research/promotion decisions lock recorded |
+| Date | 2026-09-24 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
@@ -21,6 +21,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 5. On 2026-09-21 the Owner authorized completion of Phase 1. OD-V2-14 was therefore frozen to the documented V2.0 internal-registry recommendation and formalized by `docs/v2/adr/ADR-009-v2-plugin-scope.md`; external third-party plugin loading remains deferred.
 6. On 2026-09-21 the Owner authorized Phase 1 merge and immediate Phase 2 execution. OD-V2-07 was therefore frozen to the documented safe kill-switch recommendation and formalized by `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`.
 7. On 2026-09-23 the Owner authorized Phase 3 execution. OD-V2-04, OD-V2-10 and OD-V2-13 were frozen to the documented safe/recommended data choices and formalized by `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md`.
+8. On 2026-09-24 the Owner authorized immediate next-phase execution after the verified Phase 3 merge. OD-V2-11 and OD-V2-17 were frozen to fail-closed research/promotion governance, and the ORB protective-policy blocker was frozen as an explicit versioned-policy requirement with no invented economic defaults. These are formalized by `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md`.
 
 ---
 
@@ -43,7 +44,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Data acquisition | Strict NSE programmatic-acquisition prohibition; dormant-adapter gate. |
 | Paper trading | Live-market paper trading mandatory; ExecutionAdapter pattern; Option Selector is a completion blocker. |
 | Research rules | Backtest reproducibility rules, report schema, versioned JSON envelope, walk-forward and Monte Carlo (circular-block percentile) decisions already locked in earlier slices. |
-| ORB | `OptionEntryBridge` MARKET path approved for ORB V1. **Still open:** stop formula, target/R:R, trailing/OCO semantics, config schema (needed before the ORB port in Phase 4). |
+| ORB | `OptionEntryBridge` MARKET path approved for ORB V1. **Phase 4 policy frozen:** V2 code may not invent stop/target/trailing economics. Executable ORB simulation requires an explicit versioned `protective_policy_ref` binding stop, target/R:R, trailing/OCO, tick/rounding and policy version. Missing policy fails closed; test fixtures are `TEST_ONLY` and never promotion evidence. See ADR-012. |
 
 ---
 
@@ -116,8 +117,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-11 — Multiple-testing / overfitting control** · Blocks Phase 4
 - *Options:* (a) trial count + mandatory WFO/OOS thresholds; (b) (a) + deflated performance metric and backtest-overfitting probability estimate; (c) (b) + reality-check style tests.
-- *Recommendation:* **(b)**. Record every trial in the ledger; require WFO and OOS; report a deflated metric. Exact formulas go in the ADR.
-- *Status:* OPEN
+- *Decision:* **(b) — every trial is append-only ledgered; WFO/OOS is mandatory for promotion evidence; reports include a versioned deflated performance metric and probability-of-backtest-overfitting estimate; every search also carries an explicit versioned maximum trials budget that cannot be silently increased after OOS evidence is viewed. Exact formulas/tolerances are versioned and tested under ADR-012.**
+- *Status:* **FROZEN**
 
 **OD-V2-12 — Numeric policy** · Blocks Phase 0
 - *Decision:* **Decimal/fixed-point for money, price, quantity and risk. Floats are allowed only in analytics with declared tolerance. Rounding mode and per-instrument tick-size rules must be explicit and versioned.**
@@ -130,8 +131,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 
 **OD-V2-17 — Promotion criteria defaults** · Blocks Phase 4
 - *Parameters to set:* minimum trade count, OOS share, WFO windows and pass rate, Monte Carlo drawdown percentile cap, cost/slippage stress margin, minimum paper duration, paper-vs-backtest drift tolerance.
-- *Recommendation:* Keep them configuration, not code. Set initial numbers after the ORB baseline analysis so they reflect real trade frequency rather than guesses.
-- *Status:* OPEN
+- *Decision:* **All criteria are immutable/versioned configuration, not strategy code. The built-in V2.0 default is `research-only/v1`, which is fail-closed and `NON_PROMOTABLE` until an explicit numeric promotion profile is supplied. No numeric production thresholds are copied from legacy values or guessed; the first numeric profile must be derived from recorded V2 baseline evidence. Backtest-to-paper and paper-to-eligible-for-live profiles are distinct, and missing/incomplete criteria always reject promotion.**
+- *Status:* **FROZEN**
 
 ### Platform and extensibility
 
@@ -205,6 +206,9 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-04 | BTCUSD deferred to V2.3 behind the common instrument/calendar abstractions. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
 | OD-V2-10 | Licensed option-chain data is authoritative for promotion evidence; synthetic data is labelled fallback only. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
 | OD-V2-13 | Parquet/Arrow + in-process PyArrow Dataset + operational SQLite catalog; no local server. | 2026-09-23 | `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md` |
+| OD-V2-11 | Append-only trials ledger + mandatory WFO/OOS + deflated performance metric + PBO estimate + explicit trials budget. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
+| OD-V2-17 | Promotion criteria are versioned config; built-in `research-only/v1` is fail-closed/non-promotable until evidence-backed numeric profile exists. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
+| ORB-P4 | No hardcoded ORB protective economics; explicit versioned protective-policy reference required; missing policy fails closed. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
 
 ---
 
@@ -216,7 +220,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 1 | 14 — **FROZEN 2026-09-21** |
 | Phase 2 | 07 — **FROZEN 2026-09-21** |
 | Phase 3 | 04, 10, 13 — **FROZEN 2026-09-23** |
-| Phase 4 | 11, 17, ORB protective-policy ODs (§2) |
+| Phase 4 | 11, 17, ORB protective-policy governance — **FROZEN 2026-09-24** |
 | Phase 5 | 19, 24 |
 | Phase 6 | 05, 06, 08, 09 |
 | Phase 8 | 15, 16 |
