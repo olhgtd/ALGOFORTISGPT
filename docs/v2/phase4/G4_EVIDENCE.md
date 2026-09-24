@@ -31,6 +31,16 @@ The built-in `research-only/v1` profile is `NON_PROMOTABLE`.
   on `0c9c1050374865870f0cf5529649b345075a127c` passed both Windows runners,
   full regression and cross-Windows comparison. The structured, synthetic-only
   rejection bundle added afterward still requires an exact-head run.
+- [Run 115](https://github.com/olhgtd/ALGOFORTISGPT/actions/runs/36006659194)
+  on `d99f1fa9289c489104e30511c0d7b6c4a51183e2` passed both Windows
+  runners (latest and 2022, Python 3.13.14), Phase-0/1/2/3/4 gates, full
+  regression and G4 cross-Windows comparison. Both fingerprint artifacts are
+  attached to the run; the comparison job required identical contents and
+  printed ORB_SIGNAL, BACKTEST_RUN, TEST_ONLY_ORB_OPTION_RUN and
+  TEST_ONLY_PROMOTION_ATTEMPT fingerprints plus
+  `DEFAULT_PROMOTION_STATUS=NON_PROMOTABLE`. This qualifies the implementation
+  at that head only. The present evidence-document commit requires its own
+  exact-head dual-Windows qualification before G4 acceptance.
 - `TEST_ONLY`/synthetic probe data must yield `NON_PROMOTABLE`; a fixture is
   never evidence for a numeric production promotion profile.
 
