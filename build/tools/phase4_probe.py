@@ -19,8 +19,7 @@ from engine.research.experiments import ExperimentSpec
 from engine.research.overfitting import overfitting_evidence
 from engine.research.trials import TrialRecord, TrialStatus
 from engine.research.validation_v2 import SplitWindow, STRESS_FAMILIES, ValidationBundle
-from engine.strategy.promotion_v2 import PromotionEvidenceBundle
-from engine.reproducibility.codec import CanonicalCodec
+from engine.strategy.promotion_v2 import PromotionEvidenceBundle, PromotionAttemptBundle
 from engine.strategy.promotion_v2 import PromotionError
 
 
@@ -86,10 +85,10 @@ def promotion_probe() -> tuple[str, str]:
                 licence_metadata=metadata, market="NSE",
                 metrics={"trades": 2})
         except PromotionError:
-            attempt = CanonicalCodec.fingerprint("algofortis-test-only-promotion-attempt/v1", (
-                ("validation", validation.fingerprint), ("overfitting", overfit.fingerprint),
-                ("licence", licence.fingerprint), ("reason", "SYNTHETIC_NOT_PROMOTION_EVIDENCE")))
-            return attempt, "NON_PROMOTABLE"
+            attempt = PromotionAttemptBundle.test_only(
+                validation_fingerprint=validation.fingerprint,
+                overfitting_fingerprint=overfit.fingerprint, licence=licence)
+            return attempt.fingerprint, attempt.status
         raise AssertionError("synthetic TEST_ONLY fixture was accepted for promotion")
 
 

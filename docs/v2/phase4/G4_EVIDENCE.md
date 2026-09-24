@@ -27,6 +27,10 @@ The built-in `research-only/v1` profile is `NON_PROMOTABLE`.
   runners, prior gates, full regression and cross-Windows fingerprint comparison
   with a policy-bound `TEST_ONLY` ORB options-buy fixture. Subsequent licence,
   replay-input identity and metric-verification hardening needs a new exact-head run.
+- [Run 114](https://github.com/olhgtd/ALGOFORTISGPT/actions/runs/36005976121)
+  on `0c9c1050374865870f0cf5529649b345075a127c` passed both Windows runners,
+  full regression and cross-Windows comparison. The structured, synthetic-only
+  rejection bundle added afterward still requires an exact-head run.
 - `TEST_ONLY`/synthetic probe data must yield `NON_PROMOTABLE`; a fixture is
   never evidence for a numeric production promotion profile.
 

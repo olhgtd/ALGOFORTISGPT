@@ -140,6 +140,29 @@ class PromotionEvidenceBundle:
         return bundle
 
 
+@dataclass(frozen=True, slots=True)
+class PromotionAttemptBundle:
+    """Auditable automatic rejection bundle for synthetic test evidence."""
+    fingerprint: str
+    reasons: tuple[str, ...]
+    status: str = "NON_PROMOTABLE"
+    evidence_scope: str = "TEST_ONLY"
+
+    @classmethod
+    def test_only(cls, *, validation_fingerprint: str,
+                  overfitting_fingerprint: str, licence: object) -> "PromotionAttemptBundle":
+        from engine.data.licensing import DataLicenceDecision
+        if (not isinstance(licence, DataLicenceDecision) or "SYNTHETIC" not in licence.labels
+                or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
+                       for value in (validation_fingerprint, overfitting_fingerprint))):
+            raise PromotionError("test-only rejection bundle requires synthetic evidence fingerprints")
+        reasons = ("SYNTHETIC_NOT_PROMOTION_EVIDENCE", "RESEARCH_ONLY")
+        fingerprint = CanonicalCodec.fingerprint("algofortis-test-only-promotion-attempt/v1", (
+            ("validation", validation_fingerprint), ("overfitting", overfitting_fingerprint),
+            ("licence", licence.fingerprint), ("reasons", reasons), ("status", "NON_PROMOTABLE")))
+        return cls(fingerprint, reasons)
+
+
 def _promotion_licence(metadata: object, *, market: str):
     from engine.data.licensing import DataLicenceMetadata, DataLicencePolicy, DataUse
     if not isinstance(metadata, DataLicenceMetadata):
