@@ -9,6 +9,7 @@ REQUIRED = (
     ".github/workflows/v2-phase0-baseline.yml",
     "build/tools/check_phase4_research_backtest.py",
     "build/tools/phase4_probe.py",
+    "build/tools/laya_probe.py",
     "docs/v2/phase4/G4_EVIDENCE.md",
     "engine/strategy/contracts_v2.py",
     "engine/strategy/state_v2.py",
@@ -69,6 +70,7 @@ REQUIRED = (
     "tests_v1/test_laya_strategy_hunter.py",
     "tests_v1/test_laya_fast_tasks.py",
     "tests_v1/test_laya_ci_guard.py",
+    "tests_v1/test_laya_probe.py",
 )
 SCOPES = (
     "engine/strategy",
