@@ -17,7 +17,7 @@ REQUIRED = (
     "engine/backtest/v2/orb_reference.py",
     "strategies/orb/orb_v2.py", "tests_v1/test_v2_phase4_no_lookahead.py",
 )
-SCOPES = ("engine/research", "engine/backtest/v2", "strategies/orb/orb_v2.py")
+SCOPES = ("engine/strategy", "engine/research", "engine/backtest/v2", "strategies/orb")
 FORBIDDEN = ("engine.broker_adapters", "engine.execution.live", "requests", "urllib", "socket")
 
 
