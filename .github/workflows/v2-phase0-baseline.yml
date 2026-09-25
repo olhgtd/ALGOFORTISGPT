@@ -103,6 +103,17 @@ jobs:
       - name: Phase 4 focused validation
         shell: pwsh
         run: python -m pytest tests_v1 -k phase4 -q
+      - name: Laya integration focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k laya -q
+      - name: Laya deterministic fingerprint probe A
+        shell: pwsh
+        run: python build/tools/laya_probe.py | Set-Content laya.txt
+      - name: Upload Laya fingerprint A
+        uses: actions/upload-artifact@v4
+        with:
+          name: laya-fingerprint-a
+          path: laya.txt
       - name: Phase 4 deterministic fingerprint probe A
         shell: pwsh
         run: python build/tools/phase4_probe.py | Set-Content phase4.txt
@@ -163,6 +174,29 @@ jobs:
           $a = Get-Content a/phase4.txt -Raw
           $b = Get-Content b/phase4.txt -Raw
           if ($a -ne $b) { throw "G4 cross-Windows fingerprint mismatch" }
+          Write-Output $a
+
+  laya-fingerprint-compare:
+    name: Laya cross-Windows deterministic fingerprint comparison
+    needs: [current-head-regression-a, current-head-regression-b]
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows latest Laya fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: laya-fingerprint-a
+          path: a
+      - name: Download Windows 2022 Laya fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: laya-fingerprint-b
+          path: b
+      - name: Require identical Laya fingerprint output
+        shell: pwsh
+        run: |
+          $a = Get-Content a/laya.txt -Raw
+          $b = Get-Content b/laya.txt -Raw
+          if ($a -ne $b) { throw "Laya cross-Windows fingerprint mismatch" }
           Write-Output $a
 
   current-head-regression-b:
@@ -254,6 +288,17 @@ jobs:
       - name: Phase 4 focused validation
         shell: pwsh
         run: python -m pytest tests_v1 -k phase4 -q
+      - name: Laya integration focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k laya -q
+      - name: Laya deterministic fingerprint probe B
+        shell: pwsh
+        run: python build/tools/laya_probe.py | Set-Content laya.txt
+      - name: Upload Laya fingerprint B
+        uses: actions/upload-artifact@v4
+        with:
+          name: laya-fingerprint-b
+          path: laya.txt
       - name: Phase 4 deterministic fingerprint probe B
         shell: pwsh
         run: python build/tools/phase4_probe.py | Set-Content phase4.txt
