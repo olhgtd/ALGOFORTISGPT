@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# RED marker: Phase-5 V8 stores are intentionally absent until this test fails in CI.
+
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
