@@ -8,6 +8,7 @@ from uuid import UUID
 from .repository import (
     AccountAuthorityRecordUnavailable,
     AccountStateRecord,
+    DeviceProofChallengeRecord,
     DeviceQuotaAuthorityExceeded,
     DeviceRecord,
     RateLimitStateRecord,
@@ -17,7 +18,7 @@ from .repository import (
 )
 
 
-S2_ACCOUNT_SCHEMA_VERSION = 1
+S2_ACCOUNT_SCHEMA_VERSION = 2
 
 
 class V1SecurityStoreAdapter:
@@ -30,9 +31,12 @@ class V1SecurityStoreAdapter:
             cur.execute("CREATE TABLE IF NOT EXISTS s2_account_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             row = cur.execute("SELECT value FROM s2_account_metadata WHERE key = 'schema_version'").fetchone()
             if row is None:
+                previous_version = None
                 cur.execute("INSERT INTO s2_account_metadata(key, value) VALUES ('schema_version', ?)", (str(S2_ACCOUNT_SCHEMA_VERSION),))
-            elif str(row[0]) != str(S2_ACCOUNT_SCHEMA_VERSION):
-                raise RuntimeError("incompatible S2 account schema")
+            else:
+                previous_version = int(row[0])
+                if previous_version not in (1, S2_ACCOUNT_SCHEMA_VERSION):
+                    raise RuntimeError("incompatible S2 account schema")
             cur.execute("""CREATE TABLE IF NOT EXISTS s2_devices (
                 device_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -43,6 +47,16 @@ class V1SecurityStoreAdapter:
                 revoked_at_utc TEXT
             )""")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_s2_devices_user ON s2_devices(user_id)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS s2_device_challenges (
+                challenge_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                issued_at_utc TEXT NOT NULL,
+                expires_at_utc TEXT NOT NULL,
+                consumed_at_utc TEXT
+            )""")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_s2_device_challenge_scope ON s2_device_challenges(user_id, device_id, purpose)")
             cur.execute("""CREATE TABLE IF NOT EXISTS s2_session_families (
                 family_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -78,6 +92,11 @@ class V1SecurityStoreAdapter:
                 PRIMARY KEY (user_id, flow, subject_key)
             )""")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_s2_rate_limit_user ON s2_rate_limit_state(user_id)")
+            if previous_version == 1:
+                cur.execute(
+                    "UPDATE s2_account_metadata SET value = ? WHERE key = 'schema_version'",
+                    (str(S2_ACCOUNT_SCHEMA_VERSION),),
+                )
 
     def _require_user(self, user_id: UUID) -> None:
         if self._store.get_user(user_id) is None:
@@ -110,6 +129,18 @@ class V1SecurityStoreAdapter:
             status=str(row["status"]),
             created_at=datetime.fromisoformat(str(row["created_at_utc"])),
             revoked_at=datetime.fromisoformat(str(row["revoked_at_utc"])) if row["revoked_at_utc"] else None,
+        )
+
+    @staticmethod
+    def _challenge(row: Any) -> DeviceProofChallengeRecord:
+        return DeviceProofChallengeRecord(
+            user_id=UUID(str(row["user_id"])),
+            device_id=str(row["device_id"]),
+            purpose=str(row["purpose"]),
+            challenge_hash=str(row["challenge_hash"]),
+            issued_at=datetime.fromisoformat(str(row["issued_at_utc"])),
+            expires_at=datetime.fromisoformat(str(row["expires_at_utc"])),
+            consumed_at=datetime.fromisoformat(str(row["consumed_at_utc"])) if row["consumed_at_utc"] else None,
         )
 
     @staticmethod
@@ -214,6 +245,56 @@ class V1SecurityStoreAdapter:
                 raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
             cur.execute("UPDATE s2_devices SET status = 'REVOKED', revoked_at_utc = ? WHERE user_id = ? AND device_id = ?", (revoked_at.isoformat(), str(user_id), device_id))
             cur.execute("UPDATE s2_session_families SET state = 'REVOKED', revoked_at_utc = ?, updated_at_utc = ? WHERE user_id = ? AND device_id = ? AND revoked_at_utc IS NULL", (revoked_at.isoformat(), revoked_at.isoformat(), str(user_id), device_id))
+
+    def save_device_challenge(self, *, user_id: UUID, device_id: str, purpose: str, challenge_hash: str, issued_at: datetime, expires_at: datetime) -> DeviceProofChallengeRecord:
+        self._require_user(user_id)
+        if not device_id or not purpose or not challenge_hash:
+            raise ValueError("device challenge scope is required")
+        if expires_at <= issued_at:
+            raise ValueError("device challenge expiry must follow issue time")
+        with self._store._transaction() as cur:
+            existing = cur.execute(
+                "SELECT 1 FROM s2_device_challenges WHERE challenge_hash = ?",
+                (challenge_hash,),
+            ).fetchone()
+            if existing is not None:
+                raise AccountAuthorityRecordUnavailable("device challenge unavailable")
+            cur.execute(
+                "INSERT INTO s2_device_challenges(challenge_hash, user_id, device_id, purpose, issued_at_utc, expires_at_utc, consumed_at_utc) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+                (challenge_hash, str(user_id), device_id, purpose, issued_at.isoformat(), expires_at.isoformat()),
+            )
+            row = cur.execute(
+                "SELECT * FROM s2_device_challenges WHERE challenge_hash = ?",
+                (challenge_hash,),
+            ).fetchone()
+            assert row is not None
+            return self._challenge(row)
+
+    def consume_device_challenge(self, *, user_id: UUID, device_id: str, purpose: str, challenge_hash: str, consumed_at: datetime) -> DeviceProofChallengeRecord:
+        self._require_user(user_id)
+        with self._store._transaction() as cur:
+            row = cur.execute(
+                "SELECT * FROM s2_device_challenges WHERE challenge_hash = ? AND user_id = ? AND device_id = ? AND purpose = ?",
+                (challenge_hash, str(user_id), device_id, purpose),
+            ).fetchone()
+            if row is None or row["consumed_at_utc"] is not None:
+                raise AccountAuthorityRecordUnavailable("device challenge unavailable")
+            issued_at = datetime.fromisoformat(str(row["issued_at_utc"]))
+            expires_at = datetime.fromisoformat(str(row["expires_at_utc"]))
+            if consumed_at < issued_at or consumed_at > expires_at:
+                raise AccountAuthorityRecordUnavailable("device challenge expired or not yet valid")
+            cur.execute(
+                "UPDATE s2_device_challenges SET consumed_at_utc = ? WHERE challenge_hash = ? AND consumed_at_utc IS NULL",
+                (consumed_at.isoformat(), challenge_hash),
+            )
+            if cur.rowcount != 1:
+                raise AccountAuthorityRecordUnavailable("device challenge unavailable")
+            updated = cur.execute(
+                "SELECT * FROM s2_device_challenges WHERE challenge_hash = ?",
+                (challenge_hash,),
+            ).fetchone()
+            assert updated is not None
+            return self._challenge(updated)
 
     def get_session_family(self, *, user_id: UUID, family_id: str) -> SessionFamilyRecord | None:
         self._require_user(user_id)
