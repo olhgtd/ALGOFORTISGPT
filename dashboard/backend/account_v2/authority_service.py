@@ -20,11 +20,19 @@ class AuthenticatedPrincipal:
 
 
 class S2AccountAuthorityService:
-    def __init__(self, repository, device_service, recovery_service, audit_sink: RequiredAuditSink) -> None:
+    def __init__(
+        self,
+        repository,
+        device_service,
+        recovery_service,
+        audit_sink: RequiredAuditSink,
+        rate_limiter=None,
+    ) -> None:
         self._repository = repository
         self._device_service = device_service
         self._recovery_service = recovery_service
         self._audit_sink = audit_sink
+        self._rate_limiter = rate_limiter
 
     def _required_intent(
         self,
@@ -122,6 +130,8 @@ class S2AccountAuthorityService:
         proof: object,
         now: datetime,
     ):
+        if self._rate_limiter is None:
+            raise PermissionError("recovery rate-limit service unavailable")
         # HighAssuranceRecoveryService owns its own required recovery audit
         # boundary.  The target is derived from the authenticated principal.
         return self._recovery_service.recover(
