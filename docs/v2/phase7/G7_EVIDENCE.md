@@ -58,7 +58,7 @@ TDD was performed task-by-task in isolated local harnesses. Observed GREEN slice
 - attribution: 5 focused tests;
 - deterministic G7 evidence/qualification guard: 4 focused tests.
 
-The exact complete repository focused-suite count is intentionally **not claimed here** until the repository workflow executes. Task-1 contract/firewall evidence is preserved separately in the implementation history.
+The exact complete repository focused-suite count is intentionally **not claimed here** because the hosted repository jobs did not execute test steps. Task-1 contract/firewall evidence is preserved separately in the implementation history.
 
 ## Required hosted qualification
 
@@ -76,16 +76,24 @@ Required before G7 may be marked qualified:
 8. Required full regression/golden preservation is reviewed before merge/release qualification.
 9. Exact head SHA, workflow run ID, job IDs, final focused-test count and comparison outcome are recorded below.
 
-## Hosted-run record
+## Hosted-run record — 2026-09-27
 
-- Code/evidence baseline head before hosted verification: `07ee0d29eedc1a281ae72a9f1417d71c10b42220`
-- Workflow run ID: **PENDING**
-- Windows latest job: **PENDING**
-- Windows 2022 job: **PENDING**
-- Cross-Windows compare: **PENDING**
-- Complete repository focused-test count: **PENDING**
+Verification head: `44dccaaca4db7a66e0213218f8f95fd729ccce70`
 
-If hosted jobs fail before steps execute, that is an external runner/provisioning blocker rather than code GREEN or code RED; G7 remains **NOT QUALIFIED**.
+G7 workflow run `36269482427`:
+
+- Windows latest job `108480564231`: `completed / failure`, `steps=null`.
+- Windows 2022 job `108480564390`: `completed / failure`, `steps=null`.
+- Cross-Windows compare job `108480571296`: `completed / skipped`, `steps=null`.
+- Complete repository focused-test count: **NOT EXECUTED / NOT AVAILABLE**.
+
+Existing stacked Phase-4 verification run `36269482404` on the same verification head showed the same infrastructure symptom:
+
+- Windows latest job `108480564408`: `completed / failure`, `steps=null`.
+- Windows 2022 job `108480564620`: `completed / failure`, `steps=null`.
+- G4 compare job `108480580311`: `completed / skipped`, `steps=null`.
+
+Because both workflows failed before any job steps were created/executed, these runs provide neither code GREEN nor code RED evidence. The result is classified as a hosted-runner/provisioning blocker. **G7 remains NOT QUALIFIED.**
 
 ## Final safety statement
 
