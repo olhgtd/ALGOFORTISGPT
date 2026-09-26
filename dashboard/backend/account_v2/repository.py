@@ -44,6 +44,17 @@ class DeviceRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class DeviceProofChallengeRecord:
+    user_id: UUID
+    device_id: str
+    purpose: str
+    challenge_hash: str
+    issued_at: datetime
+    expires_at: datetime
+    consumed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class SessionFamilyRecord:
     user_id: UUID
     family_id: str
@@ -80,6 +91,8 @@ class AccountAuthorityRepository(Protocol):
     def get_device(self, *, user_id: UUID, device_id: str) -> DeviceRecord | None: ...
     def register_device(self, *, user_id: UUID, device_id: str, public_key: bytes, fingerprint: str, created_at: datetime, max_active_devices: int = 3) -> DeviceRecord: ...
     def revoke_device(self, *, user_id: UUID, device_id: str, revoked_at: datetime) -> None: ...
+    def save_device_challenge(self, *, user_id: UUID, device_id: str, purpose: str, challenge_hash: str, issued_at: datetime, expires_at: datetime) -> DeviceProofChallengeRecord: ...
+    def consume_device_challenge(self, *, user_id: UUID, device_id: str, purpose: str, challenge_hash: str, consumed_at: datetime) -> DeviceProofChallengeRecord: ...
     def get_session_family(self, *, user_id: UUID, family_id: str) -> SessionFamilyRecord | None: ...
     def list_session_families(self, *, user_id: UUID) -> tuple[SessionFamilyRecord, ...]: ...
     def save_session_family(self, *, user_id: UUID, family_id: str, device_id: str, current_refresh_hash: str, state: str, created_at: datetime, updated_at: datetime) -> SessionFamilyRecord: ...
