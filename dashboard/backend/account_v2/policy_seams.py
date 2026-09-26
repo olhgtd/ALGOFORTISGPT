@@ -35,6 +35,16 @@ def evaluate_update_safe_window(
 ) -> UpdateSafeWindowDecision:
     if policy is None:
         return UpdateSafeWindowDecision(False, "UPDATE_POLICY_UNAVAILABLE")
+    if (
+        not policy.policy_id.strip()
+        or not policy.version.strip()
+        or not policy.allowed_engine_states
+        or not policy.session_calendar_ref.strip()
+        or not policy.applicability.strip()
+    ):
+        return UpdateSafeWindowDecision(False, "UPDATE_POLICY_INVALID")
+    if policy.applicability != "APPLICABLE":
+        return UpdateSafeWindowDecision(False, "UPDATE_POLICY_NOT_APPLICABLE")
     if engine_state not in policy.allowed_engine_states:
         return UpdateSafeWindowDecision(False, "ENGINE_STATE_NOT_ALLOWED")
     if has_open_positions and not policy.allow_open_positions:
