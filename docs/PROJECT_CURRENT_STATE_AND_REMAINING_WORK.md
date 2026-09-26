@@ -41,7 +41,7 @@ When records disagree, use this order:
 5. V1 frozen architecture and certified checkpoint for historical/carry-forward behavior;
 6. old README/SentinelX-era presentation as historical reference only.
 
-Known register inconsistency: the root `ALGOFORTIS_V2_OWNER_DECISIONS.md` predates the final Phase-5 addendum and may show OD-V2-19 and OD-V2-24 as OPEN. For Phase 5, `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`, ADR-013 and ADR-014 are later authoritative records and mark both frozen.
+Phase-5 decision reconciliation is complete: root `ALGOFORTIS_V2_OWNER_DECISIONS.md` now records OD-V2-19 and OD-V2-24 as **FROZEN**, consistent with `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`, ADR-013 and ADR-014. Future changes to either decision require a new dated decision-log entry rather than an exception note.
 
 ---
 
@@ -1272,8 +1272,8 @@ Release qualification and controlled pilot pending.
 - OD-V2-13 — Parquet/Arrow + PyArrow Dataset + SQLite catalog.
 - OD-V2-14 — internal registry only for V2.0.
 - OD-V2-17 — fail-closed promotion criteria/default NON_PROMOTABLE.
-- OD-V2-19 — Phase-5 alert independence, frozen by later addendum/ADR-014.
-- OD-V2-24 — Phase-5 host policy, frozen by later addendum/ADR-013.
+- OD-V2-19 — Phase-5 alert independence, frozen in the root register and ADR-014.
+- OD-V2-24 — Phase-5 host policy, frozen in the root register and ADR-013.
 
 # 8.2 Open decisions blocking Phase 6
 
@@ -1396,8 +1396,7 @@ This section is the practical “what next?” list. Do not skip earlier gates s
 7. Record Paper-vs-Backtest drift.
 8. Evaluate the longer soak only after its defined target is actually met; do not label it passed early.
 9. Review G5 technical evidence for explicit Owner closure where required.
-10. Reconcile root OD register with Phase-5 addendum/ADRs.
-11. Treat PR #8 merge as a separate explicit decision.
+10. Treat PR #8 merge as a separate explicit decision.
 
 # 10.2 Resolve branch/PR integration sequencing
 
@@ -1531,7 +1530,7 @@ Required before G10:
 
 Future documentation work should:
 
-- regenerate `ALGOFORTIS_V2_OWNER_DECISIONS.md` so Phase-5 addendum decisions are reflected directly;
+- keep `ALGOFORTIS_V2_OWNER_DECISIONS.md` synchronized with any future dated Owner Decision amendments/ADRs;
 - update stale SentinelX README presentation without breaking compatibility references;
 - update these master docs after meaningful phase/merge/gate changes;
 - keep technical qualification, merge, Owner approval and soak status separate;
