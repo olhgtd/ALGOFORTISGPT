@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from .rate_limit import RateLimitFlow
 from .repository import (
     AccountAuthorityRecordUnavailable,
     AccountAuthorityRepository,
@@ -38,8 +39,9 @@ class SessionIssue:
 
 
 class DurableSessionService:
-    def __init__(self, repository: AccountAuthorityRepository) -> None:
+    def __init__(self, repository: AccountAuthorityRepository, rate_limiter=None) -> None:
         self._repository = repository
+        self._rate_limiter = rate_limiter
 
     @staticmethod
     def hash_token(token: str) -> str:
@@ -88,8 +90,15 @@ class DurableSessionService:
             refresh_absolute_expires_at=absolute_expires_at,
         )
 
-    def rotate_refresh_token(self, *, user_id: UUID, device_id: str, family_id: str,
-                             presented_refresh_token: str, now: datetime) -> SessionIssue:
+    def _rotate_refresh_token_unlimited(
+        self,
+        *,
+        user_id: UUID,
+        device_id: str,
+        family_id: str,
+        presented_refresh_token: str,
+        now: datetime,
+    ) -> SessionIssue:
         token_hash = self.hash_token(presented_refresh_token)
         try:
             if self._repository.is_consumed_refresh_hash(
@@ -142,3 +151,43 @@ class DurableSessionService:
             access_expires_at=now + ACCESS_TOKEN_TTL,
             refresh_absolute_expires_at=policy.absolute_expires_at,
         )
+
+    def rotate_refresh_token(self, *, user_id: UUID, device_id: str, family_id: str,
+                             presented_refresh_token: str, now: datetime) -> SessionIssue:
+        limiter = self._rate_limiter
+        if limiter is None:
+            raise SessionUnavailable("refresh rate-limit service unavailable")
+
+        subject_key = str(user_id)
+        decision = limiter.is_locked(
+            user_id=user_id,
+            flow=RateLimitFlow.REFRESH_MISUSE,
+            subject_key=subject_key,
+            now=now,
+        )
+        if decision.locked:
+            raise SessionUnavailable("refresh rate-limit active")
+
+        try:
+            result = self._rotate_refresh_token_unlimited(
+                user_id=user_id,
+                device_id=device_id,
+                family_id=family_id,
+                presented_refresh_token=presented_refresh_token,
+                now=now,
+            )
+        except SessionUnavailable:
+            limiter.record_failure(
+                user_id=user_id,
+                flow=RateLimitFlow.REFRESH_MISUSE,
+                subject_key=subject_key,
+                now=now,
+            )
+            raise
+
+        limiter.record_success(
+            user_id=user_id,
+            flow=RateLimitFlow.REFRESH_MISUSE,
+            subject_key=subject_key,
+        )
+        return result
