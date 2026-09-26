@@ -70,9 +70,10 @@ class _Limiter:
 
 
 class _Ceremonies:
-    def __init__(self):
+    def __init__(self, *, malformed: bool = False):
         self.issued = 0
         self.completed = 0
+        self.malformed = malformed
 
     def issue_authentication(self, **kwargs):
         self.issued += 1
@@ -80,6 +81,8 @@ class _Ceremonies:
 
     def complete_authentication(self, **kwargs):
         self.completed += 1
+        if self.malformed:
+            raise ValueError("invalid assertion")
         return ("cred", "rp")
 
 
@@ -119,3 +122,15 @@ def test_successful_webauthn_completion_resets_login_flow() -> None:
     authority = WebAuthnAuthority(ceremonies, rate_limiter=limiter, clock=_clock)
     assert authority.complete_authentication(user=user, challenge_id="c1", response={}) == ("cred", "rp")
     assert [event for event, _ in limiter.events] == ["check", "success"]
+
+
+def test_malformed_webauthn_assertion_counts_as_login_failure() -> None:
+    from dashboard.backend.account_v2.webauthn_authority import WebAuthnAuthority
+
+    limiter = _Limiter()
+    user = _User()
+    authority = WebAuthnAuthority(_Ceremonies(malformed=True), rate_limiter=limiter, clock=_clock)
+    with pytest.raises(ValueError, match="invalid assertion"):
+        authority.complete_authentication(user=user, challenge_id="c1", response={})
+    assert [event for event, _ in limiter.events] == ["check", "failure"]
+    assert limiter.events[1][1]["flow"].value == "LOGIN"
