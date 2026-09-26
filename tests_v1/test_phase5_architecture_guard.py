@@ -38,6 +38,17 @@ def test_phase5_guard_pins_p5_06_failure_policy_and_tests():
     } <= set(REQUIRED)
 
 
+def test_phase5_guard_pins_p5_07_host_resilience_files_and_tests():
+    assert {
+        "engine/host/__init__.py",
+        "engine/host/instance_lock.py",
+        "engine/host/clock_health.py",
+        "engine/host/power_session.py",
+        "engine/host/watchdog_policy.py",
+        "tests_v1/test_phase5_host_resilience.py",
+    } <= set(REQUIRED)
+
+
 def test_phase5_guard_locks_exact_operational_state_vocabulary():
     assert EXPECTED_OPERATIONAL_STATES == (
         "HEALTHY",
@@ -62,6 +73,22 @@ def test_phase5_guard_rejects_real_broker_and_live_imports(tmp_path):
     problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
     assert any("engine.broker_adapters" in problem for problem in problems)
     assert any("engine.live" in problem for problem in problems)
+
+
+def test_phase5_guard_rejects_host_live_or_broker_authority_imports(tmp_path):
+    _write(
+        tmp_path,
+        "engine/host/watchdog_policy.py",
+        "from engine.live import state_machine_v2\n",
+    )
+    _write(
+        tmp_path,
+        "engine/host/instance_lock.py",
+        "from engine.broker_adapters import angel_adapter\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("engine/host/watchdog_policy.py" in problem and "engine.live" in problem for problem in problems)
+    assert any("engine/host/instance_lock.py" in problem and "engine.broker_adapters" in problem for problem in problems)
 
 
 def test_phase5_guard_rejects_persistence_network_and_windows_concrete_imports(tmp_path):
@@ -149,3 +176,35 @@ def test_phase5_guard_rejects_embedded_module_level_storm_policy_profile(tmp_pat
     )
     problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
     assert any("storm policy profile" in problem.lower() for problem in problems)
+
+
+def test_phase5_guard_rejects_guessed_default_clock_drift_threshold(tmp_path):
+    _write(
+        tmp_path,
+        "engine/host/clock_health.py",
+        "DEFAULT_CLOCK_DRIFT_MS = 500\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("clock drift" in problem.lower() for problem in problems)
+
+
+def test_phase5_guard_rejects_embedded_module_level_clock_policy_profile(tmp_path):
+    _write(
+        tmp_path,
+        "engine/host/clock_health.py",
+        "DEFAULT_CLOCK_POLICY = ClockHealthPolicy(\n"
+        "    policy_id='production/clock', version='1', max_abs_drift_ms=500\n"
+        ")\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("clock policy profile" in problem.lower() for problem in problems)
+
+
+def test_phase5_guard_rejects_permanent_power_plan_mutation_command(tmp_path):
+    _write(
+        tmp_path,
+        "engine/host/power_session.py",
+        "import subprocess\nsubprocess.run(['powercfg', '/setactive', 'scheme'])\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("permanent power-plan" in problem.lower() for problem in problems)
