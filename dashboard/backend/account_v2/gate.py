@@ -15,9 +15,16 @@ S2_GATE_SCHEMA_VERSION = "s2-device-session-gate/v1"
 
 
 class DeviceSessionGate:
-    def __init__(self, repository, *, authority_evidence_ref: str | None = None) -> None:
+    def __init__(
+        self,
+        repository,
+        *,
+        authority_evidence_ref: str | None = None,
+        required_rp_id: str | None = None,
+    ) -> None:
         self._repository = repository
         self._authority_evidence_ref = authority_evidence_ref
+        self._required_rp_id = required_rp_id
 
     def _result(
         self,
@@ -49,8 +56,53 @@ class DeviceSessionGate:
         now: datetime,
     ) -> DeviceSessionGateResult:
         try:
-            device = self._repository.get_device(user_id=user_id, device_id=device_id)
+            account = self._repository.get_account_state(user_id=user_id)
+            if account is None:
+                return self._result(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_family_id=session_family_id,
+                    status=DeviceSessionGateStatus.REVOKED,
+                    reason="ACCOUNT_UNAVAILABLE",
+                    now=now,
+                )
+            if account.security_state == "RECOVERY_REQUIRED":
+                return self._result(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_family_id=session_family_id,
+                    status=DeviceSessionGateStatus.RECOVERY_REQUIRED,
+                    reason="ACCOUNT_RECOVERY_REQUIRED",
+                    now=now,
+                )
+            if (
+                account.lifecycle != "ACTIVE"
+                or account.account_status != "ACTIVE"
+                or account.activation_status != "REDEEMED"
+                or account.security_state != "ACTIVE"
+            ):
+                return self._result(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_family_id=session_family_id,
+                    status=DeviceSessionGateStatus.REVOKED,
+                    reason="ACCOUNT_NOT_ACTIVE",
+                    now=now,
+                )
+            if not self._repository.has_enabled_webauthn_credential(
+                user_id=user_id,
+                rp_id=self._required_rp_id,
+            ):
+                return self._result(
+                    user_id=user_id,
+                    device_id=device_id,
+                    session_family_id=session_family_id,
+                    status=DeviceSessionGateStatus.RECOVERY_REQUIRED,
+                    reason="WEBAUTHN_REENROLLMENT_REQUIRED",
+                    now=now,
+                )
 
+            device = self._repository.get_device(user_id=user_id, device_id=device_id)
             if device is None:
                 return self._result(
                     user_id=user_id,
