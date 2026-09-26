@@ -9,6 +9,14 @@ from dashboard.backend.account_v2.gate import DeviceSessionGate
 
 
 @dataclass
+class _Account:
+    lifecycle: str = "ACTIVE"
+    account_status: str = "ACTIVE"
+    activation_status: str = "REDEEMED"
+    security_state: str = "ACTIVE"
+
+
+@dataclass
 class _Device:
     status: str = "ACTIVE"
 
@@ -26,10 +34,18 @@ class _Policy:
 
 
 class _Repository:
-    def __init__(self, *, device=None, family=None, policy=None) -> None:
+    def __init__(self, *, account=None, credential_ready=True, device=None, family=None, policy=None) -> None:
+        self.account = account if account is not None else _Account()
+        self.credential_ready = credential_ready
         self.device = device
         self.family = family
         self.policy = policy
+
+    def get_account_state(self, **_kwargs):
+        return self.account
+
+    def has_enabled_webauthn_credential(self, **_kwargs):
+        return self.credential_ready
 
     def get_device(self, **_kwargs):
         return self.device
@@ -49,6 +65,23 @@ def _gate(repository: _Repository) -> DeviceSessionGate:
     return DeviceSessionGate(repository, authority_evidence_ref="acct-evidence")
 
 
+def test_account_and_webauthn_state_are_mandatory_gate_prerequisites() -> None:
+    user_id = uuid4()
+    now = _now()
+    fresh = _Policy(now + timedelta(days=30), now + timedelta(days=7))
+
+    suspended = _Account(account_status="SUSPENDED")
+    result = _gate(_Repository(account=suspended, device=_Device(), family=_Family(), policy=fresh)).evaluate(user_id, "dev-1", "fam-1", now)
+    assert result.status is DeviceSessionGateStatus.REVOKED
+
+    recovery = _Account(security_state="RECOVERY_REQUIRED")
+    result = _gate(_Repository(account=recovery, device=_Device(), family=_Family(), policy=fresh)).evaluate(user_id, "dev-1", "fam-1", now)
+    assert result.status is DeviceSessionGateStatus.RECOVERY_REQUIRED
+
+    result = _gate(_Repository(credential_ready=False, device=_Device(), family=_Family(), policy=fresh)).evaluate(user_id, "dev-1", "fam-1", now)
+    assert result.status is DeviceSessionGateStatus.RECOVERY_REQUIRED
+
+
 def test_device_session_gate_maps_all_fail_closed_states() -> None:
     user_id = uuid4()
     now = _now()
@@ -63,7 +96,7 @@ def test_device_session_gate_maps_all_fail_closed_states() -> None:
     assert _gate(_Repository(device=_Device(), family=_Family(), policy=expired)).evaluate(user_id, "dev-1", "fam-1", now).status is DeviceSessionGateStatus.SESSION_EXPIRED
 
 
-def test_device_session_gate_valid_requires_active_device_family_and_fresh_policy() -> None:
+def test_device_session_gate_valid_requires_active_account_credential_device_family_and_fresh_policy() -> None:
     user_id = uuid4()
     now = _now()
     policy = _Policy(now + timedelta(days=30), now + timedelta(days=7))
