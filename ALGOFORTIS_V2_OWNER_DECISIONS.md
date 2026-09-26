@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.7 — Phase 5 host/alert decision reconciliation recorded |
+| Version | v0.8 — Phase 6 live-safety decisions frozen |
 | Date | 2026-09-26 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
@@ -23,6 +23,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 7. On 2026-09-23 the Owner authorized Phase 3 execution. OD-V2-04, OD-V2-10 and OD-V2-13 were frozen to the documented safe/recommended data choices and formalized by `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md`.
 8. On 2026-09-24 the Owner authorized immediate next-phase execution after the verified Phase 3 merge. OD-V2-11 and OD-V2-17 were frozen to fail-closed research/promotion governance, and the ORB protective-policy blocker was frozen as an explicit versioned-policy requirement with no invented economic defaults. These are formalized by `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md`.
 9. On 2026-09-25 the Owner froze the two Phase-5 entry blockers through the dated Phase-5 decision addendum: OD-V2-24 host resilience in `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md` and OD-V2-19 alert-channel independence in `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`. This root register was reconciled on 2026-09-26 so later readers no longer need to rely on an OPEN-status exception note.
+10. On 2026-09-26 the Owner approved the G5 Owner gate and explicitly selected Option A for all Phase-6 blocking safety decisions: OD-V2-05, OD-V2-06, OD-V2-08 and OD-V2-09. The Phase-6 choices are formalized in `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` and `docs/v2/phase6/PHASE6_OWNER_DECISION_FREEZE.md`. This approval does not authorize Live mutation; Live remains READ_ONLY / DISARMED.
 
 ---
 
@@ -77,16 +78,14 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 ### Trading safety
 
 **OD-V2-05 — Multi-device live exclusivity** · Blocks Phase 6
-- *Problem:* Up to 3 devices per account can each hold the same broker credentials; two armed engines could trade the same account.
-- *Options:* (A) local only: arm ownership recorded locally, broker-truth reconciliation detects foreign activity and halts; (B) cloud-issued live lease; (C) hybrid: A as the hard backstop plus an *advisory* cloud "armed device" record that blocks a second device from arming while the cloud is reachable.
-- *Recommendation:* **A as mandatory backstop; C only if explicitly accepted later.** B is not recommended.
-- *Status:* OPEN
+- *Decision:* **A — local hard backstop is mandatory. Local safety does not depend on cloud availability; broker-truth reconciliation detects activity inconsistent with the current local engine and fails closed by halting new entries and reconciling. A future cloud armed-device record may exist only as advisory defense-in-depth and never as trading authority.**
+- *Authority:* `docs/v2/adr/ADR-015-phase6-live-safety-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-06 — Foreign order / position policy** · Blocks Phase 6
-- *Question:* What happens when the broker account contains orders or positions AlgoFortis did not create?
-- *Options:* halt new entries / ignore / auto-adopt.
-- *Recommendation:* Halt new entries for that account, alert, and adopt only by explicit user action. Never auto-adopt.
-- *Status:* OPEN
+- *Decision:* **A — foreign broker orders/positions halt new entries and raise an auditable alert. They are never ignored and never auto-adopted. Adoption, if supported, requires explicit audited human action.**
+- *Authority:* `docs/v2/adr/ADR-015-phase6-live-safety-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-07 — Kill-switch semantics** · Blocks Phase 2
 - *Define three distinct actions:* `HALT_ENTRIES` (block new entries), `CANCEL_PENDING` (cancel unfilled entry orders), `FLATTEN_ALL` (close positions).
@@ -94,15 +93,14 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* **FROZEN**
 
 **OD-V2-08 — Broker-resident protective orders** · Blocks Phase 6
-- *Question:* Must SL/target rest at the broker so a local crash cannot leave a position unprotected?
-- *Recommendation:* Required for live wherever the broker supports it. Where unsupported, document the degraded policy and keep live mutation disarmed until the safety policy is explicitly qualified.
-- *Status:* OPEN
+- *Decision:* **A — broker-resident protection is mandatory wherever the selected broker/API supports the required protective semantics. Local-only protection is not an equivalent substitute when broker protection exists. If required protection is unsupported or unknown, the affected Live mutation path remains DISARMED until a separate degraded policy is designed, qualified and Owner-approved.**
+- *Authority:* `docs/v2/adr/ADR-015-phase6-live-safety-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-09 — Regulatory and broker path** · Blocks Phase 6
-- *Question:* Which compliant route governs live algorithmic orders for retail users?
-- *To verify (current rules must be checked, not assumed):* SEBI/exchange retail-algo framework applicability and effective dates; broker-side requirements (static IP whitelisting, algo tagging/registration, order-rate thresholds); whether personal use differs from distributing the software to other users.
-- *Recommendation:* Do a dated review with the chosen broker's compliance documentation and a qualified adviser before Phase 6 exit. Record the outcome as a design input. This is not legal advice.
-- *Status:* OPEN
+- *Decision:* **A — a dated review of the selected broker's current compliance/API documentation and applicable current exchange/regulatory requirements is mandatory before G6 exit. Historical assumptions are insufficient. Phase-6 contracts/read-only/mock/sandbox work may proceed while Live mutation remains DISARMED.**
+- *Authority:* `docs/v2/adr/ADR-015-phase6-live-safety-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-24 — Host environment policy** · Blocks Phase 5
 - *Decision:* **Windows 11 x64 is the first-class V2.0 qualification target; one trading-engine instance is permitted per local profile/machine context; active Paper/future Live sessions request temporary sleep/hibernate prevention without permanently changing OS power plans; sleep/resume uncertainty forces recovery before new entries; watchdog restart is RECOVERY-only and never auto-arms; clock health is injectable/versioned and fails closed when its required policy is missing/invalid/exceeded; exact production clock-drift and minimum-hardware thresholds are evidence-driven rather than guessed; antivirus/security protections are not required to be disabled; recovery takes precedence over retry/new entries and host events are audited.**
@@ -213,6 +211,10 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | ORB-P4 | No hardcoded ORB protective economics; explicit versioned protective-policy reference required; missing policy fails closed. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
 | OD-V2-24 | Windows 11 x64 first-class; single instance; temporary session sleep prevention; resume/watchdog recovery-only; versioned clock policy; no guessed production drift/hardware threshold. | 2026-09-25 | `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md`; `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md` |
 | OD-V2-19 | Critical alerts independently attempt local Windows-visible + Telegram delivery; redacted payloads; notifier failure cannot weaken Paper safety; heartbeat deferred to OD-V2-22. | 2026-09-25 | `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`; `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md` |
+| OD-V2-05 | Local hard backstop is mandatory for Live exclusivity; cloud may only be advisory defense-in-depth. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
+| OD-V2-06 | Foreign broker activity halts new entries + alerts; explicit audited human adoption only; never ignore or auto-adopt. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
+| OD-V2-08 | Broker-resident protection mandatory where supported; unsupported required protection keeps affected Live mutation DISARMED pending separate policy approval. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
+| OD-V2-09 | Dated current broker/exchange/regulatory verification is mandatory before G6 exit; historical assumptions are insufficient. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
 
 ---
 
@@ -226,7 +228,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 3 | 04, 10, 13 — **FROZEN 2026-09-23** |
 | Phase 4 | 11, 17, ORB protective-policy governance — **FROZEN 2026-09-24** |
 | Phase 5 | 19, 24 — **FROZEN 2026-09-25** |
-| Phase 6 | 05, 06, 08, 09 |
+| Phase 6 | 05, 06, 08, 09 — **FROZEN 2026-09-26** |
 | Phase 8 | 15, 16 |
 | Phase 9 | 25 |
 | Phase 10 | 18, 26 |
