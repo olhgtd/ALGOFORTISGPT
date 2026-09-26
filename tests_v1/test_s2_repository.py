@@ -82,6 +82,40 @@ def test_device_and_session_family_state_survive_reopen(tmp_path: Path) -> None:
     reopened.close()
 
 
+def test_authoritative_device_quota_is_enforced_inside_repository_transaction(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.repository import DeviceQuotaAuthorityExceeded
+    from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
+
+    store = FakeSecurityStore(tmp_path / "security.sqlite3")
+    user_id = uuid4()
+    store.add_user(user_id)
+    adapter = V1SecurityStoreAdapter(store)
+    now = datetime(2026, 9, 26, tzinfo=timezone.utc)
+
+    for index in range(3):
+        adapter.register_device(
+            user_id=user_id,
+            device_id=f"device-{index}",
+            public_key=f"pk-{index}".encode(),
+            fingerprint=f"fp-{index}",
+            created_at=now,
+            max_active_devices=3,
+        )
+
+    with pytest.raises(DeviceQuotaAuthorityExceeded):
+        adapter.register_device(
+            user_id=user_id,
+            device_id="device-4",
+            public_key=b"pk-4",
+            fingerprint="fp-4",
+            created_at=now,
+            max_active_devices=3,
+        )
+
+    assert len([device for device in adapter.list_devices(user_id=user_id) if device.status == "ACTIVE"]) == 3
+    store.close()
+
+
 def test_cross_user_device_and_session_access_fails_closed(tmp_path: Path) -> None:
     from dashboard.backend.account_v2.repository import AccountAuthorityRecordUnavailable
     from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
