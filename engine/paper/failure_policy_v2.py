@@ -53,6 +53,8 @@ class FailureStormPolicy:
             raise ValueError("TEST_ONLY policy_id must start with TEST_ONLY/")
         if escalation != "HALT_ENTRIES":
             raise ValueError("Phase-5 storm escalation_action must be HALT_ENTRIES")
+        if reset != "WINDOW_AND_COOLDOWN":
+            raise ValueError("Phase-5 reset_rule must be WINDOW_AND_COOLDOWN")
         object.__setattr__(self, "policy_id", policy_id)
         object.__setattr__(self, "version", version)
         object.__setattr__(self, "failure_class", failure_class)
@@ -103,6 +105,7 @@ class StormEvaluator:
         self._policy = policy
         self._observations: list[int] = []
         self._last_observed_ms: int | None = None
+        self._threshold_crossed_at_ms: int | None = None
 
     def observe(self, failure_class: str, occurred_at_ms: int) -> StormDecision:
         failure_class = _text(failure_class, "failure_class").upper()
@@ -114,12 +117,39 @@ class StormEvaluator:
         self._last_observed_ms = occurred_at_ms
 
         lower_bound = occurred_at_ms - self._policy.observation_window_ms
-        self._observations = [
+        prior_observations = [
             timestamp for timestamp in self._observations if timestamp >= lower_bound
         ]
-        self._observations.append(occurred_at_ms)
+
+        if self._threshold_crossed_at_ms is not None:
+            cooldown_elapsed = (
+                occurred_at_ms - self._threshold_crossed_at_ms
+                >= self._policy.cooldown_ms
+            )
+            quiet_window = not prior_observations
+            if cooldown_elapsed and quiet_window:
+                self._threshold_crossed_at_ms = None
+                self._observations = []
+            else:
+                self._observations = prior_observations + [occurred_at_ms]
+                return StormDecision(
+                    failure_class=failure_class,
+                    observed_count=len(self._observations),
+                    halt=True,
+                    resulting_state=PaperOperationalState.HALTED,
+                    reason=(
+                        "STORM_COOLDOWN_ACTIVE"
+                        if not cooldown_elapsed
+                        else "STORM_RESET_WAITING_FOR_QUIET_WINDOW"
+                    ),
+                    policy_ref=self._policy.reference,
+                )
+
+        self._observations = prior_observations + [occurred_at_ms]
         count = len(self._observations)
         halt = count >= self._policy.trigger_count
+        if halt:
+            self._threshold_crossed_at_ms = occurred_at_ms
         return StormDecision(
             failure_class=failure_class,
             observed_count=count,
