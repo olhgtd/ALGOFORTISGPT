@@ -8,6 +8,11 @@ import sqlite3
 
 from engine.paper.contracts_v2 import PaperOrderRecord, PaperPositionRecord, PaperSession
 from engine.persistence.paper_codec_v2 import dumps_record, loads_record
+from engine.persistence.paper_recovery_store_v2 import PaperRecoveryStore
+
+
+class OwnedStateIntegrityError(RuntimeError):
+    """Persisted owned-state references cannot be reconstructed exactly."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,29 +105,30 @@ class PaperSessionStore:
         session = self.load_session(session_id)
         if session is None:
             raise KeyError(f"unknown paper session: {session_id}")
-        with self._open() as connection:
-            checkpoint = connection.execute(
-                """
-                SELECT payload_json
-                FROM phase5_recovery_checkpoints
-                WHERE session_id = ?
-                ORDER BY last_event_sequence DESC, persisted_at DESC, checkpoint_id DESC
-                LIMIT 1
-                """,
-                (session_id,),
-            ).fetchone()
+
+        checkpoint = PaperRecoveryStore(self.database_path).latest_checkpoint(session_id)
         if checkpoint is None:
             return OwnedPaperState(session=session, orders=(), positions=())
-        from engine.paper.contracts_v2 import RecoveryCheckpoint
 
-        cp = loads_record(str(checkpoint[0]), RecoveryCheckpoint)
-        orders = tuple(
-            record for ref in cp.open_order_refs if (record := self.load_order(ref)) is not None
+        orders: list[PaperOrderRecord] = []
+        for ref in checkpoint.open_order_refs:
+            record = self.load_order(ref)
+            if record is None:
+                raise OwnedStateIntegrityError(f"missing referenced paper order: {ref}")
+            orders.append(record)
+
+        positions: list[PaperPositionRecord] = []
+        for ref in checkpoint.open_position_refs:
+            record = self.load_position(ref)
+            if record is None:
+                raise OwnedStateIntegrityError(f"missing referenced paper position: {ref}")
+            positions.append(record)
+
+        return OwnedPaperState(
+            session=session,
+            orders=tuple(orders),
+            positions=tuple(positions),
         )
-        positions = tuple(
-            record for ref in cp.open_position_refs if (record := self.load_position(ref)) is not None
-        )
-        return OwnedPaperState(session=session, orders=orders, positions=positions)
 
 
-__all__ = ["OwnedPaperState", "PaperSessionStore"]
+__all__ = ["OwnedStateIntegrityError", "OwnedPaperState", "PaperSessionStore"]
