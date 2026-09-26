@@ -8,6 +8,7 @@ from uuid import UUID
 from .repository import (
     AccountAuthorityRecordUnavailable,
     AccountStateRecord,
+    DeviceQuotaAuthorityExceeded,
     DeviceRecord,
     RateLimitStateRecord,
     RefreshTokenReplayDetected,
@@ -183,12 +184,20 @@ class V1SecurityStoreAdapter:
         ).fetchone()
         return self._device(row) if row is not None else None
 
-    def register_device(self, *, user_id: UUID, device_id: str, public_key: bytes, fingerprint: str, created_at: datetime) -> DeviceRecord:
+    def register_device(self, *, user_id: UUID, device_id: str, public_key: bytes, fingerprint: str, created_at: datetime, max_active_devices: int = 3) -> DeviceRecord:
         self._require_user(user_id)
+        if max_active_devices < 1:
+            raise ValueError("max_active_devices must be positive")
         with self._store._transaction() as cur:
             existing = cur.execute("SELECT user_id FROM s2_devices WHERE device_id = ?", (device_id,)).fetchone()
             if existing is not None:
                 raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
+            active_count = cur.execute(
+                "SELECT COUNT(*) AS count FROM s2_devices WHERE user_id = ? AND status = 'ACTIVE'",
+                (str(user_id),),
+            ).fetchone()["count"]
+            if int(active_count) >= max_active_devices:
+                raise DeviceQuotaAuthorityExceeded("active device quota reached")
             cur.execute(
                 "INSERT INTO s2_devices(device_id, user_id, public_key, fingerprint, status, created_at_utc, revoked_at_utc) VALUES (?, ?, ?, ?, 'ACTIVE', ?, NULL)",
                 (device_id, str(user_id), public_key, fingerprint, created_at.isoformat()),
