@@ -1,4 +1,4 @@
-name: V2 Phase 4 Research and Backtest Verification
+name: V2 Phase 5 Paper Recovery Qualification
 
 on:
   pull_request:
@@ -111,6 +111,20 @@ jobs:
         with:
           name: phase4-fingerprint-a
           path: phase4.txt
+      - name: Phase 5 static paper recovery policy
+        shell: pwsh
+        run: python build/tools/check_phase5_paper_recovery.py
+      - name: Phase 5 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k phase5 -q
+      - name: Phase 5 deterministic fingerprint probe A
+        shell: pwsh
+        run: python build/tools/phase5_probe.py | Set-Content phase5.txt
+      - name: Upload Phase 5 fingerprint A
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-fingerprint-a
+          path: phase5.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -141,29 +155,6 @@ jobs:
           print(f"PHASE0_MARKET_DATA_FINGERPRINT={snapshot.fingerprint}")
           print(f"PHASE0_RUNTIME_CONFIG_FINGERPRINT={config.fingerprint}")
           '@ | python -
-
-  g4-fingerprint-compare:
-    name: G4 cross-Windows deterministic fingerprint comparison
-    needs: [current-head-regression-a, current-head-regression-b]
-    runs-on: windows-latest
-    steps:
-      - name: Download Windows latest fingerprint
-        uses: actions/download-artifact@v4
-        with:
-          name: phase4-fingerprint-a
-          path: a
-      - name: Download Windows 2022 fingerprint
-        uses: actions/download-artifact@v4
-        with:
-          name: phase4-fingerprint-b
-          path: b
-      - name: Require identical fingerprint output
-        shell: pwsh
-        run: |
-          $a = Get-Content a/phase4.txt -Raw
-          $b = Get-Content b/phase4.txt -Raw
-          if ($a -ne $b) { throw "G4 cross-Windows fingerprint mismatch" }
-          Write-Output $a
 
   current-head-regression-b:
     name: Current HEAD regression B (Windows 2022 / Python 3.13.14)
@@ -262,6 +253,20 @@ jobs:
         with:
           name: phase4-fingerprint-b
           path: phase4.txt
+      - name: Phase 5 static paper recovery policy
+        shell: pwsh
+        run: python build/tools/check_phase5_paper_recovery.py
+      - name: Phase 5 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k phase5 -q
+      - name: Phase 5 deterministic fingerprint probe B
+        shell: pwsh
+        run: python build/tools/phase5_probe.py | Set-Content phase5.txt
+      - name: Upload Phase 5 fingerprint B
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-fingerprint-b
+          path: phase5.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -292,3 +297,59 @@ jobs:
           print(f"PHASE0_MARKET_DATA_FINGERPRINT={snapshot.fingerprint}")
           print(f"PHASE0_RUNTIME_CONFIG_FINGERPRINT={config.fingerprint}")
           '@ | python -
+
+  g4-fingerprint-compare:
+    name: G4 cross-Windows deterministic fingerprint comparison
+    needs: [current-head-regression-a, current-head-regression-b]
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows latest fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase4-fingerprint-a
+          path: a
+      - name: Download Windows 2022 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase4-fingerprint-b
+          path: b
+      - name: Require identical fingerprint output
+        shell: pwsh
+        run: |
+          $a = Get-Content a/phase4.txt -Raw
+          $b = Get-Content b/phase4.txt -Raw
+          if ($a -ne $b) { throw "G4 cross-Windows fingerprint mismatch" }
+          Write-Output $a
+
+  g5-fingerprint-compare:
+    name: G5 cross-Windows deterministic fingerprint comparison
+    needs: [current-head-regression-a, current-head-regression-b]
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows latest Phase 5 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase5-fingerprint-a
+          path: a
+      - name: Download Windows 2022 Phase 5 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: phase5-fingerprint-b
+          path: b
+      - name: Require identical Phase 5 fingerprint output and safety markers
+        shell: pwsh
+        run: |
+          $a = Get-Content a/phase5.txt -Raw
+          $b = Get-Content b/phase5.txt -Raw
+          if ($a -ne $b) { throw "G5 cross-Windows fingerprint mismatch" }
+          $required = @(
+            'FINAL_STATE=READY_FOR_RESUME',
+            'MANUAL_RESUME_REQUIRED=true',
+            'DUPLICATE_ORDER_COUNT=0',
+            'STALE_REPLAY_COUNT=0',
+            'DEFAULT_LIVE_STATE=READ_ONLY/DISARMED'
+          )
+          foreach ($marker in $required) {
+            if ($a -notmatch [regex]::Escape($marker)) { throw "G5 required marker missing: $marker" }
+          }
+          Write-Output $a
