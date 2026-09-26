@@ -1,7 +1,7 @@
 """Deterministic GP-S2 evidence markers.
 
 The probe is intentionally side-effect free and carries no broker or Live
-mutation capability.  Fingerprints are canonical SHA-256 digests over fixed
+mutation capability. Fingerprints are canonical SHA-256 digests over fixed
 S2 safety-contract fixtures so Windows runners can compare byte-for-byte.
 """
 from __future__ import annotations
@@ -19,6 +19,7 @@ _MARKER_ORDER = (
     "CROSS_USER_ESCAPE_COUNT",
     "OUTAGE_GATE_STATUS",
     "OUTAGE_RUNTIME_MODE",
+    "RATE_LIMIT_FLOWS",
     "DEVICE_LIMIT",
     "PRODUCTION_DOMAIN",
     "LIVE_STATE",
@@ -45,6 +46,7 @@ def build_gp_s2_evidence() -> dict[str, str]:
         "scope": "SELF_SCOPED",
         "required_audit": "FAIL_CLOSED",
         "recovery": "REVOKE_ALL_TARGET_ONLY",
+        "rate_limit_flows": ("LOGIN", "DEVICE_PROOF", "REFRESH_MISUSE", "RECOVERY"),
         "cloud_trading_authority": False,
     }
     device_reproof_fixture = {
@@ -62,6 +64,7 @@ def build_gp_s2_evidence() -> dict[str, str]:
         "CROSS_USER_ESCAPE_COUNT": "0",
         "OUTAGE_GATE_STATUS": "AUTHORITY_UNAVAILABLE",
         "OUTAGE_RUNTIME_MODE": "LOCAL_SAFETY_ONLY",
+        "RATE_LIMIT_FLOWS": "LOGIN,DEVICE_PROOF,REFRESH_MISUSE,RECOVERY",
         "DEVICE_LIMIT": "3",
         "PRODUCTION_DOMAIN": "PENDING_EXTERNAL",
         "LIVE_STATE": "READ_ONLY/DISARMED",
