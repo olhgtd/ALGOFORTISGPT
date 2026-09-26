@@ -11,7 +11,6 @@ import ast
 from pathlib import Path
 import re
 
-
 EXPECTED_OPERATIONAL_STATES = (
     "HEALTHY",
     "DEGRADED",
@@ -24,6 +23,9 @@ REQUIRED = (
     "engine/paper/contracts_v2.py",
     "engine/paper/operational_state_v2.py",
     "engine/paper/failure_policy_v2.py",
+    "engine/paper/drift_report_v2.py",
+    "engine/paper/evidence_v2.py",
+    "engine/paper/failure_injection_v2.py",
     "engine/host/__init__.py",
     "engine/host/instance_lock.py",
     "engine/host/clock_health.py",
@@ -36,12 +38,16 @@ REQUIRED = (
     "engine/alerts/adapters/__init__.py",
     "engine/alerts/adapters/windows_local.py",
     "engine/alerts/adapters/telegram.py",
+    "build/tools/phase5_probe.py",
     "tests_v1/test_phase5_contracts.py",
     "tests_v1/test_phase5_operational_state.py",
     "tests_v1/test_phase5_failure_policy.py",
     "tests_v1/test_phase5_host_resilience.py",
     "tests_v1/test_phase5_alerts.py",
+    "tests_v1/test_phase5_drift_report.py",
+    "tests_v1/test_phase5_failure_injection.py",
     "tests_v1/test_phase5_architecture_guard.py",
+    "tests_v1/test_phase5_qualification_guard.py",
     "build/tools/check_phase5_paper_recovery.py",
 )
 
@@ -55,22 +61,13 @@ FORBIDDEN_IMPORT_ROOTS = (
     "win32api",
     "win32con",
 )
-
-_HOST_FORBIDDEN_IMPORT_ROOTS = (
-    "engine.broker_adapters",
-    "engine.live",
-)
-
-_ALERT_FORBIDDEN_IMPORT_ROOTS = (
-    "engine.broker_adapters",
-    "engine.live",
-)
+_HOST_FORBIDDEN_IMPORT_ROOTS = ("engine.broker_adapters", "engine.live")
+_ALERT_FORBIDDEN_IMPORT_ROOTS = ("engine.broker_adapters", "engine.live")
 
 _STORM_CONSTANT = re.compile(
     r"(?im)^\s*(?:(?:PRODUCTION|DEFAULT)_)?STORM_"
     r"(?:TRIGGER_COUNT|WINDOW|WINDOW_SECONDS|THRESHOLD)\s*=\s*\d+"
 )
-
 _CLOCK_DRIFT_CONSTANT = re.compile(
     r"(?im)^\s*(?:(?:PRODUCTION|DEFAULT)_)?CLOCK_"
     r"(?:DRIFT|DRIFT_MS|MAX_DRIFT_MS|DRIFT_THRESHOLD)\s*=\s*\d+"
@@ -91,10 +88,7 @@ def _import_names(source: str) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _matching_forbidden_import(
-    name: str,
-    roots: tuple[str, ...],
-) -> str | None:
+def _matching_forbidden_import(name: str, roots: tuple[str, ...]) -> str | None:
     for root in roots:
         if name == root or name.startswith(root + "."):
             return root
@@ -109,9 +103,7 @@ def _is_named_call(value: ast.AST | None, name: str) -> bool:
     if not isinstance(value, ast.Call):
         return False
     func = value.func
-    return (
-        isinstance(func, ast.Name) and func.id == name
-    ) or (
+    return (isinstance(func, ast.Name) and func.id == name) or (
         isinstance(func, ast.Attribute) and func.attr == name
     )
 
@@ -150,9 +142,7 @@ def _state_vocabulary(source: str) -> tuple[str, ...] | None:
             if not isinstance(item, ast.Assign) or len(item.targets) != 1:
                 continue
             target = item.targets[0]
-            if not isinstance(target, ast.Name):
-                continue
-            if isinstance(item.value, ast.Constant) and isinstance(item.value.value, str):
+            if isinstance(target, ast.Name) and isinstance(item.value, ast.Constant) and isinstance(item.value.value, str):
                 values.append(item.value.value)
         return tuple(values)
     return None
@@ -166,32 +156,34 @@ def _read_source(path: Path, problems: list[str]) -> str | None:
         return None
 
 
-def _check_import_roots(
-    root: Path,
-    problems: list[str],
-    import_roots: tuple[str, ...],
-    *,
-    label: str,
-) -> None:
-    if not root.is_dir():
-        return
-    for path in sorted(root.rglob("*.py")):
-        source = _read_source(path, problems)
-        if source is None:
+def _live_default_problems(source: str) -> tuple[str, ...]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return ()
+    problems: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef) or node.name != "__init__":
             continue
-        relative = path.as_posix()
-        for imported in _import_names(source):
-            forbidden = _matching_forbidden_import(imported, import_roots)
-            if forbidden:
-                problems.append(f"{relative}: forbidden {label} import root {forbidden}")
+        positional = list(node.args.args)
+        positional_defaults = list(node.args.defaults)
+        default_map: dict[str, ast.AST] = {}
+        if positional_defaults:
+            for arg, default in zip(positional[-len(positional_defaults):], positional_defaults):
+                default_map[arg.arg] = default
+        for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+            if default is not None:
+                default_map[arg.arg] = default
+        arm_default = default_map.get("arm_enabled")
+        if isinstance(arm_default, ast.Constant) and arm_default.value is True:
+            problems.append("live default arm_enabled must remain false")
+        initial_default = default_map.get("initial_state")
+        if isinstance(initial_default, ast.Attribute) and initial_default.attr == "ACTIVE":
+            problems.append("live default initial state must not be ACTIVE")
+    return tuple(problems)
 
 
-def verify(
-    root: Path,
-    *,
-    check_presence: bool = True,
-    check_state_vocabulary: bool = True,
-) -> tuple[str, ...]:
+def verify(root: Path, *, check_presence: bool = True, check_state_vocabulary: bool = True) -> tuple[str, ...]:
     root = Path(root)
     problems: list[str] = []
 
@@ -212,14 +204,9 @@ def verify(
                 if forbidden:
                     problems.append(f"{relative}: forbidden import root {forbidden}")
             if _STORM_CONSTANT.search(source):
-                problems.append(
-                    f"{relative}: guessed production storm threshold constant is forbidden"
-                )
+                problems.append(f"{relative}: guessed production storm threshold constant is forbidden")
             if _has_module_level_storm_policy_profile(source):
-                problems.append(
-                    f"{relative}: embedded module-level storm policy profile is forbidden; "
-                    "inject a versioned policy instead"
-                )
+                problems.append(f"{relative}: embedded module-level storm policy profile is forbidden; inject a versioned policy instead")
 
     host_root = root / "engine" / "host"
     if host_root.is_dir():
@@ -229,26 +216,16 @@ def verify(
                 continue
             relative = path.relative_to(root).as_posix()
             for imported in _import_names(source):
-                forbidden = _matching_forbidden_import(
-                    imported,
-                    _HOST_FORBIDDEN_IMPORT_ROOTS,
-                )
+                forbidden = _matching_forbidden_import(imported, _HOST_FORBIDDEN_IMPORT_ROOTS)
                 if forbidden:
                     problems.append(f"{relative}: forbidden host import root {forbidden}")
             if _CLOCK_DRIFT_CONSTANT.search(source):
-                problems.append(
-                    f"{relative}: guessed production clock drift threshold constant is forbidden"
-                )
+                problems.append(f"{relative}: guessed production clock drift threshold constant is forbidden")
             if _has_module_level_clock_policy_profile(source):
-                problems.append(
-                    f"{relative}: embedded module-level clock policy profile is forbidden; "
-                    "inject a versioned policy instead"
-                )
+                problems.append(f"{relative}: embedded module-level clock policy profile is forbidden; inject a versioned policy instead")
             lowered = source.lower()
             if "powercfg" in lowered and "setactive" in lowered:
-                problems.append(
-                    f"{relative}: permanent power-plan mutation command is forbidden"
-                )
+                problems.append(f"{relative}: permanent power-plan mutation command is forbidden")
 
     alerts_root = root / "engine" / "alerts"
     if alerts_root.is_dir():
@@ -258,12 +235,15 @@ def verify(
                 continue
             relative = path.relative_to(root).as_posix()
             for imported in _import_names(source):
-                forbidden = _matching_forbidden_import(
-                    imported,
-                    _ALERT_FORBIDDEN_IMPORT_ROOTS,
-                )
+                forbidden = _matching_forbidden_import(imported, _ALERT_FORBIDDEN_IMPORT_ROOTS)
                 if forbidden:
                     problems.append(f"{relative}: forbidden alert import root {forbidden}")
+
+    live_state = root / "engine" / "live" / "state_machine_v2.py"
+    if live_state.is_file():
+        source = _read_source(live_state, problems)
+        if source is not None:
+            problems.extend(_live_default_problems(source))
 
     if check_state_vocabulary:
         contracts = root / "engine" / "paper" / "contracts_v2.py"
@@ -272,10 +252,7 @@ def verify(
             if source is not None:
                 actual = _state_vocabulary(source)
                 if actual != EXPECTED_OPERATIONAL_STATES:
-                    problems.append(
-                        "operational state vocabulary drift: "
-                        f"expected {EXPECTED_OPERATIONAL_STATES!r}, got {actual!r}"
-                    )
+                    problems.append(f"operational state vocabulary drift: expected {EXPECTED_OPERATIONAL_STATES!r}, got {actual!r}")
         elif not check_presence:
             problems.append("operational state vocabulary unavailable")
 
@@ -289,11 +266,7 @@ def main() -> int:
         for problem in problems:
             print(f"PHASE5_PAPER_RECOVERY_STATIC_FAIL: {problem}")
         return 1
-    print(
-        "PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 state boundaries, "
-        "P5-06 failure-policy defaults, P5-07 host safety, and "
-        "P5-08 alert authority boundaries locked"
-    )
+    print("PHASE5_PAPER_RECOVERY_STATIC_PASS: Phase-5 authorities, fail-closed defaults, host/alert boundaries, evidence files, and Live DISARMED defaults locked")
     return 0
 
 
