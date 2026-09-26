@@ -31,6 +31,13 @@ def test_phase5_guard_pins_p5_01_authorities_and_tests():
     assert expected <= set(REQUIRED)
 
 
+def test_phase5_guard_pins_p5_06_failure_policy_and_tests():
+    assert {
+        "engine/paper/failure_policy_v2.py",
+        "tests_v1/test_phase5_failure_policy.py",
+    } <= set(REQUIRED)
+
+
 def test_phase5_guard_locks_exact_operational_state_vocabulary():
     assert EXPECTED_OPERATIONAL_STATES == (
         "HEALTHY",
@@ -117,3 +124,28 @@ def test_phase5_guard_rejects_guessed_production_storm_threshold_constants(tmp_p
     )
     problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
     assert any("storm threshold" in problem.lower() for problem in problems)
+
+
+def test_phase5_guard_rejects_default_named_storm_threshold_constants(tmp_path):
+    _write(
+        tmp_path,
+        "engine/paper/failure_policy_v2.py",
+        "DEFAULT_STORM_TRIGGER_COUNT = 5\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("storm threshold" in problem.lower() for problem in problems)
+
+
+def test_phase5_guard_rejects_embedded_module_level_storm_policy_profile(tmp_path):
+    _write(
+        tmp_path,
+        "engine/paper/failure_policy_v2.py",
+        "DEFAULT_REJECTION_POLICY = FailureStormPolicy(\n"
+        "    policy_id='production/rejections', version='1',\n"
+        "    failure_class='ORDER_REJECTION', observation_window_ms=10000,\n"
+        "    trigger_count=5, cooldown_ms=30000,\n"
+        "    escalation_action='HALT_ENTRIES', reset_rule='WINDOW_AND_COOLDOWN',\n"
+        ")\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("storm policy profile" in problem.lower() for problem in problems)
