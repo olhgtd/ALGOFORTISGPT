@@ -8,6 +8,7 @@ from uuid import UUID
 from .repository import (
     AccountAuthorityRecordUnavailable,
     DeviceRecord,
+    RateLimitStateRecord,
     SessionFamilyPolicyRecord,
     SessionFamilyRecord,
 )
@@ -64,6 +65,16 @@ class V1SecurityStoreAdapter:
                 consumed_at_utc TEXT NOT NULL
             )""")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_s2_consumed_family ON s2_consumed_refresh_tokens(user_id, family_id)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS s2_rate_limit_state (
+                user_id TEXT NOT NULL,
+                flow TEXT NOT NULL,
+                subject_key TEXT NOT NULL,
+                failure_count INTEGER NOT NULL,
+                locked_until_utc TEXT,
+                updated_at_utc TEXT NOT NULL,
+                PRIMARY KEY (user_id, flow, subject_key)
+            )""")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_s2_rate_limit_user ON s2_rate_limit_state(user_id)")
 
     def _require_user(self, user_id: UUID) -> None:
         if self._store.get_user(user_id) is None:
@@ -101,6 +112,17 @@ class V1SecurityStoreAdapter:
             family_id=str(row["family_id"]),
             absolute_expires_at=datetime.fromisoformat(str(row["absolute_expires_at_utc"])),
             idle_expires_at=datetime.fromisoformat(str(row["idle_expires_at_utc"])),
+        )
+
+    @staticmethod
+    def _rate_limit(row: Any) -> RateLimitStateRecord:
+        return RateLimitStateRecord(
+            user_id=UUID(str(row["user_id"])),
+            flow=str(row["flow"]),
+            subject_key=str(row["subject_key"]),
+            failure_count=int(row["failure_count"]),
+            locked_until=datetime.fromisoformat(str(row["locked_until_utc"])) if row["locked_until_utc"] else None,
+            updated_at=datetime.fromisoformat(str(row["updated_at_utc"])),
         )
 
     def list_devices(self, *, user_id: UUID) -> tuple[DeviceRecord, ...]:
@@ -150,6 +172,14 @@ class V1SecurityStoreAdapter:
         ).fetchone()
         return self._family(row) if row is not None else None
 
+    def list_session_families(self, *, user_id: UUID) -> tuple[SessionFamilyRecord, ...]:
+        self._require_user(user_id)
+        rows = self._store._conn.execute(
+            "SELECT * FROM s2_session_families WHERE user_id = ? ORDER BY created_at_utc, family_id",
+            (str(user_id),),
+        ).fetchall()
+        return tuple(self._family(row) for row in rows)
+
     def save_session_family(self, *, user_id: UUID, family_id: str, device_id: str, current_refresh_hash: str, state: str, created_at: datetime, updated_at: datetime) -> SessionFamilyRecord:
         self._require_user(user_id)
         device = self.get_device(user_id=user_id, device_id=device_id)
@@ -174,6 +204,19 @@ class V1SecurityStoreAdapter:
             if row is None:
                 raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
             cur.execute("UPDATE s2_session_families SET state = 'REVOKED', revoked_at_utc = ?, updated_at_utc = ? WHERE user_id = ? AND family_id = ?", (revoked_at.isoformat(), revoked_at.isoformat(), str(user_id), family_id))
+
+    def revoke_all_access_for_recovery(self, *, user_id: UUID, revoked_at: datetime) -> None:
+        self._require_user(user_id)
+        stamp = revoked_at.isoformat()
+        with self._store._transaction() as cur:
+            cur.execute(
+                "UPDATE s2_session_families SET state = 'REVOKED', revoked_at_utc = ?, updated_at_utc = ? WHERE user_id = ? AND state != 'REVOKED'",
+                (stamp, stamp, str(user_id)),
+            )
+            cur.execute(
+                "UPDATE s2_devices SET status = 'REVOKED', revoked_at_utc = ? WHERE user_id = ? AND status != 'REVOKED'",
+                (stamp, str(user_id)),
+            )
 
     def save_session_policy(self, *, user_id: UUID, family_id: str, absolute_expires_at: datetime, idle_expires_at: datetime) -> SessionFamilyPolicyRecord:
         self._require_user(user_id)
@@ -224,4 +267,40 @@ class V1SecurityStoreAdapter:
             cur.execute(
                 "UPDATE s2_session_family_policy SET idle_expires_at_utc = ? WHERE user_id = ? AND family_id = ?",
                 (idle_expires_at.isoformat(), str(user_id), family_id),
+            )
+
+    def get_rate_limit_state(self, *, user_id: UUID, flow: str, subject_key: str) -> RateLimitStateRecord | None:
+        self._require_user(user_id)
+        row = self._store._conn.execute(
+            "SELECT * FROM s2_rate_limit_state WHERE user_id = ? AND flow = ? AND subject_key = ?",
+            (str(user_id), flow, subject_key),
+        ).fetchone()
+        return self._rate_limit(row) if row is not None else None
+
+    def save_rate_limit_state(self, *, user_id: UUID, flow: str, subject_key: str, failure_count: int, locked_until: datetime | None, updated_at: datetime) -> RateLimitStateRecord:
+        self._require_user(user_id)
+        with self._store._transaction() as cur:
+            cur.execute(
+                """INSERT INTO s2_rate_limit_state(user_id, flow, subject_key, failure_count, locked_until_utc, updated_at_utc)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, flow, subject_key) DO UPDATE SET
+                     failure_count = excluded.failure_count,
+                     locked_until_utc = excluded.locked_until_utc,
+                     updated_at_utc = excluded.updated_at_utc""",
+                (
+                    str(user_id), flow, subject_key, failure_count,
+                    locked_until.isoformat() if locked_until else None,
+                    updated_at.isoformat(),
+                ),
+            )
+        record = self.get_rate_limit_state(user_id=user_id, flow=flow, subject_key=subject_key)
+        assert record is not None
+        return record
+
+    def clear_rate_limit_state(self, *, user_id: UUID, flow: str, subject_key: str) -> None:
+        self._require_user(user_id)
+        with self._store._transaction() as cur:
+            cur.execute(
+                "DELETE FROM s2_rate_limit_state WHERE user_id = ? AND flow = ? AND subject_key = ?",
+                (str(user_id), flow, subject_key),
             )
