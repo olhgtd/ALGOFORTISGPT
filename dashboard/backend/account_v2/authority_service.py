@@ -54,6 +54,36 @@ class S2AccountAuthorityService:
             raise RuntimeError("required security audit reference unavailable")
         return str(reference)
 
+    def _device_proof_available(self, *, principal: AuthenticatedPrincipal, now: datetime) -> tuple[object, str]:
+        limiter = self._rate_limiter
+        if limiter is None:
+            raise PermissionError("device proof rate-limit service unavailable")
+        subject_key = str(principal.user_id)
+        decision = limiter.is_locked(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.DEVICE_PROOF,
+            subject_key=subject_key,
+            now=now,
+        )
+        if decision.locked:
+            raise PermissionError("device proof rate-limit active")
+        return limiter, subject_key
+
+    def _device_proof_failed(self, *, principal: AuthenticatedPrincipal, limiter, subject_key: str, now: datetime) -> None:
+        limiter.record_failure(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.DEVICE_PROOF,
+            subject_key=subject_key,
+            now=now,
+        )
+
+    def _device_proof_succeeded(self, *, principal: AuthenticatedPrincipal, limiter, subject_key: str) -> None:
+        limiter.record_success(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.DEVICE_PROOF,
+            subject_key=subject_key,
+        )
+
     def list_devices(self, *, principal: AuthenticatedPrincipal):
         return self._repository.list_devices(user_id=principal.user_id)
 
@@ -71,20 +101,7 @@ class S2AccountAuthorityService:
         signature: bytes,
         created_at: datetime,
     ):
-        limiter = self._rate_limiter
-        if limiter is None:
-            raise PermissionError("device proof rate-limit service unavailable")
-
-        subject_key = str(principal.user_id)
-        decision = limiter.is_locked(
-            user_id=principal.user_id,
-            flow=RateLimitFlow.DEVICE_PROOF,
-            subject_key=subject_key,
-            now=created_at,
-        )
-        if decision.locked:
-            raise PermissionError("device proof rate-limit active")
-
+        limiter, subject_key = self._device_proof_available(principal=principal, now=created_at)
         self._required_intent(
             principal=principal,
             action="DEVICE_ENROLL",
@@ -104,19 +121,36 @@ class S2AccountAuthorityService:
         except DeviceQuotaExceeded:
             raise
         except DeviceTrustError:
-            limiter.record_failure(
-                user_id=principal.user_id,
-                flow=RateLimitFlow.DEVICE_PROOF,
-                subject_key=subject_key,
-                now=created_at,
-            )
+            self._device_proof_failed(principal=principal, limiter=limiter, subject_key=subject_key, now=created_at)
             raise
+        self._device_proof_succeeded(principal=principal, limiter=limiter, subject_key=subject_key)
+        return result
 
-        limiter.record_success(
-            user_id=principal.user_id,
-            flow=RateLimitFlow.DEVICE_PROOF,
-            subject_key=subject_key,
-        )
+    def reprove_device(
+        self,
+        *,
+        principal: AuthenticatedPrincipal,
+        device_id: str,
+        public_key: bytes,
+        fingerprint: str,
+        challenge: bytes,
+        signature: bytes,
+        now: datetime,
+    ):
+        limiter, subject_key = self._device_proof_available(principal=principal, now=now)
+        try:
+            result = self._device_service.reprove_existing_device(
+                user_id=principal.user_id,
+                device_id=device_id,
+                public_key=public_key,
+                fingerprint=fingerprint,
+                challenge=challenge,
+                signature=signature,
+            )
+        except DeviceTrustError:
+            self._device_proof_failed(principal=principal, limiter=limiter, subject_key=subject_key, now=now)
+            raise
+        self._device_proof_succeeded(principal=principal, limiter=limiter, subject_key=subject_key)
         return result
 
     def revoke_device(
@@ -167,7 +201,6 @@ class S2AccountAuthorityService:
         limiter = self._rate_limiter
         if limiter is None:
             raise PermissionError("recovery rate-limit service unavailable")
-
         subject_key = str(principal.user_id)
         decision = limiter.is_locked(
             user_id=principal.user_id,
@@ -177,9 +210,6 @@ class S2AccountAuthorityService:
         )
         if decision.locked:
             raise PermissionError("recovery rate-limit active")
-
-        # HighAssuranceRecoveryService owns its own required recovery audit
-        # boundary. The target is derived from the authenticated principal.
         try:
             result = self._recovery_service.recover(
                 principal_user_id=principal.user_id,
@@ -195,7 +225,6 @@ class S2AccountAuthorityService:
                 now=now,
             )
             raise
-
         limiter.record_success(
             user_id=principal.user_id,
             flow=RateLimitFlow.RECOVERY,
