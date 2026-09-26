@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -30,8 +30,13 @@ class _Repository:
 
 class _DeviceService:
     def __init__(self) -> None:
+        self.issue_calls = []
         self.enroll_calls = []
         self.reproof_calls = []
+
+    def issue_challenge(self, **kwargs):
+        self.issue_calls.append(kwargs)
+        return b"server-challenge"
 
     def enroll(self, **kwargs):
         self.enroll_calls.append(kwargs)
@@ -92,12 +97,41 @@ def test_facade_has_no_free_target_user_id_and_recovery_is_self_scoped() -> None
 
     assert "target_user_id" not in inspect.signature(service.revoke_device).parameters
     assert "target_user_id" not in inspect.signature(service.revoke_session_family).parameters
+    assert "target_user_id" not in inspect.signature(service.issue_device_challenge).parameters
 
     service.recover(principal=principal, proof="ok", now=_now())
     assert recovery.calls == [(user_id, user_id)]
     assert [event for event, _ in limiter.events] == ["check", "success"]
     assert limiter.events[0][1]["flow"].value == "RECOVERY"
     assert limiter.events[0][1]["subject_key"] == str(user_id)
+
+
+def test_device_challenge_issuance_is_bound_to_authenticated_principal() -> None:
+    devices = _DeviceService()
+    limiter = _RecoveryRateLimiter()
+    service = S2AccountAuthorityService(_Repository(), devices, _RecoveryService(), _Audit(), rate_limiter=limiter)
+    user_id = uuid4()
+    principal = AuthenticatedPrincipal(user_id, "fam-1")
+    now = _now()
+
+    challenge = service.issue_device_challenge(
+        principal=principal,
+        device_id="dev-1",
+        purpose="REPROOF",
+        issued_at=now,
+        expires_at=now + timedelta(minutes=5),
+    )
+
+    assert challenge == b"server-challenge"
+    assert devices.issue_calls == [{
+        "user_id": user_id,
+        "device_id": "dev-1",
+        "purpose": "REPROOF",
+        "issued_at": now,
+        "expires_at": now + timedelta(minutes=5),
+    }]
+    assert [event for event, _ in limiter.events] == ["check"]
+    assert limiter.events[0][1]["flow"].value == "DEVICE_PROOF"
 
 
 def test_recovery_fails_closed_when_rate_limit_service_is_missing() -> None:
@@ -114,7 +148,7 @@ def test_recovery_fails_closed_when_rate_limit_service_is_missing() -> None:
 def test_locked_recovery_rate_limit_blocks_proof_verification() -> None:
     recovery = _RecoveryService()
     limiter = _RecoveryRateLimiter(locked=True)
-    service = S2AccountAuthorityService(_Repository(), _DeviceService(), recovery, _Audit(), rate_limiter=limiter)
+    service = S2AccountAuthorityService(repository := _Repository(), _DeviceService(), recovery, _Audit(), rate_limiter=limiter)
     principal = AuthenticatedPrincipal(uuid4(), "fam-1")
 
     with pytest.raises(PermissionError, match="rate-limit"):
