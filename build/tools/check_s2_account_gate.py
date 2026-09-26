@@ -53,6 +53,7 @@ REQUIRED_PATHS = (
     "tests_v1/test_s2_inv04_isolation.py",
     "tests_v1/test_s2_evidence.py",
     "tests_v1/test_s2_qualification_guard.py",
+    "tests_v1/test_s2_ci_guard.py",
 )
 REQUIRED_EVIDENCE_MARKERS = (
     "S2_SCHEMA_VERSION",
