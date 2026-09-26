@@ -43,6 +43,10 @@ from engine.portfolio.model import PositionKey
 logger = logging.getLogger("sentinelx.reconciliation.live")
 
 
+class BrokerTruthUnavailable(RuntimeError):
+    """Raised when Phase-6 strict reconciliation cannot prove broker truth."""
+
+
 class OrderReconciliationAction(str, Enum):
     """Action determined for a reconciled order."""
 
@@ -77,7 +81,7 @@ class PositionReconciliationItem:
     local_quantity: Decimal
     broker_quantity: Decimal
     discrepancy: Decimal
-    action: str  # "MATCHED", "DISCREPANCY_DETECTED", "BROKER_ONLY_POSITION", "LOCAL_ONLY_POSITION"
+    action: str
     detail: str | None = None
 
 
@@ -97,7 +101,7 @@ class LiveReconciliationReport:
 
     @property
     def is_clean(self) -> bool:
-        """True if funds are available, zero discrepancies, and no fatal errors."""
+        """True only when broker truth is available and no discrepancy/error exists."""
         has_order_discrepancy = any(
             item.action in (
                 OrderReconciliationAction.ORPHAN_FOUND,
@@ -109,7 +113,12 @@ class LiveReconciliationReport:
         has_pos_discrepancy = any(
             item.action != "MATCHED" for item in self.position_items
         )
-        return not has_order_discrepancy and not has_pos_discrepancy and len(self.errors) == 0
+        return (
+            self.funds is not None
+            and not has_order_discrepancy
+            and not has_pos_discrepancy
+            and len(self.errors) == 0
+        )
 
 
 def _to_decimal(val: Any) -> Decimal:
@@ -175,28 +184,30 @@ class LiveBrokerReconciler:
     def broker_id(self) -> str:
         return self._broker_id
 
-    def reconcile_funds(self) -> BrokerFundsSnapshot | None:
+    def reconcile_funds(self, *, fail_closed: bool = False) -> BrokerFundsSnapshot | None:
         """Query live account funds snapshot from the broker adapter."""
         try:
             return self._adapter.query_funds()
         except Exception as ex:
             logger.error("Failed to query live funds for user %s: %s", self._user_id, ex)
+            if fail_closed:
+                raise BrokerTruthUnavailable("funds broker truth unavailable") from ex
             return None
 
     def reconcile_orders(
         self,
         local_pending_orders: Sequence[BrokerAdapterOrderSnapshot | dict[str, Any]],
+        *,
+        fail_closed: bool = False,
     ) -> tuple[OrderReconciliationItem, ...]:
-        """Reconcile locally pending/in-flight orders against live broker state.
-
-        Detects if in-flight orders filled, cancelled, or rejected while the
-        application was down.
-        """
+        """Reconcile locally pending/in-flight orders against live broker state."""
         results: list[OrderReconciliationItem] = []
         try:
             broker_open_orders = self._adapter.query_open_orders()
         except Exception as ex:
             logger.error("Failed to query open orders: %s", ex)
+            if fail_closed:
+                raise BrokerTruthUnavailable("orders broker truth unavailable") from ex
             broker_open_orders = ()
 
         broker_open_by_id: dict[str, BrokerAdapterOrderSnapshot] = {
@@ -243,7 +254,6 @@ class LiveBrokerReconciler:
 
             seen_broker_order_ids.add(broker_order_id)
 
-            # Is it still open at the broker?
             if broker_order_id in broker_open_by_id:
                 broker_snap = broker_open_by_id[broker_order_id]
                 b_status = _get_order_status(broker_snap)
@@ -280,11 +290,14 @@ class LiveBrokerReconciler:
                         )
                     )
             else:
-                # Reached terminal state at broker
                 try:
                     term_snap = self._adapter.query_order(broker_order_id)
                 except Exception as ex:
                     logger.warning("Could not query individual order %s: %s", broker_order_id, ex)
+                    if fail_closed:
+                        raise BrokerTruthUnavailable(
+                            f"order {broker_order_id} broker truth unavailable"
+                        ) from ex
                     term_snap = None
 
                 if term_snap is None:
@@ -357,7 +370,6 @@ class LiveBrokerReconciler:
                             )
                         )
 
-        # Detect orphan open orders at broker
         for b_id, b_snap in broker_open_by_id.items():
             if b_id not in seen_broker_order_ids:
                 b_status = _get_order_status(b_snap)
@@ -380,6 +392,8 @@ class LiveBrokerReconciler:
     def reconcile_positions(
         self,
         local_positions: Mapping[str, Decimal | int | float],
+        *,
+        fail_closed: bool = False,
     ) -> tuple[PositionReconciliationItem, ...]:
         """Reconcile net positions between local state and broker positions."""
         results: list[PositionReconciliationItem] = []
@@ -387,6 +401,8 @@ class LiveBrokerReconciler:
             broker_positions = self._adapter.query_positions()
         except Exception as ex:
             logger.error("Failed to query live positions: %s", ex)
+            if fail_closed:
+                raise BrokerTruthUnavailable("positions broker truth unavailable") from ex
             broker_positions = ()
 
         broker_by_sym: dict[str, Decimal] = {}
@@ -440,16 +456,7 @@ class LiveBrokerReconciler:
         persisted_intent_ids: set[str],
         cutoff_timestamp: datetime | None = None,
     ) -> tuple[tuple[SignalIntent, ...], tuple[SignalIntent, ...]]:
-        """Filter incoming candidate signals upon restart.
-
-        Enforces:
-        - If signal's canonical identity is already in persisted_intent_ids, it is DROPPED.
-        - If cutoff_timestamp is provided and signal's originating_timestamp is strictly
-          before cutoff_timestamp, it is DROPPED as stale.
-        - Only genuinely new, unexecuted signals are retained.
-
-        Returns (valid_signals, dropped_signals).
-        """
+        """Filter incoming candidate signals upon restart."""
         valid: list[SignalIntent] = []
         dropped: list[SignalIntent] = []
 
@@ -489,14 +496,7 @@ class LiveBrokerReconciler:
         protective_book: ProtectiveExitBook,
         current_broker_positions: Sequence[BrokerPositionSnapshot],
     ) -> int:
-        """Synchronize existing ProtectiveExitBook exits with live broker positions.
-
-        Critical Safety Constraint:
-        - Never submits new entry orders.
-        - Adjusts or cancels protective exits for positions that were closed or modified
-          at the broker during downtime.
-        - Returns the number of active protective exits maintained.
-        """
+        """Synchronize existing ProtectiveExitBook exits with live broker positions."""
         if not isinstance(protective_book, ProtectiveExitBook):
             raise TypeError("protective_book must be a ProtectiveExitBook")
 
@@ -509,7 +509,6 @@ class LiveBrokerReconciler:
 
         maintained_count = 0
 
-        # Create lightweight view adapter for ProtectiveExitBook.reconcile_position
         class _EmptySnapshot:
             positions: dict[Any, Any] = {}
 
@@ -541,32 +540,34 @@ class LiveBrokerReconciler:
         cutoff_timestamp: datetime | None = None,
         protective_book: ProtectiveExitBook | None = None,
     ) -> LiveReconciliationReport:
-        """Run complete synchronous restart reconciliation across funds, orders, and positions."""
+        """Run complete synchronous restart reconciliation across funds, orders, and positions.
+
+        Phase-6 uses strict broker-truth queries here: a failed broker query is
+        explicit uncertainty in the report and can never become an empty-clean
+        state. Direct helper methods keep their legacy non-strict default for
+        backward compatibility.
+        """
         errors: list[str] = []
         now = datetime.now(timezone.utc)
 
-        # 1. Funds
         funds = None
         try:
-            funds = self.reconcile_funds()
+            funds = self.reconcile_funds(fail_closed=True)
         except Exception as ex:
             errors.append(f"Funds query failed: {ex}")
 
-        # 2. Orders
         order_items: tuple[OrderReconciliationItem, ...] = ()
         try:
-            order_items = self.reconcile_orders(local_pending_orders)
+            order_items = self.reconcile_orders(local_pending_orders, fail_closed=True)
         except Exception as ex:
             errors.append(f"Orders reconciliation failed: {ex}")
 
-        # 3. Positions
         position_items: tuple[PositionReconciliationItem, ...] = ()
         try:
-            position_items = self.reconcile_positions(local_positions or {})
+            position_items = self.reconcile_positions(local_positions or {}, fail_closed=True)
         except Exception as ex:
             errors.append(f"Positions reconciliation failed: {ex}")
 
-        # 4. Filter stale/duplicate signals
         dropped_ids: list[str] = []
         if candidate_signals:
             try:
@@ -579,7 +580,6 @@ class LiveBrokerReconciler:
             except Exception as ex:
                 errors.append(f"Signal deduplication failed: {ex}")
 
-        # 5. Protective Exit Book restoration
         restored_count = 0
         if protective_book is not None:
             try:
