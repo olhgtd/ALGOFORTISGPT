@@ -34,6 +34,7 @@ class AngelOneBrokerProfile:
     version: str
     api_base_url: str
     documentation_ref: str
+    read_endpoints: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "profile_id", _text(self.profile_id, "profile_id"))
@@ -43,6 +44,29 @@ class AngelOneBrokerProfile:
             raise ValueError("api_base_url must use https")
         object.__setattr__(self, "api_base_url", base.rstrip("/"))
         object.__setattr__(self, "documentation_ref", _text(self.documentation_ref, "documentation_ref"))
+        if not isinstance(self.read_endpoints, tuple):
+            raise TypeError("read_endpoints must be a tuple")
+        normalized: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for item in self.read_endpoints:
+            if not isinstance(item, tuple) or len(item) != 2:
+                raise ValueError("read_endpoints entries must be (name, path) tuples")
+            name = _text(item[0], "read endpoint name")
+            path = _text(item[1], "read endpoint path")
+            if not path.startswith("/"):
+                raise ValueError("read endpoint path must be absolute")
+            if name in seen:
+                raise ValueError("read endpoint names must be unique")
+            seen.add(name)
+            normalized.append((name, path))
+        object.__setattr__(self, "read_endpoints", tuple(normalized))
+
+    def endpoint(self, name: str) -> str | None:
+        key = _text(name, "endpoint name")
+        for endpoint_name, path in self.read_endpoints:
+            if endpoint_name == key:
+                return path
+        return None
 
     @property
     def reference(self) -> str:
