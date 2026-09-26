@@ -78,7 +78,7 @@ Required before G7 may be marked qualified:
 
 ## Hosted-run record
 
-- Implementation head: **PENDING FINAL HEAD PIN**
+- Code/evidence baseline head before hosted verification: `07ee0d29eedc1a281ae72a9f1417d71c10b42220`
 - Workflow run ID: **PENDING**
 - Windows latest job: **PENDING**
 - Windows 2022 job: **PENDING**
