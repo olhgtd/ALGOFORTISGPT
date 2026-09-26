@@ -70,19 +70,22 @@ class WebAuthnAuthority:
             raise PermissionError("WebAuthn login rate-limit active")
         return subject_key
 
+    def _record_login_failure(self, *, user_id, subject_key: str, now: datetime) -> None:
+        self._rate_limiter.record_failure(
+            user_id=user_id,
+            flow=RateLimitFlow.LOGIN,
+            subject_key=subject_key,
+            now=now,
+        )
+
     def issue_authentication(self, **kwargs: Any) -> dict[str, object]:
         user_id = self._subject_user_id(kwargs)
         now = self._clock()
         subject_key = self._require_login_available(user_id=user_id, now=now)
         try:
             return self._ceremonies.issue_authentication(**kwargs)
-        except PermissionError:
-            self._rate_limiter.record_failure(
-                user_id=user_id,
-                flow=RateLimitFlow.LOGIN,
-                subject_key=subject_key,
-                now=now,
-            )
+        except (PermissionError, ValueError):
+            self._record_login_failure(user_id=user_id, subject_key=subject_key, now=now)
             raise
 
     def complete_authentication(self, **kwargs: Any) -> tuple[str, str]:
@@ -91,13 +94,8 @@ class WebAuthnAuthority:
         subject_key = self._require_login_available(user_id=user_id, now=now)
         try:
             result = self._ceremonies.complete_authentication(**kwargs)
-        except PermissionError:
-            self._rate_limiter.record_failure(
-                user_id=user_id,
-                flow=RateLimitFlow.LOGIN,
-                subject_key=subject_key,
-                now=now,
-            )
+        except (PermissionError, ValueError):
+            self._record_login_failure(user_id=user_id, subject_key=subject_key, now=now)
             raise
         self._rate_limiter.record_success(
             user_id=user_id,
