@@ -24,9 +24,15 @@ REQUIRED = (
     "engine/paper/contracts_v2.py",
     "engine/paper/operational_state_v2.py",
     "engine/paper/failure_policy_v2.py",
+    "engine/host/__init__.py",
+    "engine/host/instance_lock.py",
+    "engine/host/clock_health.py",
+    "engine/host/power_session.py",
+    "engine/host/watchdog_policy.py",
     "tests_v1/test_phase5_contracts.py",
     "tests_v1/test_phase5_operational_state.py",
     "tests_v1/test_phase5_failure_policy.py",
+    "tests_v1/test_phase5_host_resilience.py",
     "tests_v1/test_phase5_architecture_guard.py",
     "build/tools/check_phase5_paper_recovery.py",
 )
@@ -42,9 +48,19 @@ FORBIDDEN_IMPORT_ROOTS = (
     "win32con",
 )
 
+_HOST_FORBIDDEN_IMPORT_ROOTS = (
+    "engine.broker_adapters",
+    "engine.live",
+)
+
 _STORM_CONSTANT = re.compile(
     r"(?im)^\s*(?:(?:PRODUCTION|DEFAULT)_)?STORM_"
     r"(?:TRIGGER_COUNT|WINDOW|WINDOW_SECONDS|THRESHOLD)\s*=\s*\d+"
+)
+
+_CLOCK_DRIFT_CONSTANT = re.compile(
+    r"(?im)^\s*(?:(?:PRODUCTION|DEFAULT)_)?CLOCK_"
+    r"(?:DRIFT|DRIFT_MS|MAX_DRIFT_MS|DRIFT_THRESHOLD)\s*=\s*\d+"
 )
 
 
@@ -62,35 +78,50 @@ def _import_names(source: str) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _is_forbidden_import(name: str) -> str | None:
-    for root in FORBIDDEN_IMPORT_ROOTS:
+def _matching_forbidden_import(
+    name: str,
+    roots: tuple[str, ...],
+) -> str | None:
+    for root in roots:
         if name == root or name.startswith(root + "."):
             return root
     return None
 
 
-def _is_failure_storm_policy_call(value: ast.AST | None) -> bool:
+def _is_forbidden_import(name: str) -> str | None:
+    return _matching_forbidden_import(name, FORBIDDEN_IMPORT_ROOTS)
+
+
+def _is_named_call(value: ast.AST | None, name: str) -> bool:
     if not isinstance(value, ast.Call):
         return False
     func = value.func
     return (
-        isinstance(func, ast.Name) and func.id == "FailureStormPolicy"
+        isinstance(func, ast.Name) and func.id == name
     ) or (
-        isinstance(func, ast.Attribute) and func.attr == "FailureStormPolicy"
+        isinstance(func, ast.Attribute) and func.attr == name
     )
 
 
-def _has_module_level_storm_policy_profile(source: str) -> bool:
+def _has_module_level_named_call(source: str, name: str) -> bool:
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return False
     for node in tree.body:
-        if isinstance(node, ast.Assign) and _is_failure_storm_policy_call(node.value):
+        if isinstance(node, ast.Assign) and _is_named_call(node.value, name):
             return True
-        if isinstance(node, ast.AnnAssign) and _is_failure_storm_policy_call(node.value):
+        if isinstance(node, ast.AnnAssign) and _is_named_call(node.value, name):
             return True
     return False
+
+
+def _has_module_level_storm_policy_profile(source: str) -> bool:
+    return _has_module_level_named_call(source, "FailureStormPolicy")
+
+
+def _has_module_level_clock_policy_profile(source: str) -> bool:
+    return _has_module_level_named_call(source, "ClockHealthPolicy")
 
 
 def _state_vocabulary(source: str) -> tuple[str, ...] | None:
@@ -114,6 +145,14 @@ def _state_vocabulary(source: str) -> tuple[str, ...] | None:
     return None
 
 
+def _read_source(path: Path, problems: list[str]) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as error:
+        problems.append(f"cannot read {path}: {error}")
+        return None
+
+
 def verify(
     root: Path,
     *,
@@ -131,10 +170,8 @@ def verify(
     paper_root = root / "engine" / "paper"
     if paper_root.is_dir():
         for path in sorted(paper_root.rglob("*.py")):
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError as error:
-                problems.append(f"cannot read {path}: {error}")
+            source = _read_source(path, problems)
+            if source is None:
                 continue
             relative = path.relative_to(root).as_posix()
             for imported in _import_names(source):
@@ -151,14 +188,41 @@ def verify(
                     "inject a versioned policy instead"
                 )
 
+    host_root = root / "engine" / "host"
+    if host_root.is_dir():
+        for path in sorted(host_root.rglob("*.py")):
+            source = _read_source(path, problems)
+            if source is None:
+                continue
+            relative = path.relative_to(root).as_posix()
+            for imported in _import_names(source):
+                forbidden = _matching_forbidden_import(
+                    imported,
+                    _HOST_FORBIDDEN_IMPORT_ROOTS,
+                )
+                if forbidden:
+                    problems.append(f"{relative}: forbidden host import root {forbidden}")
+            if _CLOCK_DRIFT_CONSTANT.search(source):
+                problems.append(
+                    f"{relative}: guessed production clock drift threshold constant is forbidden"
+                )
+            if _has_module_level_clock_policy_profile(source):
+                problems.append(
+                    f"{relative}: embedded module-level clock policy profile is forbidden; "
+                    "inject a versioned policy instead"
+                )
+            lowered = source.lower()
+            if "powercfg" in lowered and "setactive" in lowered:
+                problems.append(
+                    f"{relative}: permanent power-plan mutation command is forbidden"
+                )
+
     if check_state_vocabulary:
         contracts = root / "engine" / "paper" / "contracts_v2.py"
         if contracts.is_file():
-            try:
-                actual = _state_vocabulary(contracts.read_text(encoding="utf-8"))
-            except OSError as error:
-                problems.append(f"cannot read {contracts}: {error}")
-            else:
+            source = _read_source(contracts, problems)
+            if source is not None:
+                actual = _state_vocabulary(source)
                 if actual != EXPECTED_OPERATIONAL_STATES:
                     problems.append(
                         "operational state vocabulary drift: "
@@ -178,8 +242,8 @@ def main() -> int:
             print(f"PHASE5_PAPER_RECOVERY_STATIC_FAIL: {problem}")
         return 1
     print(
-        "PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 state boundaries and "
-        "P5-06 failure-policy defaults locked"
+        "PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 state boundaries, "
+        "P5-06 failure-policy defaults, and P5-07 host safety boundaries locked"
     )
     return 0
 
