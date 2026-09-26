@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.6 — Phase 4 research/promotion decisions lock recorded |
-| Date | 2026-09-24 |
+| Version | v0.7 — Phase 5 host/alert decision reconciliation recorded |
+| Date | 2026-09-26 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
@@ -22,6 +22,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 6. On 2026-09-21 the Owner authorized Phase 1 merge and immediate Phase 2 execution. OD-V2-07 was therefore frozen to the documented safe kill-switch recommendation and formalized by `docs/v2/adr/ADR-010-phase2-kill-switch-semantics.md`.
 7. On 2026-09-23 the Owner authorized Phase 3 execution. OD-V2-04, OD-V2-10 and OD-V2-13 were frozen to the documented safe/recommended data choices and formalized by `docs/v2/adr/ADR-011-phase3-data-scope-and-storage.md`.
 8. On 2026-09-24 the Owner authorized immediate next-phase execution after the verified Phase 3 merge. OD-V2-11 and OD-V2-17 were frozen to fail-closed research/promotion governance, and the ORB protective-policy blocker was frozen as an explicit versioned-policy requirement with no invented economic defaults. These are formalized by `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md`.
+9. On 2026-09-25 the Owner froze the two Phase-5 entry blockers through the dated Phase-5 decision addendum: OD-V2-24 host resilience in `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md` and OD-V2-19 alert-channel independence in `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`. This root register was reconciled on 2026-09-26 so later readers no longer need to rely on an OPEN-status exception note.
 
 ---
 
@@ -104,9 +105,9 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* OPEN
 
 **OD-V2-24 — Host environment policy** · Blocks Phase 5
-- *Question:* Supported Windows versions, sleep/hibernate policy, watchdog behaviour, clock-drift limit for arming, minimum hardware, antivirus guidance.
-- *Recommendation:* Sleep prevented during sessions; resume-from-sleep forces RECOVERY; arming blocked beyond a configurable drift limit; watchdog restarts into RECOVERY only.
-- *Status:* OPEN
+- *Decision:* **Windows 11 x64 is the first-class V2.0 qualification target; one trading-engine instance is permitted per local profile/machine context; active Paper/future Live sessions request temporary sleep/hibernate prevention without permanently changing OS power plans; sleep/resume uncertainty forces recovery before new entries; watchdog restart is RECOVERY-only and never auto-arms; clock health is injectable/versioned and fails closed when its required policy is missing/invalid/exceeded; exact production clock-drift and minimum-hardware thresholds are evidence-driven rather than guessed; antivirus/security protections are not required to be disabled; recovery takes precedence over retry/new entries and host events are audited.**
+- *Authority:* `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md` and `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`.
+- *Status:* **FROZEN**
 
 ### Data, research and numerics
 
@@ -142,8 +143,9 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Status:* **FROZEN**
 
 **OD-V2-19 — Alert channels and independence** · Blocks Phase 5
-- *Recommendation:* Critical alerts on at least two independent channels (on-screen + Telegram; email as third). Consider an optional non-sensitive "engine silent" heartbeat to the central service so a dead PC still triggers an alert — this links to OD-V2-22 (telemetry).
-- *Status:* OPEN
+- *Decision:* **Critical Phase-5 alerts must be attempted independently through a local on-screen/Windows-visible path and Telegram; email is optional. One channel failure cannot suppress the other. Payloads are minimal/redacted and exclude credentials, tokens, raw account identifiers and unrestricted trade logs. Alert delivery failure is auditable. Paper safety does not depend on Telegram availability. A remote dead-PC/engine-silent heartbeat is deferred to OD-V2-22 telemetry/privacy governance. This decision does not authorize cloud trading, broker mutation or remote arming.**
+- *Authority:* `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md` and `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`.
+- *Status:* **FROZEN**
 
 ### AI
 
@@ -209,6 +211,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-11 | Append-only trials ledger + mandatory WFO/OOS + deflated performance metric + PBO estimate + explicit trials budget. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
 | OD-V2-17 | Promotion criteria are versioned config; built-in `research-only/v1` is fail-closed/non-promotable until evidence-backed numeric profile exists. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
 | ORB-P4 | No hardcoded ORB protective economics; explicit versioned protective-policy reference required; missing policy fails closed. | 2026-09-24 | `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md` |
+| OD-V2-24 | Windows 11 x64 first-class; single instance; temporary session sleep prevention; resume/watchdog recovery-only; versioned clock policy; no guessed production drift/hardware threshold. | 2026-09-25 | `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md`; `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md` |
+| OD-V2-19 | Critical alerts independently attempt local Windows-visible + Telegram delivery; redacted payloads; notifier failure cannot weaken Paper safety; heartbeat deferred to OD-V2-22. | 2026-09-25 | `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`; `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md` |
 
 ---
 
@@ -221,7 +225,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 2 | 07 — **FROZEN 2026-09-21** |
 | Phase 3 | 04, 10, 13 — **FROZEN 2026-09-23** |
 | Phase 4 | 11, 17, ORB protective-policy governance — **FROZEN 2026-09-24** |
-| Phase 5 | 19, 24 |
+| Phase 5 | 19, 24 — **FROZEN 2026-09-25** |
 | Phase 6 | 05, 06, 08, 09 |
 | Phase 8 | 15, 16 |
 | Phase 9 | 25 |
