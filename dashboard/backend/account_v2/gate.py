@@ -1,6 +1,6 @@
 """Pure S2 account/device/session prerequisite gate.
 
-This module has no broker, order, or Live-arming capability.  It evaluates
+This module has no broker, order, or Live-arming capability. It evaluates
 central account authority state and returns a prerequisite result only.
 """
 from __future__ import annotations
@@ -9,6 +9,7 @@ from datetime import datetime
 from uuid import UUID
 
 from .contracts import DeviceSessionGateResult, DeviceSessionGateStatus
+from .repository import AccountAuthorityUnavailable
 
 
 S2_GATE_SCHEMA_VERSION = "s2-device-session-gate/v1"
@@ -206,7 +207,7 @@ class DeviceSessionGate:
                 reason="ACCOUNT_DEVICE_SESSION_VALID",
                 now=now,
             )
-        except (TimeoutError, ConnectionError, OSError):
+        except (AccountAuthorityUnavailable, TimeoutError, ConnectionError, OSError):
             return self._result(
                 user_id=user_id,
                 device_id=device_id,
