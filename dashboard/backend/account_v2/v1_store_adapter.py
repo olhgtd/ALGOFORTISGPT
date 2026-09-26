@@ -1,7 +1,7 @@
 """Additive S2 state adapter over the existing durable V1 security database."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -365,6 +365,41 @@ class V1SecurityStoreAdapter:
         record = self.get_rate_limit_state(user_id=user_id, flow=flow, subject_key=subject_key)
         assert record is not None
         return record
+
+    def record_rate_limit_failure(self, *, user_id: UUID, flow: str, subject_key: str, max_failures: int, cooldown_seconds: int, now: datetime) -> RateLimitStateRecord:
+        self._require_user(user_id)
+        if max_failures < 1 or cooldown_seconds < 1:
+            raise ValueError("rate-limit policy values must be positive")
+        with self._store._transaction() as cur:
+            row = cur.execute(
+                "SELECT * FROM s2_rate_limit_state WHERE user_id = ? AND flow = ? AND subject_key = ?",
+                (str(user_id), flow, subject_key),
+            ).fetchone()
+            if row is not None and row["locked_until_utc"]:
+                locked_until = datetime.fromisoformat(str(row["locked_until_utc"]))
+                if now < locked_until:
+                    return self._rate_limit(row)
+            failure_count = (int(row["failure_count"]) if row is not None else 0) + 1
+            locked_until = now + timedelta(seconds=cooldown_seconds) if failure_count >= max_failures else None
+            cur.execute(
+                """INSERT INTO s2_rate_limit_state(user_id, flow, subject_key, failure_count, locked_until_utc, updated_at_utc)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, flow, subject_key) DO UPDATE SET
+                     failure_count = excluded.failure_count,
+                     locked_until_utc = excluded.locked_until_utc,
+                     updated_at_utc = excluded.updated_at_utc""",
+                (
+                    str(user_id), flow, subject_key, failure_count,
+                    locked_until.isoformat() if locked_until else None,
+                    now.isoformat(),
+                ),
+            )
+            stored = cur.execute(
+                "SELECT * FROM s2_rate_limit_state WHERE user_id = ? AND flow = ? AND subject_key = ?",
+                (str(user_id), flow, subject_key),
+            ).fetchone()
+            assert stored is not None
+            return self._rate_limit(stored)
 
     def clear_rate_limit_state(self, *, user_id: UUID, flow: str, subject_key: str) -> None:
         self._require_user(user_id)
