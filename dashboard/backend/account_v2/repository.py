@@ -11,6 +11,10 @@ class AccountAuthorityRecordUnavailable(LookupError):
     """Requested account-owned state is absent or outside the caller's scope."""
 
 
+class AccountAuthorityUnavailable(RuntimeError):
+    """Central account authority cannot be reached or its result cannot be verified."""
+
+
 class RefreshTokenReplayDetected(PermissionError):
     """A consumed refresh token reached the atomic rotation boundary."""
 
