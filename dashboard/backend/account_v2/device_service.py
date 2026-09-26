@@ -10,7 +10,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-from .repository import AccountAuthorityRecordUnavailable, AccountAuthorityRepository, DeviceRecord
+from .repository import (
+    AccountAuthorityRecordUnavailable,
+    AccountAuthorityRepository,
+    DeviceQuotaAuthorityExceeded,
+    DeviceRecord,
+)
 
 
 class DeviceTrustError(PermissionError):
@@ -71,7 +76,10 @@ class DeviceRegistryService:
                 public_key=public_key,
                 fingerprint=fingerprint,
                 created_at=created_at,
+                max_active_devices=self.MAX_ACTIVE_DEVICES,
             )
+        except DeviceQuotaAuthorityExceeded as exc:
+            raise DeviceQuotaExceeded("active device quota reached") from exc
         except AccountAuthorityRecordUnavailable as exc:
             raise DeviceTrustError("device identity enrollment unavailable") from exc
 
