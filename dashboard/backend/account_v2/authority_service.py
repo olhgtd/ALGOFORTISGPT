@@ -1,8 +1,8 @@
 """Self-scoped S2 account-authority facade.
 
 Public mutation methods accept an authenticated principal rather than a free
-target user id.  Required audit intent is persisted before each direct
-security mutation.  The facade has no trading/broker/arming authority.
+target user id. Required audit intent is persisted before each direct security
+mutation. The facade has no trading/broker/arming authority.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from datetime import datetime
 from uuid import UUID
 
 from .audit import RequiredAuditSink
+from .rate_limit import RateLimitFlow
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,13 +131,41 @@ class S2AccountAuthorityService:
         proof: object,
         now: datetime,
     ):
-        if self._rate_limiter is None:
+        limiter = self._rate_limiter
+        if limiter is None:
             raise PermissionError("recovery rate-limit service unavailable")
-        # HighAssuranceRecoveryService owns its own required recovery audit
-        # boundary.  The target is derived from the authenticated principal.
-        return self._recovery_service.recover(
-            principal_user_id=principal.user_id,
-            target_user_id=principal.user_id,
-            proof=proof,
+
+        subject_key = str(principal.user_id)
+        decision = limiter.is_locked(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.RECOVERY,
+            subject_key=subject_key,
             now=now,
         )
+        if decision.locked:
+            raise PermissionError("recovery rate-limit active")
+
+        # HighAssuranceRecoveryService owns its own required recovery audit
+        # boundary. The target is derived from the authenticated principal.
+        try:
+            result = self._recovery_service.recover(
+                principal_user_id=principal.user_id,
+                target_user_id=principal.user_id,
+                proof=proof,
+                now=now,
+            )
+        except PermissionError:
+            limiter.record_failure(
+                user_id=principal.user_id,
+                flow=RateLimitFlow.RECOVERY,
+                subject_key=subject_key,
+                now=now,
+            )
+            raise
+
+        limiter.record_success(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.RECOVERY,
+            subject_key=subject_key,
+        )
+        return result
