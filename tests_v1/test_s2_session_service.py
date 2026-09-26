@@ -145,3 +145,20 @@ def test_plaintext_refresh_tokens_are_never_persisted(tmp_path: Path) -> None:
     assert issued.refresh_token not in values
     assert family.current_refresh_hash == service.hash_token(issued.refresh_token)
     store.close()
+
+
+def test_refresh_rotation_fails_closed_without_rate_limiter(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.session_service import DurableSessionService, SessionUnavailable
+
+    store, repo, _, user, now = _setup(tmp_path)
+    service = DurableSessionService(repo)
+    issued = service.create_session(user_id=user, device_id="device-1", now=now)
+    with pytest.raises(SessionUnavailable, match="rate-limit"):
+        service.rotate_refresh_token(
+            user_id=user,
+            device_id="device-1",
+            family_id=issued.family_id,
+            presented_refresh_token=issued.refresh_token,
+            now=now,
+        )
+    store.close()
