@@ -1,64 +1,56 @@
 # AlgoFortis — Project State Summary / START HERE
 
-**Purpose:** Entry point for restoring full project context from V1 through the current V2 state.  
+**Purpose:** Thin navigation/index file for restoring project context without duplicating mutable phase, PR, Owner Decision, or module-detail state.  
 **Snapshot date:** 2026-09-26  
 **Repository:** `olhgtd/ALGOFORTISGPT`  
 **Current product:** **AlgoFortis**  
-**Current safety baseline:** Live remains **READ_ONLY / DISARMED**.
+**Standing safety baseline:** Live remains **READ_ONLY / DISARMED**.
 
-This file is intentionally short. The previous V2-heavy consolidated summary has been superseded by two detailed master documents so future development can recover **both V1 and V2 context**, not only the latest V2 phase.
+> **Maintenance rule:** this file is an index, not the authoritative current-state ledger. Do **not** copy detailed phase status, PR heads, CI run numbers, Owner Decision tables, module maps, or remaining-work lists into this file. Mutable project state belongs in `docs/PROJECT_CURRENT_STATE_AND_REMAINING_WORK.md`.
 
 ---
 
-# Read these two master files
+# Read in this order
 
 ## 1. `docs/PROJECT_HISTORY_V1_TO_V2.md`
 
-Use this when you need to understand **how the project got here**.
+Use this for **how the project got here**:
 
-It contains:
+- SentinelX → AlgoFortis history;
+- V1 architecture and frozen decisions;
+- V1 plan versus actually verified work;
+- V1 certified checkpoint and regression evidence;
+- V1 deferred/forbidden scope;
+- why V2 exists;
+- V1→V2 transition map;
+- chronological Phase 0–5 development history;
+- Laya side-integration history;
+- future Phase 6–10 and Platform/Account Track roadmap.
 
-- SentinelX origin and transition to AlgoFortis;
-- V1 four-layer architecture;
-- V1 frozen decisions;
-- the V1 13-stage implementation plan, clearly separated into planned vs actually verified work;
-- V1 certified clean checkpoint and regression evidence;
-- V1 test/product/security/runtime coverage;
-- V1 deferred and forbidden items;
-- why V2 was created;
-- a V1→V2 transition matrix explaining what was preserved, hardened, isolated or deferred;
-- V2 Phase 0 through Phase 5 chronological implementation history;
-- Phase-4/Phase-5 technical evidence context;
-- separate Laya integration history;
-- future Phase 6–10 and Platform/Account Track P roadmap;
-- permanent safety/continuity rules carried from V1 into V2.
+**Ownership:** chronology/history. Historical facts should not be rewritten merely because current branch state changes.
 
 ## 2. `docs/PROJECT_CURRENT_STATE_AND_REMAINING_WORK.md`
 
-Use this when you need to know **what exists now and what to do next**.
+Use this for **what exists now and what to do next**. This is the detailed human-readable current-state authority for:
 
-It contains:
+- exact phase/gate state;
+- PR/branch/head/CI state;
+- module map and dependency boundaries;
+- frozen/open Owner Decisions;
+- safety constraints;
+- current blockers;
+- ordered remaining work;
+- merge/soak/governance distinctions.
 
-- exact current V1/V2 status distinctions;
-- current PR #6 / #7 / #8 states;
-- top-level repository map;
-- module-by-module responsibilities, key files, dependencies and prohibited dependencies;
-- current data/control flows;
-- testing/TDD/CI/static-gate strategy;
-- Phase 0–10 exact status;
-- frozen and open Owner Decisions;
-- known architectural constraints and deliberately avoided large legacy files;
-- ordered remaining-work backlog from Phase-5 soak/governance through Phase 10;
-- Track-P/S2/S3 dependencies;
-- current Live safety invariants.
+**Ownership:** mutable current snapshot. When phase/PR/OD/CI status changes, update this file instead of duplicating the change here.
 
 ---
 
-# Supporting canonical documents
+# Canonical supporting sources
 
-The two master files are context-restoration maps. They do not replace the underlying authoritative specifications/evidence.
+The two master files above are context-restoration maps. Underlying code, tests, exact-head evidence, frozen ADRs and canonical specifications remain the final technical authority.
 
-Important V1 sources:
+## V1
 
 - `ALGOfORTIS_MASTER_ARCHITECTURE_V1.md`
 - `ALGOfORTIS_IMPLEMENTATION_PLAN_V1.md`
@@ -66,7 +58,7 @@ Important V1 sources:
 - `ALGOfORTIS_COMPONENT_INVENTORY.md`
 - `CLEAN_CHECKPOINT.md`
 
-Important V2 sources:
+## V2
 
 - `ALGOFORTIS_V2_REQUIREMENTS.md`
 - `ALGOFORTIS_V2_ARCHITECTURE.md`
@@ -74,82 +66,36 @@ Important V2 sources:
 - `ALGOFORTIS_V2_OWNER_DECISIONS.md`
 - `ALGOFORTIS_V2_TEST_AND_RELEASE_PLAN.md`
 - `docs/v2/adr/`
-- `docs/v2/phase5/G5_EVIDENCE.md`
-- `docs/v2/phase5/PAPER_SOAK_START.md`
-- `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`
-- `docs/superpowers/plans/` for slice-level approved implementation plans.
-
----
-
-# Current snapshot in one page
-
-## V1
-
-- V1 is a real certified historical baseline, not merely a proposal.
-- Clean checkpoint recorded 3761 pytest passes, frontend production build pass, no P0/P1/P2 findings at that checkpoint.
-- V1 Live remained READ_ONLY/DISARMED with zero broker mutation and no real broker connection.
-- V1 also contained future architecture/plans that were not necessarily deployed; the master history distinguishes these carefully.
-
-## V2
-
-- Phase 0 — complete/merged.
-- Phase 1 — complete/merged.
-- Phase 2 — complete/merged.
-- Phase 3 — complete/merged.
-- Phase 4 — technically G4-green; PR #6 open/unmerged.
-- Phase 5 — technically G5-ready; PR #8 open/draft/unmerged; Paper soak STARTED/RUNNING; long soak not complete.
-- Phase 6 — pending/preflight; blocking Owner Decisions and S2 device/session work remain.
-- Phase 7 — pending.
-- Phase 8 — pending canonical phase; Laya shell is separate draft side work.
-- Phase 9 — pending.
-- Phase 10 — pending.
-
-## Open Phase-6 blockers
-
-- OD-V2-05 — multi-device Live exclusivity.
-- OD-V2-06 — foreign broker activity policy.
-- OD-V2-08 — broker-resident protective orders.
-- OD-V2-09 — current regulatory/broker path.
-- Track-P S2 — device/session gating.
-
-## Phase-5 decision precedence note
-
-If the root Owner Decision register still shows OD-V2-19 or OD-V2-24 as OPEN, use the later dated Phase-5 authority:
-
-- `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`
-- `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md`
-- `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`
-
-Those Phase-5 decisions are frozen.
+- phase-specific designs, implementation plans and evidence under `docs/v2/` and `docs/superpowers/plans/`.
 
 ---
 
 # Non-negotiable continuity rules
 
-- Current product name is AlgoFortis; SentinelX names are legacy/compatibility/history.
-- V2 is an incremental hardening of V1, not a big-bang rewrite.
+These are intentionally repeated here because they are cross-version safety invariants rather than mutable progress details:
+
+- Current product name is **AlgoFortis**; SentinelX names are legacy/compatibility/history.
+- V2 is incremental hardening of V1, not a big-bang rewrite.
 - Backtest, Paper and Live remain mode-isolated.
 - RiskGate is the V2 executable-order authority.
 - Strategy, AI, UI, alerts and reporting cannot bypass risk/execution authority.
 - Paper cannot reach real broker mutation.
 - Recovery/reconciliation precede retry and new-entry permission.
 - Sticky safety recovery does not auto-resume.
-- Missing/corrupt policy/state fails closed.
-- Technical qualification, merge, Owner approval and long-soak completion are separate states.
-- No PR should be merged merely because a prior CI run is green.
+- Missing/corrupt safety policy or state fails closed.
+- Technical qualification, merge, Owner approval and soak completion are separate states.
+- No PR should be merged merely because a historical CI run is green.
 - **Live remains READ_ONLY / DISARMED at this snapshot.**
 
 ---
 
-# Recommended context-restoration order
+# Context-restoration rule for future agents/engineers
 
-For any future engineer/agent joining with no prior context:
-
-1. Read this file.
-2. Read `PROJECT_HISTORY_V1_TO_V2.md` completely.
-3. Read `PROJECT_CURRENT_STATE_AND_REMAINING_WORK.md` completely.
-4. Read the canonical V2 requirements/architecture/implementation/Owner Decision/test plans.
+1. Read this index.
+2. Read `PROJECT_HISTORY_V1_TO_V2.md` for chronology.
+3. Read `PROJECT_CURRENT_STATE_AND_REMAINING_WORK.md` for mutable current truth.
+4. Read the canonical V2 specifications and Owner Decision register.
 5. Read the ADR/design/evidence files for the specific phase being changed.
-6. Check the current branch/PR/exact-head CI before assuming any status in a snapshot document is still current.
+6. Check the live branch/PR/exact-head CI before relying on any snapshot document.
 
-This three-file documentation set is the project’s human-readable context recovery layer. The underlying code, tests, frozen ADRs and exact-head evidence remain the final technical authority.
+**Do not maintain a second copy of current-state detail in this file.**
