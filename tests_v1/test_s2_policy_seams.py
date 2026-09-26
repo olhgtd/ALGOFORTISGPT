@@ -28,6 +28,32 @@ def test_update_safe_window_has_no_production_time_defaults_and_missing_policy_d
         UpdateSafeWindowPolicy()  # type: ignore[call-arg]
 
 
+def test_invalid_or_inapplicable_update_policy_defers_closed() -> None:
+    invalid = UpdateSafeWindowPolicy(
+        policy_id="",
+        version="",
+        allowed_engine_states=("IDLE",),
+        allow_open_positions=False,
+        session_calendar_ref="",
+        applicability="APPLICABLE",
+    )
+    decision = evaluate_update_safe_window(invalid, engine_state="IDLE", has_open_positions=False)
+    assert decision.allowed is False
+    assert decision.reason == "UPDATE_POLICY_INVALID"
+
+    inapplicable = UpdateSafeWindowPolicy(
+        policy_id="updates/v1",
+        version="1",
+        allowed_engine_states=("IDLE",),
+        allow_open_positions=False,
+        session_calendar_ref="calendar/nse/v1",
+        applicability="NOT_APPLICABLE",
+    )
+    decision = evaluate_update_safe_window(inapplicable, engine_state="IDLE", has_open_positions=False)
+    assert decision.allowed is False
+    assert decision.reason == "UPDATE_POLICY_NOT_APPLICABLE"
+
+
 def test_wall_clock_rollback_cannot_extend_entitlement_lease() -> None:
     evidence = EntitlementTimeEvidence(
         server_issued_at=_time(10),
