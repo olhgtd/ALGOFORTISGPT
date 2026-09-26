@@ -11,6 +11,7 @@ from datetime import datetime
 from uuid import UUID
 
 from .audit import RequiredAuditSink
+from .device_service import DeviceQuotaExceeded, DeviceTrustError
 from .rate_limit import RateLimitFlow
 
 
@@ -70,21 +71,53 @@ class S2AccountAuthorityService:
         signature: bytes,
         created_at: datetime,
     ):
+        limiter = self._rate_limiter
+        if limiter is None:
+            raise PermissionError("device proof rate-limit service unavailable")
+
+        subject_key = str(principal.user_id)
+        decision = limiter.is_locked(
+            user_id=principal.user_id,
+            flow=RateLimitFlow.DEVICE_PROOF,
+            subject_key=subject_key,
+            now=created_at,
+        )
+        if decision.locked:
+            raise PermissionError("device proof rate-limit active")
+
         self._required_intent(
             principal=principal,
             action="DEVICE_ENROLL",
             resource_ref=device_id,
             occurred_at=created_at,
         )
-        return self._device_service.enroll(
+        try:
+            result = self._device_service.enroll(
+                user_id=principal.user_id,
+                device_id=device_id,
+                public_key=public_key,
+                fingerprint=fingerprint,
+                challenge=challenge,
+                signature=signature,
+                created_at=created_at,
+            )
+        except DeviceQuotaExceeded:
+            raise
+        except DeviceTrustError:
+            limiter.record_failure(
+                user_id=principal.user_id,
+                flow=RateLimitFlow.DEVICE_PROOF,
+                subject_key=subject_key,
+                now=created_at,
+            )
+            raise
+
+        limiter.record_success(
             user_id=principal.user_id,
-            device_id=device_id,
-            public_key=public_key,
-            fingerprint=fingerprint,
-            challenge=challenge,
-            signature=signature,
-            created_at=created_at,
+            flow=RateLimitFlow.DEVICE_PROOF,
+            subject_key=subject_key,
         )
+        return result
 
     def revoke_device(
         self,
