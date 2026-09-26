@@ -11,6 +11,19 @@ class AccountAuthorityRecordUnavailable(LookupError):
     """Requested account-owned state is absent or outside the caller's scope."""
 
 
+class RefreshTokenReplayDetected(PermissionError):
+    """A consumed refresh token reached the atomic rotation boundary."""
+
+
+@dataclass(frozen=True, slots=True)
+class AccountStateRecord:
+    user_id: UUID
+    lifecycle: str
+    account_status: str
+    activation_status: str
+    security_state: str
+
+
 @dataclass(frozen=True, slots=True)
 class DeviceRecord:
     user_id: UUID
@@ -53,6 +66,8 @@ class RateLimitStateRecord:
 
 
 class AccountAuthorityRepository(Protocol):
+    def get_account_state(self, *, user_id: UUID) -> AccountStateRecord | None: ...
+    def has_enabled_webauthn_credential(self, *, user_id: UUID, rp_id: str | None = None) -> bool: ...
     def list_devices(self, *, user_id: UUID) -> tuple[DeviceRecord, ...]: ...
     def get_device(self, *, user_id: UUID, device_id: str) -> DeviceRecord | None: ...
     def register_device(self, *, user_id: UUID, device_id: str, public_key: bytes, fingerprint: str, created_at: datetime) -> DeviceRecord: ...
