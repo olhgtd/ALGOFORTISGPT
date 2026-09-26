@@ -29,7 +29,11 @@ class _Repository:
 
 
 class _DeviceService:
-    def enroll(self, **_kwargs):
+    def __init__(self) -> None:
+        self.enroll_calls = []
+
+    def enroll(self, **kwargs):
+        self.enroll_calls.append(kwargs)
         return "enrolled"
 
     def revoke(self, **_kwargs):
@@ -124,6 +128,27 @@ def test_rejected_recovery_proof_records_only_recovery_flow_failure() -> None:
         service.recover(principal=principal, proof="bad", now=_now())
     assert [event for event, _ in limiter.events] == ["check", "failure"]
     assert limiter.events[1][1]["flow"].value == "RECOVERY"
+
+
+def test_locked_device_proof_rate_limit_blocks_enrollment_before_device_service() -> None:
+    devices = _DeviceService()
+    limiter = _RecoveryRateLimiter(locked=True)
+    service = S2AccountAuthorityService(_Repository(), devices, _RecoveryService(), _Audit(), rate_limiter=limiter)
+    principal = AuthenticatedPrincipal(uuid4(), "fam-1")
+
+    with pytest.raises(PermissionError, match="rate-limit"):
+        service.enroll_device(
+            principal=principal,
+            device_id="dev-1",
+            public_key=b"pk",
+            fingerprint="fp",
+            challenge=b"challenge",
+            signature=b"sig",
+            created_at=_now(),
+        )
+    assert devices.enroll_calls == []
+    assert [event for event, _ in limiter.events] == ["check"]
+    assert limiter.events[0][1]["flow"].value == "DEVICE_PROOF"
 
 
 def test_user_cannot_read_foreign_device_through_authority_facade() -> None:
