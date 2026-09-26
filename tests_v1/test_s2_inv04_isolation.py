@@ -48,7 +48,7 @@ class _RecoveryService:
 def test_facade_has_no_free_target_user_id_and_recovery_is_self_scoped() -> None:
     repository = _Repository()
     recovery = _RecoveryService()
-    service = S2AccountAuthorityService(repository, _DeviceService(), recovery, _Audit())
+    service = S2AccountAuthorityService(repository, _DeviceService(), recovery, _Audit(), rate_limiter=object())
     user_id = uuid4()
     principal = AuthenticatedPrincipal(user_id, "fam-1")
 
