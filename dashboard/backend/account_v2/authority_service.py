@@ -90,6 +90,24 @@ class S2AccountAuthorityService:
     def get_device(self, *, principal: AuthenticatedPrincipal, device_id: str):
         return self._repository.get_device(user_id=principal.user_id, device_id=device_id)
 
+    def issue_device_challenge(
+        self,
+        *,
+        principal: AuthenticatedPrincipal,
+        device_id: str,
+        purpose,
+        issued_at: datetime,
+        expires_at: datetime,
+    ) -> bytes:
+        self._device_proof_available(principal=principal, now=issued_at)
+        return self._device_service.issue_challenge(
+            user_id=principal.user_id,
+            device_id=device_id,
+            purpose=purpose,
+            issued_at=issued_at,
+            expires_at=expires_at,
+        )
+
     def enroll_device(
         self,
         *,
@@ -146,6 +164,7 @@ class S2AccountAuthorityService:
                 fingerprint=fingerprint,
                 challenge=challenge,
                 signature=signature,
+                verified_at=now,
             )
         except DeviceTrustError:
             self._device_proof_failed(principal=principal, limiter=limiter, subject_key=subject_key, now=now)
