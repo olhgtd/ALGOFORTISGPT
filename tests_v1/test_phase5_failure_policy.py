@@ -45,6 +45,49 @@ def test_events_outside_window_do_not_count_toward_threshold():
     assert decision.halt is False
 
 
+def test_storm_remains_halted_during_cooldown_even_after_original_window_expires():
+    evaluator = StormEvaluator(_policy())
+    evaluator.observe("ORDER_REJECTION", 0)
+    evaluator.observe("ORDER_REJECTION", 1_000)
+    threshold = evaluator.observe("ORDER_REJECTION", 2_000)
+    during_cooldown = evaluator.observe("ORDER_REJECTION", 20_000)
+
+    assert threshold.halt is True
+    assert during_cooldown.halt is True
+    assert during_cooldown.resulting_state is PaperOperationalState.HALTED
+    assert during_cooldown.reason == "STORM_COOLDOWN_ACTIVE"
+
+
+def test_window_and_cooldown_reset_requires_quiet_window_after_cooldown():
+    evaluator = StormEvaluator(_policy())
+    evaluator.observe("ORDER_REJECTION", 0)
+    evaluator.observe("ORDER_REJECTION", 1_000)
+    evaluator.observe("ORDER_REJECTION", 2_000)
+    evaluator.observe("ORDER_REJECTION", 20_000)
+
+    after_cooldown_and_quiet_window = evaluator.observe("ORDER_REJECTION", 33_000)
+
+    assert after_cooldown_and_quiet_window.halt is False
+    assert after_cooldown_and_quiet_window.observed_count == 1
+    assert after_cooldown_and_quiet_window.resulting_state is PaperOperationalState.DEGRADED
+    assert after_cooldown_and_quiet_window.reason == "BELOW_STORM_THRESHOLD"
+
+
+def test_phase5_rejects_unknown_storm_reset_rule():
+    with pytest.raises(ValueError, match="reset_rule"):
+        FailureStormPolicy(
+            policy_id="TEST_ONLY/storm-fi-v1",
+            version="1",
+            failure_class="ORDER_REJECTION",
+            observation_window_ms=10_000,
+            trigger_count=3,
+            cooldown_ms=30_000,
+            escalation_action="HALT_ENTRIES",
+            reset_rule="MAGIC_AUTO_CLEAR",
+            test_only=True,
+        )
+
+
 def test_out_of_order_observation_is_rejected():
     evaluator = StormEvaluator(_policy())
     evaluator.observe("ORDER_REJECTION", 2_000)
