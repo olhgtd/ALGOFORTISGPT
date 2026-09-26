@@ -31,10 +31,15 @@ class _Repository:
 class _DeviceService:
     def __init__(self) -> None:
         self.enroll_calls = []
+        self.reproof_calls = []
 
     def enroll(self, **kwargs):
         self.enroll_calls.append(kwargs)
         return "enrolled"
+
+    def reprove_existing_device(self, **kwargs):
+        self.reproof_calls.append(kwargs)
+        return "reproved"
 
     def revoke(self, **_kwargs):
         return None
@@ -148,6 +153,26 @@ def test_locked_device_proof_rate_limit_blocks_enrollment_before_device_service(
         )
     assert devices.enroll_calls == []
     assert [event for event, _ in limiter.events] == ["check"]
+    assert limiter.events[0][1]["flow"].value == "DEVICE_PROOF"
+
+
+def test_locked_device_proof_rate_limit_blocks_reproof_before_device_service() -> None:
+    devices = _DeviceService()
+    limiter = _RecoveryRateLimiter(locked=True)
+    service = S2AccountAuthorityService(_Repository(), devices, _RecoveryService(), _Audit(), rate_limiter=limiter)
+    principal = AuthenticatedPrincipal(uuid4(), "fam-1")
+
+    with pytest.raises(PermissionError, match="rate-limit"):
+        service.reprove_device(
+            principal=principal,
+            device_id="dev-1",
+            public_key=b"pk",
+            fingerprint="fp",
+            challenge=b"challenge",
+            signature=b"sig",
+            now=_now(),
+        )
+    assert devices.reproof_calls == []
     assert limiter.events[0][1]["flow"].value == "DEVICE_PROOF"
 
 
