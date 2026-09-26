@@ -16,9 +16,11 @@ def test_phase5_guard_pins_final_qualification_files():
         "engine/paper/drift_report_v2.py",
         "engine/paper/evidence_v2.py",
         "engine/paper/failure_injection_v2.py",
+        "engine/paper/phase5_runtime_v2.py",
         "build/tools/phase5_probe.py",
         "tests_v1/test_phase5_drift_report.py",
         "tests_v1/test_phase5_failure_injection.py",
+        "tests_v1/test_phase5_runtime_wiring.py",
         "tests_v1/test_phase5_qualification_guard.py",
     } <= set(REQUIRED)
 
