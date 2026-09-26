@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from .repository import AccountAuthorityRecordUnavailable, AccountAuthorityRepository
+from .repository import (
+    AccountAuthorityRecordUnavailable,
+    AccountAuthorityRepository,
+    RefreshTokenReplayDetected,
+)
 
 
 ACCESS_TOKEN_TTL = timedelta(minutes=15)
@@ -126,6 +130,8 @@ class DurableSessionService:
                 updated_at=now,
                 idle_expires_at=now + REFRESH_IDLE_TTL,
             )
+        except RefreshTokenReplayDetected as exc:
+            raise RefreshTokenReuseDetected("refresh token reuse detected; family revoked") from exc
         except AccountAuthorityRecordUnavailable as exc:
             raise SessionUnavailable("session rotation unavailable") from exc
 
