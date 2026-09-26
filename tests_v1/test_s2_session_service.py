@@ -77,6 +77,29 @@ def test_replaying_consumed_refresh_token_revokes_family(tmp_path: Path) -> None
     store.close()
 
 
+def test_repository_atomically_revokes_if_consumed_token_reaches_rotate_after_precheck(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.repository import RefreshTokenReplayDetected
+
+    store, repo, service, user, now = _setup(tmp_path)
+    issued = service.create_session(user_id=user, device_id="device-1", now=now)
+    service.rotate_refresh_token(user_id=user, device_id="device-1", family_id=issued.family_id, presented_refresh_token=issued.refresh_token, now=now)
+    consumed = service.hash_token(issued.refresh_token)
+
+    with pytest.raises(RefreshTokenReplayDetected):
+        repo.rotate_refresh_hash(
+            user_id=user,
+            family_id=issued.family_id,
+            expected_current_hash=consumed,
+            new_current_hash="unused-new-hash",
+            consumed_hash=consumed,
+            updated_at=now,
+            idle_expires_at=now,
+        )
+
+    assert repo.get_session_family(user_id=user, family_id=issued.family_id).state == "REVOKED"
+    store.close()
+
+
 def test_consumed_refresh_history_survives_store_reopen(tmp_path: Path) -> None:
     from dashboard.backend.account_v2.session_service import DurableSessionService, RefreshTokenReuseDetected
     from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
