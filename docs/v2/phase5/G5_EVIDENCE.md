@@ -1,6 +1,6 @@
 # AlgoFortis V2 Phase 5 — G5 Evidence
 
-**Status:** TECHNICAL EXIT EVIDENCE READY — OWNER GATE APPROVAL PENDING  
+**Status:** TECHNICAL EXIT EVIDENCE READY — OWNER GATE APPROVED 2026-09-26  
 **Date:** 2026-09-26  
 **Qualification baseline commit:** `866fd2438807ceed23c69e76fd538ce1437906d9`  
 **Qualification workflow:** `V2 Phase 5 Paper Recovery Qualification`  
@@ -19,7 +19,7 @@ Canonical Phase-5 exit requires:
 5. prior regression/golden behavior preserved;
 6. Live remains fail-closed and DISARMED.
 
-The technical evidence below satisfies items 1–3, 5 and 6 at the qualification baseline. The Paper soak campaign is recorded separately in `docs/v2/phase5/PAPER_SOAK_START.md` as **STARTED / RUNNING**, not completed.
+The technical evidence below satisfies items 1–3, 5 and 6 at the qualification baseline. The Paper soak campaign is recorded separately in `docs/v2/phase5/PAPER_SOAK_START.md` as **STARTED / RUNNING**, not completed. The Owner gate approval is recorded in `docs/v2/phase5/G5_OWNER_APPROVAL.md`.
 
 ## 2. Exact-head dual-Windows qualification
 
@@ -149,12 +149,14 @@ Important RED → GREEN checkpoints include:
 - Missing/corrupt safety state or policy fails closed.
 - No guessed production storm, clock-drift, drift-tolerance, promotion, or hardware thresholds were frozen in Phase 5.
 
-## 6. Remaining governance state
+## 6. Governance state after Owner approval
 
-Technical G5 exit evidence is ready and the Paper soak campaign is started/running. This file does **not** merge PR #8, arm Live, authorize real trading, or constitute Owner gate approval by itself.
+The Owner explicitly approved the G5 gate on 2026-09-26; see `docs/v2/phase5/G5_OWNER_APPROVAL.md`.
 
-Final G5 governance closure requires explicit Owner approval after review of this evidence. Until then:
+The following remain separate from G5 Owner approval:
 
-- PR #8 remains draft/open/unmerged;
+- PR #8 remains draft/open/unmerged until a separate explicit merge decision;
+- the proposed longer Paper soak continues and is not claimed passed;
 - Live remains `READ_ONLY/DISARMED`;
-- Phase 6 must not be treated as authorized by this evidence file alone.
+- G5 approval does not authorize real-money trading;
+- Phase 6 remains subject to its frozen decisions, S2 dependency, design/implementation gates, and DISARMED qualification requirements.
