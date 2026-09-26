@@ -29,10 +29,18 @@ REQUIRED = (
     "engine/host/clock_health.py",
     "engine/host/power_session.py",
     "engine/host/watchdog_policy.py",
+    "engine/alerts/__init__.py",
+    "engine/alerts/contracts.py",
+    "engine/alerts/dispatcher.py",
+    "engine/alerts/redaction.py",
+    "engine/alerts/adapters/__init__.py",
+    "engine/alerts/adapters/windows_local.py",
+    "engine/alerts/adapters/telegram.py",
     "tests_v1/test_phase5_contracts.py",
     "tests_v1/test_phase5_operational_state.py",
     "tests_v1/test_phase5_failure_policy.py",
     "tests_v1/test_phase5_host_resilience.py",
+    "tests_v1/test_phase5_alerts.py",
     "tests_v1/test_phase5_architecture_guard.py",
     "build/tools/check_phase5_paper_recovery.py",
 )
@@ -49,6 +57,11 @@ FORBIDDEN_IMPORT_ROOTS = (
 )
 
 _HOST_FORBIDDEN_IMPORT_ROOTS = (
+    "engine.broker_adapters",
+    "engine.live",
+)
+
+_ALERT_FORBIDDEN_IMPORT_ROOTS = (
     "engine.broker_adapters",
     "engine.live",
 )
@@ -153,6 +166,26 @@ def _read_source(path: Path, problems: list[str]) -> str | None:
         return None
 
 
+def _check_import_roots(
+    root: Path,
+    problems: list[str],
+    import_roots: tuple[str, ...],
+    *,
+    label: str,
+) -> None:
+    if not root.is_dir():
+        return
+    for path in sorted(root.rglob("*.py")):
+        source = _read_source(path, problems)
+        if source is None:
+            continue
+        relative = path.as_posix()
+        for imported in _import_names(source):
+            forbidden = _matching_forbidden_import(imported, import_roots)
+            if forbidden:
+                problems.append(f"{relative}: forbidden {label} import root {forbidden}")
+
+
 def verify(
     root: Path,
     *,
@@ -217,6 +250,21 @@ def verify(
                     f"{relative}: permanent power-plan mutation command is forbidden"
                 )
 
+    alerts_root = root / "engine" / "alerts"
+    if alerts_root.is_dir():
+        for path in sorted(alerts_root.rglob("*.py")):
+            source = _read_source(path, problems)
+            if source is None:
+                continue
+            relative = path.relative_to(root).as_posix()
+            for imported in _import_names(source):
+                forbidden = _matching_forbidden_import(
+                    imported,
+                    _ALERT_FORBIDDEN_IMPORT_ROOTS,
+                )
+                if forbidden:
+                    problems.append(f"{relative}: forbidden alert import root {forbidden}")
+
     if check_state_vocabulary:
         contracts = root / "engine" / "paper" / "contracts_v2.py"
         if contracts.is_file():
@@ -243,7 +291,8 @@ def main() -> int:
         return 1
     print(
         "PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 state boundaries, "
-        "P5-06 failure-policy defaults, and P5-07 host safety boundaries locked"
+        "P5-06 failure-policy defaults, P5-07 host safety, and "
+        "P5-08 alert authority boundaries locked"
     )
     return 0
 
