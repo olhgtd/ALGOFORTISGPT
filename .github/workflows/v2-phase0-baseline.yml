@@ -125,6 +125,20 @@ jobs:
         with:
           name: phase5-fingerprint-a
           path: phase5.txt
+      - name: S2 account gate static policy
+        shell: pwsh
+        run: python build/tools/check_s2_account_gate.py
+      - name: S2 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k s2_ -q
+      - name: S2 deterministic fingerprint probe A
+        shell: pwsh
+        run: python build/tools/s2_deterministic_probe.py | Set-Content s2.txt
+      - name: Upload S2 fingerprint A
+        uses: actions/upload-artifact@v4
+        with:
+          name: s2-fingerprint-a
+          path: s2.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -267,6 +281,20 @@ jobs:
         with:
           name: phase5-fingerprint-b
           path: phase5.txt
+      - name: S2 account gate static policy
+        shell: pwsh
+        run: python build/tools/check_s2_account_gate.py
+      - name: S2 focused validation
+        shell: pwsh
+        run: python -m pytest tests_v1 -k s2_ -q
+      - name: S2 deterministic fingerprint probe B
+        shell: pwsh
+        run: python build/tools/s2_deterministic_probe.py | Set-Content s2.txt
+      - name: Upload S2 fingerprint B
+        uses: actions/upload-artifact@v4
+        with:
+          name: s2-fingerprint-b
+          path: s2.txt
       - name: Full regression test suite
         shell: pwsh
         run: python -m pytest tests_v1 -q
@@ -352,4 +380,44 @@ jobs:
           foreach ($marker in $required) {
             if ($a -notmatch [regex]::Escape($marker)) { throw "G5 required marker missing: $marker" }
           }
+          Write-Output $a
+
+  gp-s2-fingerprint-compare:
+    name: GP-S2 cross-Windows deterministic fingerprint comparison
+    needs: [current-head-regression-a, current-head-regression-b]
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows latest S2 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: s2-fingerprint-a
+          path: a
+      - name: Download Windows 2022 S2 fingerprint
+        uses: actions/download-artifact@v4
+        with:
+          name: s2-fingerprint-b
+          path: b
+      - name: Require identical GP-S2 output and safety markers
+        shell: pwsh
+        run: |
+          $a = Get-Content a/s2.txt -Raw
+          $b = Get-Content b/s2.txt -Raw
+          if ($a -ne $b) { throw "GP-S2 cross-Windows fingerprint mismatch" }
+          $required = @(
+            'S2_SCHEMA_VERSION=s2-account-gate/v1',
+            'SESSION_REPLAY_RESULT=FAMILY_REVOKED',
+            'CROSS_USER_ESCAPE_COUNT=0',
+            'OUTAGE_GATE_STATUS=AUTHORITY_UNAVAILABLE',
+            'OUTAGE_RUNTIME_MODE=LOCAL_SAFETY_ONLY',
+            'DEVICE_LIMIT=3',
+            'PRODUCTION_DOMAIN=PENDING_EXTERNAL',
+            'LIVE_STATE=READ_ONLY/DISARMED',
+            'BROKER_MUTATION_CAPABILITY=ABSENT'
+          )
+          foreach ($marker in $required) {
+            if ($a -notmatch [regex]::Escape($marker)) { throw "GP-S2 required marker missing: $marker" }
+          }
+          if ($a -notmatch 'ACCOUNT_AUTHORITY_FINGERPRINT=[0-9a-f]{64}') { throw 'GP-S2 account fingerprint invalid' }
+          if ($a -notmatch 'DEVICE_REPROOF_FINGERPRINT=[0-9a-f]{64}') { throw 'GP-S2 device fingerprint invalid' }
+          if ($a -notmatch 'GP_S2_FINGERPRINT=[0-9a-f]{64}') { throw 'GP-S2 aggregate fingerprint invalid' }
           Write-Output $a
