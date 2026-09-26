@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -154,4 +155,117 @@ def test_unknown_user_cannot_create_s2_owned_state(tmp_path: Path) -> None:
     adapter = V1SecurityStoreAdapter(store)
     with pytest.raises(AccountAuthorityRecordUnavailable):
         adapter.register_device(user_id=uuid4(), device_id="ghost", public_key=b"pk", fingerprint="ghost", created_at=datetime(2026, 9, 26, tzinfo=timezone.utc))
+    store.close()
+
+
+def test_device_challenge_survives_reopen_and_can_be_consumed_only_once(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.repository import AccountAuthorityRecordUnavailable
+    from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
+
+    db = tmp_path / "security.sqlite3"
+    user_id = uuid4()
+    now = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
+    raw_challenge = b"server-issued-device-challenge"
+    challenge_hash = hashlib.sha256(raw_challenge).hexdigest()
+
+    store = FakeSecurityStore(db)
+    store.add_user(user_id)
+    adapter = V1SecurityStoreAdapter(store)
+    adapter.save_device_challenge(
+        user_id=user_id,
+        device_id="device-1",
+        purpose="REPROOF",
+        challenge_hash=challenge_hash,
+        issued_at=now,
+        expires_at=now + timedelta(minutes=5),
+    )
+    store.close()
+
+    reopened = FakeSecurityStore(db)
+    adapter2 = V1SecurityStoreAdapter(reopened)
+    record = adapter2.consume_device_challenge(
+        user_id=user_id,
+        device_id="device-1",
+        purpose="REPROOF",
+        challenge_hash=challenge_hash,
+        consumed_at=now + timedelta(minutes=1),
+    )
+    assert record.challenge_hash == challenge_hash
+    assert record.consumed_at == now + timedelta(minutes=1)
+
+    with pytest.raises(AccountAuthorityRecordUnavailable, match="challenge"):
+        adapter2.consume_device_challenge(
+            user_id=user_id,
+            device_id="device-1",
+            purpose="REPROOF",
+            challenge_hash=challenge_hash,
+            consumed_at=now + timedelta(minutes=2),
+        )
+    reopened.close()
+
+
+def test_device_challenge_scope_and_expiry_fail_closed_without_consuming_valid_scope(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.repository import AccountAuthorityRecordUnavailable
+    from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
+
+    db = tmp_path / "security.sqlite3"
+    user_a, user_b = uuid4(), uuid4()
+    now = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
+    challenge_hash = hashlib.sha256(b"scope-bound").hexdigest()
+    store = FakeSecurityStore(db)
+    store.add_user(user_a)
+    store.add_user(user_b)
+    adapter = V1SecurityStoreAdapter(store)
+    adapter.save_device_challenge(
+        user_id=user_a,
+        device_id="a-device",
+        purpose="POSSESSION",
+        challenge_hash=challenge_hash,
+        issued_at=now,
+        expires_at=now + timedelta(minutes=5),
+    )
+
+    with pytest.raises(AccountAuthorityRecordUnavailable, match="challenge"):
+        adapter.consume_device_challenge(
+            user_id=user_b,
+            device_id="a-device",
+            purpose="POSSESSION",
+            challenge_hash=challenge_hash,
+            consumed_at=now + timedelta(minutes=1),
+        )
+    with pytest.raises(AccountAuthorityRecordUnavailable, match="challenge"):
+        adapter.consume_device_challenge(
+            user_id=user_a,
+            device_id="a-device",
+            purpose="REPROOF",
+            challenge_hash=challenge_hash,
+            consumed_at=now + timedelta(minutes=1),
+        )
+
+    record = adapter.consume_device_challenge(
+        user_id=user_a,
+        device_id="a-device",
+        purpose="POSSESSION",
+        challenge_hash=challenge_hash,
+        consumed_at=now + timedelta(minutes=1),
+    )
+    assert record.consumed_at is not None
+
+    expired_hash = hashlib.sha256(b"expired").hexdigest()
+    adapter.save_device_challenge(
+        user_id=user_a,
+        device_id="a-device",
+        purpose="POSSESSION",
+        challenge_hash=expired_hash,
+        issued_at=now,
+        expires_at=now + timedelta(seconds=1),
+    )
+    with pytest.raises(AccountAuthorityRecordUnavailable, match="challenge"):
+        adapter.consume_device_challenge(
+            user_id=user_a,
+            device_id="a-device",
+            purpose="POSSESSION",
+            challenge_hash=expired_hash,
+            consumed_at=now + timedelta(seconds=2),
+        )
     store.close()
