@@ -49,6 +49,18 @@ def test_phase5_guard_pins_p5_07_host_resilience_files_and_tests():
     } <= set(REQUIRED)
 
 
+def test_phase5_guard_pins_p5_08_alert_files_and_tests():
+    assert {
+        "engine/alerts/contracts.py",
+        "engine/alerts/dispatcher.py",
+        "engine/alerts/redaction.py",
+        "engine/alerts/adapters/__init__.py",
+        "engine/alerts/adapters/windows_local.py",
+        "engine/alerts/adapters/telegram.py",
+        "tests_v1/test_phase5_alerts.py",
+    } <= set(REQUIRED)
+
+
 def test_phase5_guard_locks_exact_operational_state_vocabulary():
     assert EXPECTED_OPERATIONAL_STATES == (
         "HEALTHY",
@@ -89,6 +101,22 @@ def test_phase5_guard_rejects_host_live_or_broker_authority_imports(tmp_path):
     problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
     assert any("engine/host/watchdog_policy.py" in problem and "engine.live" in problem for problem in problems)
     assert any("engine/host/instance_lock.py" in problem and "engine.broker_adapters" in problem for problem in problems)
+
+
+def test_phase5_guard_rejects_alert_live_or_broker_authority_imports(tmp_path):
+    _write(
+        tmp_path,
+        "engine/alerts/dispatcher.py",
+        "from engine.live import state_machine_v2\n",
+    )
+    _write(
+        tmp_path,
+        "engine/alerts/adapters/telegram.py",
+        "from engine.broker_adapters import angel_adapter\n",
+    )
+    problems = verify(tmp_path, check_presence=False, check_state_vocabulary=False)
+    assert any("engine/alerts/dispatcher.py" in problem and "engine.live" in problem for problem in problems)
+    assert any("engine/alerts/adapters/telegram.py" in problem and "engine.broker_adapters" in problem for problem in problems)
 
 
 def test_phase5_guard_rejects_persistence_network_and_windows_concrete_imports(tmp_path):
