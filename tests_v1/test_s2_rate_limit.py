@@ -81,3 +81,35 @@ def test_rate_limit_state_survives_store_reopen(tmp_path: Path) -> None:
     reopened = FakeSecurityStore(db)
     service2 = DurableRateLimitService(V1SecurityStoreAdapter(reopened), _policy())
     assert service2.is_locked(user_id=user, flow=RateLimitFlow.DEVICE_PROOF, subject_key="d", now=now + timedelta(seconds=10)).locked is True
+
+
+def test_repository_failure_increment_and_lock_decision_are_atomic(tmp_path: Path) -> None:
+    from dashboard.backend.account_v2.rate_limit import RateLimitFlow
+    from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
+
+    store = FakeSecurityStore(tmp_path / "atomic.sqlite")
+    user = uuid4()
+    store.add_user(user)
+    repo = V1SecurityStoreAdapter(store)
+    now = datetime(2026, 9, 26, tzinfo=timezone.utc)
+
+    first = repo.record_rate_limit_failure(
+        user_id=user,
+        flow=RateLimitFlow.LOGIN.value,
+        subject_key="acct",
+        max_failures=2,
+        cooldown_seconds=60,
+        now=now,
+    )
+    second = repo.record_rate_limit_failure(
+        user_id=user,
+        flow=RateLimitFlow.LOGIN.value,
+        subject_key="acct",
+        max_failures=2,
+        cooldown_seconds=60,
+        now=now,
+    )
+
+    assert first.failure_count == 1 and first.locked_until is None
+    assert second.failure_count == 2
+    assert second.locked_until == now + timedelta(seconds=60)
