@@ -7,8 +7,10 @@ from uuid import UUID
 
 from .repository import (
     AccountAuthorityRecordUnavailable,
+    AccountStateRecord,
     DeviceRecord,
     RateLimitStateRecord,
+    RefreshTokenReplayDetected,
     SessionFamilyPolicyRecord,
     SessionFamilyRecord,
 )
@@ -81,6 +83,23 @@ class V1SecurityStoreAdapter:
             raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
 
     @staticmethod
+    def _account(row: Any) -> AccountStateRecord:
+        keys = set(row.keys()) if hasattr(row, "keys") else set()
+
+        def value(name: str, default: str) -> str:
+            if name not in keys or row[name] is None:
+                return default
+            return str(row[name])
+
+        return AccountStateRecord(
+            user_id=UUID(str(row["user_id"])),
+            lifecycle=value("lifecycle", "UNKNOWN"),
+            account_status=value("account_status", "UNKNOWN"),
+            activation_status=value("activation_status", "UNKNOWN"),
+            security_state=value("security_state", "UNKNOWN"),
+        )
+
+    @staticmethod
     def _device(row: Any) -> DeviceRecord:
         return DeviceRecord(
             user_id=UUID(str(row["user_id"])),
@@ -124,6 +143,29 @@ class V1SecurityStoreAdapter:
             locked_until=datetime.fromisoformat(str(row["locked_until_utc"])) if row["locked_until_utc"] else None,
             updated_at=datetime.fromisoformat(str(row["updated_at_utc"])),
         )
+
+    def get_account_state(self, *, user_id: UUID) -> AccountStateRecord | None:
+        row = self._store.get_user(user_id)
+        return self._account(row) if row is not None else None
+
+    def has_enabled_webauthn_credential(self, *, user_id: UUID, rp_id: str | None = None) -> bool:
+        self._require_user(user_id)
+        table = self._store._conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'webauthn_credentials'"
+        ).fetchone()
+        if table is None:
+            return False
+        if rp_id is None:
+            row = self._store._conn.execute(
+                "SELECT 1 FROM webauthn_credentials WHERE user_id = ? AND enabled = 1 AND revoked = 0 LIMIT 1",
+                (str(user_id),),
+            ).fetchone()
+        else:
+            row = self._store._conn.execute(
+                "SELECT 1 FROM webauthn_credentials WHERE user_id = ? AND rp_id = ? AND enabled = 1 AND revoked = 0 LIMIT 1",
+                (str(user_id), rp_id),
+            ).fetchone()
+        return row is not None
 
     def list_devices(self, *, user_id: UUID) -> tuple[DeviceRecord, ...]:
         self._require_user(user_id)
@@ -249,25 +291,43 @@ class V1SecurityStoreAdapter:
 
     def rotate_refresh_hash(self, *, user_id: UUID, family_id: str, expected_current_hash: str, new_current_hash: str, consumed_hash: str, updated_at: datetime, idle_expires_at: datetime) -> None:
         self._require_user(user_id)
+        replay_detected = False
         with self._store._transaction() as cur:
-            row = cur.execute(
+            family = cur.execute(
                 "SELECT current_refresh_hash, state FROM s2_session_families WHERE user_id = ? AND family_id = ?",
                 (str(user_id), family_id),
             ).fetchone()
-            if row is None or row["state"] != "ACTIVE" or row["current_refresh_hash"] != expected_current_hash:
+            if family is None:
                 raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
-            cur.execute(
-                "INSERT INTO s2_consumed_refresh_tokens(token_hash, user_id, family_id, consumed_at_utc) VALUES (?, ?, ?, ?)",
-                (consumed_hash, str(user_id), family_id, updated_at.isoformat()),
-            )
-            cur.execute(
-                "UPDATE s2_session_families SET current_refresh_hash = ?, updated_at_utc = ? WHERE user_id = ? AND family_id = ?",
-                (new_current_hash, updated_at.isoformat(), str(user_id), family_id),
-            )
-            cur.execute(
-                "UPDATE s2_session_family_policy SET idle_expires_at_utc = ? WHERE user_id = ? AND family_id = ?",
-                (idle_expires_at.isoformat(), str(user_id), family_id),
-            )
+
+            consumed = cur.execute(
+                "SELECT 1 FROM s2_consumed_refresh_tokens WHERE user_id = ? AND family_id = ? AND token_hash = ?",
+                (str(user_id), family_id, consumed_hash),
+            ).fetchone()
+            if consumed is not None:
+                stamp = updated_at.isoformat()
+                cur.execute(
+                    "UPDATE s2_session_families SET state = 'REVOKED', revoked_at_utc = ?, updated_at_utc = ? WHERE user_id = ? AND family_id = ?",
+                    (stamp, stamp, str(user_id), family_id),
+                )
+                replay_detected = True
+            else:
+                if family["state"] != "ACTIVE" or family["current_refresh_hash"] != expected_current_hash:
+                    raise AccountAuthorityRecordUnavailable("account-owned state unavailable")
+                cur.execute(
+                    "INSERT INTO s2_consumed_refresh_tokens(token_hash, user_id, family_id, consumed_at_utc) VALUES (?, ?, ?, ?)",
+                    (consumed_hash, str(user_id), family_id, updated_at.isoformat()),
+                )
+                cur.execute(
+                    "UPDATE s2_session_families SET current_refresh_hash = ?, updated_at_utc = ? WHERE user_id = ? AND family_id = ?",
+                    (new_current_hash, updated_at.isoformat(), str(user_id), family_id),
+                )
+                cur.execute(
+                    "UPDATE s2_session_family_policy SET idle_expires_at_utc = ? WHERE user_id = ? AND family_id = ?",
+                    (idle_expires_at.isoformat(), str(user_id), family_id),
+                )
+        if replay_detected:
+            raise RefreshTokenReplayDetected("consumed refresh token replay detected; family revoked")
 
     def get_rate_limit_state(self, *, user_id: UUID, flow: str, subject_key: str) -> RateLimitStateRecord | None:
         self._require_user(user_id)
