@@ -40,6 +40,25 @@ class FakeSecurityStore:
         self._conn.close()
 
 
+def _refresh_limiter(repo, *, max_failures: int = 3):
+    from dashboard.backend.account_v2.rate_limit import (
+        DurableRateLimitService,
+        RateLimitFlow,
+        RateLimitPolicy,
+        RateLimitRule,
+    )
+
+    return DurableRateLimitService(
+        repo,
+        RateLimitPolicy(
+            policy_id="TEST_ONLY/refresh",
+            version="1",
+            test_only=True,
+            rules={RateLimitFlow.REFRESH_MISUSE: RateLimitRule(max_failures=max_failures, cooldown_seconds=60)},
+        ),
+    )
+
+
 def _setup(tmp_path: Path):
     from dashboard.backend.account_v2.v1_store_adapter import V1SecurityStoreAdapter
     from dashboard.backend.account_v2.session_service import DurableSessionService
@@ -50,7 +69,7 @@ def _setup(tmp_path: Path):
     repo = V1SecurityStoreAdapter(store)
     now = datetime(2026, 9, 26, tzinfo=timezone.utc)
     repo.register_device(user_id=user, device_id="device-1", public_key=b"pk", fingerprint="fp", created_at=now)
-    return store, repo, DurableSessionService(repo), user, now
+    return store, repo, DurableSessionService(repo, _refresh_limiter(repo)), user, now
 
 
 def test_normal_rotation_consumes_old_token_and_persists_new_hash(tmp_path: Path) -> None:
@@ -112,7 +131,7 @@ def test_consumed_refresh_history_survives_store_reopen(tmp_path: Path) -> None:
 
     reopened = FakeSecurityStore(db)
     repo2 = V1SecurityStoreAdapter(reopened)
-    service2 = DurableSessionService(repo2)
+    service2 = DurableSessionService(repo2, _refresh_limiter(repo2))
     with pytest.raises(RefreshTokenReuseDetected):
         service2.rotate_refresh_token(user_id=user, device_id="device-1", family_id=issued.family_id, presented_refresh_token=issued.refresh_token, now=now)
     assert repo2.get_session_family(user_id=user, family_id=issued.family_id).state == "REVOKED"
