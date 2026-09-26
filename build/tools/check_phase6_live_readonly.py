@@ -18,6 +18,8 @@ REQUIRED = (
     "build/tools/check_phase6_live_readonly.py",
     "build/tools/phase6_probe.py",
     ".github/workflows/v2-phase6-readonly.yml",
+    "docs/v2/phase6/G6_EVIDENCE.md",
+    "docs/v2/phase6/G6_READ_ONLY_SESSION_TEMPLATE.md",
     "tests_v1/test_phase6_readonly_contracts.py",
     "tests_v1/test_phase6_architecture_guard.py",
     "tests_v1/test_phase6_rate_policy.py",
