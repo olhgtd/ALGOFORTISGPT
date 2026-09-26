@@ -1,8 +1,8 @@
 """Static safety guard for AlgoFortis V2 Phase 5 paper/recovery code.
 
-This guard starts with the approved P5-01 domain boundary and is extended by
-later Phase-5 slices.  It deliberately uses source inspection rather than
-importing runtime modules so it can validate synthetic fixtures in tests.
+The guard is extended slice-by-slice as Phase 5 advances. It deliberately uses
+source inspection rather than importing runtime modules so synthetic fixtures
+can prove that unsafe dependencies/defaults are rejected.
 """
 
 from __future__ import annotations
@@ -23,8 +23,10 @@ EXPECTED_OPERATIONAL_STATES = (
 REQUIRED = (
     "engine/paper/contracts_v2.py",
     "engine/paper/operational_state_v2.py",
+    "engine/paper/failure_policy_v2.py",
     "tests_v1/test_phase5_contracts.py",
     "tests_v1/test_phase5_operational_state.py",
+    "tests_v1/test_phase5_failure_policy.py",
     "tests_v1/test_phase5_architecture_guard.py",
     "build/tools/check_phase5_paper_recovery.py",
 )
@@ -41,7 +43,8 @@ FORBIDDEN_IMPORT_ROOTS = (
 )
 
 _STORM_CONSTANT = re.compile(
-    r"(?im)^\s*(?:PRODUCTION_)?STORM_(?:TRIGGER_COUNT|WINDOW|WINDOW_SECONDS|THRESHOLD)\s*=\s*\d+"
+    r"(?im)^\s*(?:(?:PRODUCTION|DEFAULT)_)?STORM_"
+    r"(?:TRIGGER_COUNT|WINDOW|WINDOW_SECONDS|THRESHOLD)\s*=\s*\d+"
 )
 
 
@@ -64,6 +67,30 @@ def _is_forbidden_import(name: str) -> str | None:
         if name == root or name.startswith(root + "."):
             return root
     return None
+
+
+def _is_failure_storm_policy_call(value: ast.AST | None) -> bool:
+    if not isinstance(value, ast.Call):
+        return False
+    func = value.func
+    return (
+        isinstance(func, ast.Name) and func.id == "FailureStormPolicy"
+    ) or (
+        isinstance(func, ast.Attribute) and func.attr == "FailureStormPolicy"
+    )
+
+
+def _has_module_level_storm_policy_profile(source: str) -> bool:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and _is_failure_storm_policy_call(node.value):
+            return True
+        if isinstance(node, ast.AnnAssign) and _is_failure_storm_policy_call(node.value):
+            return True
+    return False
 
 
 def _state_vocabulary(source: str) -> tuple[str, ...] | None:
@@ -118,6 +145,11 @@ def verify(
                 problems.append(
                     f"{relative}: guessed production storm threshold constant is forbidden"
                 )
+            if _has_module_level_storm_policy_profile(source):
+                problems.append(
+                    f"{relative}: embedded module-level storm policy profile is forbidden; "
+                    "inject a versioned policy instead"
+                )
 
     if check_state_vocabulary:
         contracts = root / "engine" / "paper" / "contracts_v2.py"
@@ -145,7 +177,10 @@ def main() -> int:
         for problem in problems:
             print(f"PHASE5_PAPER_RECOVERY_STATIC_FAIL: {problem}")
         return 1
-    print("PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 boundaries and safety vocabulary locked")
+    print(
+        "PHASE5_PAPER_RECOVERY_STATIC_PASS: P5-01 state boundaries and "
+        "P5-06 failure-policy defaults locked"
+    )
     return 0
 
 
