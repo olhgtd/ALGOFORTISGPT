@@ -28,6 +28,7 @@ def test_gp_s2_required_markers_are_present_and_fail_closed() -> None:
         "CROSS_USER_ESCAPE_COUNT",
         "OUTAGE_GATE_STATUS",
         "OUTAGE_RUNTIME_MODE",
+        "RATE_LIMIT_FLOWS",
         "DEVICE_LIMIT",
         "PRODUCTION_DOMAIN",
         "LIVE_STATE",
@@ -39,6 +40,7 @@ def test_gp_s2_required_markers_are_present_and_fail_closed() -> None:
     assert evidence["CROSS_USER_ESCAPE_COUNT"] == "0"
     assert evidence["OUTAGE_GATE_STATUS"] == "AUTHORITY_UNAVAILABLE"
     assert evidence["OUTAGE_RUNTIME_MODE"] == "LOCAL_SAFETY_ONLY"
+    assert evidence["RATE_LIMIT_FLOWS"] == "LOGIN,DEVICE_PROOF,REFRESH_MISUSE,RECOVERY"
     assert evidence["DEVICE_LIMIT"] == "3"
     assert evidence["PRODUCTION_DOMAIN"] == "PENDING_EXTERNAL"
     assert evidence["LIVE_STATE"] == "READ_ONLY/DISARMED"
