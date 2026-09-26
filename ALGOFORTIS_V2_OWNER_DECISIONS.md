@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.8 — Phase 6 live-safety decisions frozen |
+| Version | v0.9 — Track P / S2 platform decisions frozen |
 | Date | 2026-09-26 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
@@ -24,6 +24,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 8. On 2026-09-24 the Owner authorized immediate next-phase execution after the verified Phase 3 merge. OD-V2-11 and OD-V2-17 were frozen to fail-closed research/promotion governance, and the ORB protective-policy blocker was frozen as an explicit versioned-policy requirement with no invented economic defaults. These are formalized by `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md`.
 9. On 2026-09-25 the Owner froze the two Phase-5 entry blockers through the dated Phase-5 decision addendum: OD-V2-24 host resilience in `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md` and OD-V2-19 alert-channel independence in `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`. This root register was reconciled on 2026-09-26 so later readers no longer need to rely on an OPEN-status exception note.
 10. On 2026-09-26 the Owner approved the G5 Owner gate and explicitly selected Option A for all Phase-6 blocking safety decisions: OD-V2-05, OD-V2-06, OD-V2-08 and OD-V2-09. The Phase-6 choices are formalized in `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` and `docs/v2/phase6/PHASE6_OWNER_DECISION_FREEZE.md`. This approval does not authorize Live mutation; Live remains READ_ONLY / DISARMED.
+11. On 2026-09-26 the Owner approved carrying V1 Track-P platform decisions into V2 and froze OD-V2-20, OD-V2-21, OD-V2-22 and OD-V2-23 with three hardening refinements: versioned update safe windows, clock-tamper-resistant offline entitlement time evidence, and explicit production-domain WebAuthn re-enrollment/device re-binding. These are formalized by `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
 
 ---
 
@@ -156,23 +157,27 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 - *Recommendation:* Never send broker credentials, account identifiers, personal data or raw trade logs to any provider. Per-provider allowlist of data classes; review each cloud provider's retention terms; redaction at the tool gateway.
 - *Status:* OPEN
 
-### Account, release and privacy (Track P — the open items from the existing decision sequence)
+### Account, release and privacy (Track P)
 
 **OD-V2-20 — Auto-update and release channel** · Blocks Track P1
-- *Recommendation:* Signed artifacts; security-critical updates forced but only in a safe window (never while ACTIVE or holding positions); non-critical updates deferrable; staged rollout; tested rollback; never auto-arm afterwards.
-- *Status:* OPEN
+- *Decision:* **A — signed artifacts/manifests with integrity verification, staged rollout and tested rollback. Update/restart/migration is allowed only when a resolved versioned `UpdateSafeWindowPolicy` permits it, never while ACTIVE or while open positions make the transition unsafe. Safe-window production timing is not hard-coded. Missing/invalid/stale/inapplicable safe-window policy defers the update. Update/restart never auto-arms Live.**
+- *Authority:* `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-21 — Licence / entitlement** · Blocks Track P1
-- *Recommendation:* Cached entitlement with a time-boxed offline grace; new activations fail closed. Licence expiry or outage must never disable protective exits, reconciliation or read-only access to positions.
-- *Status:* OPEN
+- *Decision:* **A — preserve the signed V1 7-day offline entitlement lease. Validation must combine signed server-issued time evidence, last successful server check-in, and monotonic elapsed-time evidence where available; wall clock alone cannot extend the lease. Contradictory/backward/lost time evidence fails closed for entitlement-dependent new operations. Licence/cloud failure must not disable protective exits, reconciliation, local position monitoring, or read-only safety access.**
+- *Authority:* `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-22 — Telemetry and privacy** · Blocks Track P1
-- *Recommendation:* Opt-in; scrubbed crash reports; no strategy, trade or credential content; retention limit; documented purpose.
-- *Status:* OPEN
+- *Decision:* **A — telemetry remains opt-in, purpose-limited, minimized and scrubbed. Strategy content, broker credentials/tokens, unrestricted trade logs, balances and unnecessary trading data are excluded. Support bundles sanitize first. Purpose/retention are versioned and production retention numbers are not guessed. Telemetry availability never becomes a trading-safety dependency.**
+- *Authority:* `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-23 — Publisher, version scheme, canonical domain** · Blocks Track P1
-- *Recommendation:* Finalize the publisher identity (needed for code signing), a semantic-version scheme aligned with V2.x, and the canonical production domain. Domain purchase is pending.
-- *Status:* OPEN
+- *Decision:* **A — preserve SemVer 2.0.0, independently versioned HTTP/API contracts (`/api/v1/`) and explicit migrations. Exact legal publisher and canonical production domain remain `PENDING_EXTERNAL` until finalized before S3/release. Dev/staging WebAuthn credentials are never silently promoted to production; production-domain finalization requires fresh production WebAuthn enrollment plus explicit device-key possession re-proof/re-binding. Missing/corrupt device key requires fresh enrollment.**
+- *Authority:* `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-25 — Data-protection (DPDP) and retention** · Blocks Phase 9
 - *Question:* Owner's obligations for identity data held in the central plane: consent, retention, deletion, breach handling.
@@ -215,6 +220,10 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-06 | Foreign broker activity halts new entries + alerts; explicit audited human adoption only; never ignore or auto-adopt. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
 | OD-V2-08 | Broker-resident protection mandatory where supported; unsupported required protection keeps affected Live mutation DISARMED pending separate policy approval. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
 | OD-V2-09 | Dated current broker/exchange/regulatory verification is mandatory before G6 exit; historical assumptions are insufficient. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
+| OD-V2-20 | Signed updates/rollback preserved; versioned safe-window policy required; no hard-coded production update timing; never auto-arm. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
+| OD-V2-21 | V1 signed 7-day offline lease preserved; signed server/check-in + monotonic time evidence hardens against wall-clock tamper; protective safety unaffected. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
+| OD-V2-22 | Opt-in/minimized/scrubbed telemetry; sanitize-first support bundles; versioned purpose/retention; telemetry never safety authority. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
+| OD-V2-23 | SemVer/API/migrations preserved; publisher/domain pending external finalization; production domain requires fresh WebAuthn + device re-proof/re-bind. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
 
 ---
 
@@ -232,4 +241,4 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 8 | 15, 16 |
 | Phase 9 | 25 |
 | Phase 10 | 18, 26 |
-| Track P1 | 20, 21, 22, 23 |
+| Track P1 | 20, 21, 22, 23 — **FROZEN 2026-09-26** |
