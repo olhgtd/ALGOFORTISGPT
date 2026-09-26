@@ -1,12 +1,12 @@
 """Versioned, durable, flow-isolated S2 rate limiting.
 
-Production thresholds are supplied by policy.  This module does not invent
+Production thresholds are supplied by policy. This module does not invent
 production values; tests may use explicit TEST_ONLY policies.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Mapping
 from uuid import UUID
@@ -86,32 +86,19 @@ class DurableRateLimitService:
         subject_key: str,
         now: datetime,
     ) -> RateLimitDecision:
-        existing = self.is_locked(
-            user_id=user_id,
-            flow=flow,
-            subject_key=subject_key,
-            now=now,
-        )
-        if existing.locked:
-            return existing
-
         rule = self._policy.rule_for(flow)
-        count = existing.failure_count + 1
-        locked_until = None
-        if count >= rule.max_failures:
-            locked_until = now + timedelta(seconds=rule.cooldown_seconds)
-
-        state = self._repository.save_rate_limit_state(
+        state = self._repository.record_rate_limit_failure(
             user_id=user_id,
             flow=flow.value,
             subject_key=subject_key,
-            failure_count=count,
-            locked_until=locked_until,
-            updated_at=now,
+            max_failures=rule.max_failures,
+            cooldown_seconds=rule.cooldown_seconds,
+            now=now,
         )
-        if state.locked_until is None:
+        if state.locked_until is None or now >= state.locked_until:
             return RateLimitDecision(False, 0, state.failure_count)
-        return RateLimitDecision(True, rule.cooldown_seconds, state.failure_count)
+        remaining = max(1, int((state.locked_until - now).total_seconds()))
+        return RateLimitDecision(True, remaining, state.failure_count)
 
     def record_success(
         self,
