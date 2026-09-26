@@ -24,6 +24,8 @@ def test_gp_s2_required_markers_are_present_and_fail_closed() -> None:
         "S2_SCHEMA_VERSION",
         "ACCOUNT_AUTHORITY_FINGERPRINT",
         "DEVICE_REPROOF_FINGERPRINT",
+        "DEVICE_CHALLENGE_POLICY",
+        "DEVICE_CHALLENGE_REPLAY_RESULT",
         "SESSION_REPLAY_RESULT",
         "CROSS_USER_ESCAPE_COUNT",
         "OUTAGE_GATE_STATUS",
@@ -36,6 +38,8 @@ def test_gp_s2_required_markers_are_present_and_fail_closed() -> None:
     }
 
     assert required <= set(evidence)
+    assert evidence["DEVICE_CHALLENGE_POLICY"] == "SERVER_ISSUED_SCOPED_EXPIRING_SINGLE_USE"
+    assert evidence["DEVICE_CHALLENGE_REPLAY_RESULT"] == "REJECTED"
     assert evidence["SESSION_REPLAY_RESULT"] == "FAMILY_REVOKED"
     assert evidence["CROSS_USER_ESCAPE_COUNT"] == "0"
     assert evidence["OUTAGE_GATE_STATUS"] == "AUTHORITY_UNAVAILABLE"
