@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from engine.data.transports.sequence import SourceSequence
+
 
 class LiveFeedError(ValueError):
     """Raised when a live-feed event is structurally invalid."""
@@ -25,13 +27,19 @@ def _aware(value: datetime, name: str) -> datetime:
 
 @dataclass(frozen=True, slots=True)
 class LiveMarketEvent:
-    """Canonical health envelope for one live market-data observation."""
+    """Canonical health envelope for one live market-data observation.
+
+    ``sequence`` is retained as a compatibility field for AlgoFortis internal
+    ingress ordering. Provider continuity is carried separately by
+    ``source_sequence`` and must never be inferred from ``sequence``.
+    """
 
     symbol: str
     exchange_timestamp: datetime
     receive_timestamp: datetime
     sequence: int
     market_state: MarketState
+    source_sequence: SourceSequence | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol, str) or not self.symbol.strip():
@@ -43,6 +51,14 @@ class LiveMarketEvent:
             raise LiveFeedError("sequence must be a non-negative integer")
         if not isinstance(self.market_state, MarketState):
             raise LiveFeedError("market_state must be MarketState")
+        if self.source_sequence is not None and not isinstance(self.source_sequence, SourceSequence):
+            raise LiveFeedError("source_sequence must be SourceSequence or None")
+
+    @property
+    def ingress_sequence(self) -> int:
+        """AlgoFortis internal deterministic ordering (legacy ``sequence`` alias)."""
+
+        return self.sequence
 
 
 __all__ = ["LiveFeedError", "MarketState", "LiveMarketEvent"]
