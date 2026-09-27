@@ -59,6 +59,7 @@ jobs:
           tests_v1/test_phase6_transport_registry.py
           tests_v1/test_phase6_transport_extension.py
           tests_v1/test_phase6_transport_conformance.py
+          tests_v1/test_phase6_upstox_single_lifecycle_authority.py
           tests_v1/test_v2_phase3_live_feed.py
           tests_v1/test_phase6_evidence.py
           tests_v1/test_phase6_qualification_guard.py
@@ -116,6 +117,7 @@ jobs:
           tests_v1/test_phase6_transport_registry.py
           tests_v1/test_phase6_transport_extension.py
           tests_v1/test_phase6_transport_conformance.py
+          tests_v1/test_phase6_upstox_single_lifecycle_authority.py
           tests_v1/test_v2_phase3_live_feed.py
           tests_v1/test_phase6_evidence.py
           tests_v1/test_phase6_qualification_guard.py
