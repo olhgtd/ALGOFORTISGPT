@@ -1,0 +1,43 @@
+name: Phase 8 TDD Development
+
+on:
+  push:
+    branches:
+      - v2-phase8-ai-shadow-impl
+  pull_request:
+    branches:
+      - v2-phase5-paper-recovery
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase8-tdd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install locked runtime and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Phase 8 dependency baseline
+        run: >-
+          python -m pytest
+          tests_v1/test_v2_phase1_adapter_registry.py
+          tests_v1/test_v2_phase3_data_licensing.py
+          -q
