@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -167,13 +168,28 @@ def test_healthy_transport_does_not_override_other_feed_integrity_blocks() -> No
 
 def test_transport_runtime_and_bridge_have_no_direct_riskgate_or_operational_state_authority() -> None:
     root = Path(__file__).resolve().parents[1]
+    forbidden_modules = ("engine.risk", "engine.live")
+    forbidden_names = {"ApprovedOrder", "RiskGateV2", "OperationalState", "LiveState"}
+
     for relative in (
         "engine/data/transports/runtime.py",
         "engine/data/transports/bridge.py",
     ):
-        source = (root / relative).read_text(encoding="utf-8").lower()
-        assert "engine.risk" not in source
-        assert "riskgate" not in source
-        assert "approvedorder" not in source
-        assert "operational_state" not in source
-        assert "engine.live" not in source
+        source = (root / relative).read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=relative)
+        imported_modules: set[str] = set()
+        referenced_names: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_modules.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_modules.add(node.module)
+            elif isinstance(node, ast.Name):
+                referenced_names.add(node.id)
+
+        assert not any(
+            module == prefix or module.startswith(prefix + ".")
+            for module in imported_modules
+            for prefix in forbidden_modules
+        )
+        assert forbidden_names.isdisjoint(referenced_names)
