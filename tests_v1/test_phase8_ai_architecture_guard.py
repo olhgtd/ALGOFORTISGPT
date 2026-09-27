@@ -30,3 +30,13 @@ def test_guard_allows_forbidden_data_class_labels_without_secret_store_access(tm
     root=tmp_path/'engine'/'ai'/'v2'; root.mkdir(parents=True)
     (root/'contracts.py').write_text('PRIVATE_KEY = "PRIVATE_KEY"\nBROKER_CREDENTIAL = "BROKER_CREDENTIAL"\n', encoding='utf-8')
     assert scan_phase8_tree(tmp_path) == ()
+
+
+def test_guard_allows_pure_url_parsing_but_rejects_url_network_access(tmp_path):
+    from build.tools.check_phase8_ai_shadow import scan_phase8_tree
+    root=tmp_path/'engine'/'ai'/'v2'; root.mkdir(parents=True)
+    (root/'safe.py').write_text('from urllib.parse import urlsplit, urlunsplit\n', encoding='utf-8')
+    assert scan_phase8_tree(tmp_path) == ()
+    (root/'bad.py').write_text('from urllib.request import urlopen\n', encoding='utf-8')
+    findings = scan_phase8_tree(tmp_path)
+    assert any('network' in item.lower() and 'urllib' in item.lower() for item in findings)
