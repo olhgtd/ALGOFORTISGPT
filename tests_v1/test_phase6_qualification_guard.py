@@ -37,6 +37,7 @@ def test_workflow_has_dual_windows_legs_and_deterministic_g6_compare() -> None:
         "test_phase6_transport_registry.py",
         "test_phase6_transport_extension.py",
         "test_phase6_transport_conformance.py",
+        "test_phase6_upstox_single_lifecycle_authority.py",
         "test_v2_phase3_live_feed.py",
     ):
         assert token in text
