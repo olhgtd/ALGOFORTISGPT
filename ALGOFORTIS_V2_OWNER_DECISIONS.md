@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v0.8 — Phase 6 live-safety decisions frozen |
-| Date | 2026-09-26 |
+| Version | v0.9 — Phase 8 AI/research-shadow decisions frozen |
+| Date | 2026-09-27 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
@@ -24,6 +24,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 8. On 2026-09-24 the Owner authorized immediate next-phase execution after the verified Phase 3 merge. OD-V2-11 and OD-V2-17 were frozen to fail-closed research/promotion governance, and the ORB protective-policy blocker was frozen as an explicit versioned-policy requirement with no invented economic defaults. These are formalized by `docs/v2/adr/ADR-012-phase4-research-promotion-and-orb-policy.md`.
 9. On 2026-09-25 the Owner froze the two Phase-5 entry blockers through the dated Phase-5 decision addendum: OD-V2-24 host resilience in `docs/v2/adr/ADR-013-phase5-host-resilience-policy.md` and OD-V2-19 alert-channel independence in `docs/v2/adr/ADR-014-phase5-alert-channel-independence.md`. This root register was reconciled on 2026-09-26 so later readers no longer need to rely on an OPEN-status exception note.
 10. On 2026-09-26 the Owner approved the G5 Owner gate and explicitly selected Option A for all Phase-6 blocking safety decisions: OD-V2-05, OD-V2-06, OD-V2-08 and OD-V2-09. The Phase-6 choices are formalized in `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` and `docs/v2/phase6/PHASE6_OWNER_DECISION_FREEZE.md`. This approval does not authorize Live mutation; Live remains READ_ONLY / DISARMED.
+11. On 2026-09-27 the Owner approved the Phase-8 AI/research-shadow direction. OD-V2-15 and OD-V2-16 are frozen by `docs/v2/phase8/PHASE8_DECISION_FREEZE.md` and the approved Phase-8 design. Phase 8 remains research/shadow-only, with one local and one cloud provider seam, strict provider data allowlists/redaction, cloud egress gated by positive Data V2 licensing/provenance evidence, and no AI authority to mint `ApprovedOrder` or mutate broker/Live state.
 
 ---
 
@@ -148,13 +149,14 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 ### AI
 
 **OD-V2-15 — AI scope and provider set for V2.0** · Blocks Phase 8
-- *Options:* (a) research + shadow only; (b) also committee/ensemble.
-- *Recommendation:* **(a)**. Start with one local and one cloud provider through the abstraction; committee stays T2 behind the same contract.
-- *Status:* OPEN
+- *Decision:* **Research + Shadow only for V2.0. Start with one local and one cloud provider behind the common provider abstraction. Committee/ensemble remains deferred T2 scope.**
+- *Authority:* `docs/v2/phase8/PHASE8_DECISION_FREEZE.md`; `docs/superpowers/specs/2026-09-27-phase8-ai-research-shadow-design.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-16 — AI data-sharing rules** · Blocks Phase 8
-- *Recommendation:* Never send broker credentials, account identifiers, personal data or raw trade logs to any provider. Per-provider allowlist of data classes; review each cloud provider's retention terms; redaction at the tool gateway.
-- *Status:* OPEN
+- *Decision:* **Strict provider data allowlists and redaction are mandatory. Broker credentials/tokens, broker/account identifiers, personal data, raw trade logs, private/device-key material and unknown/unapproved data classes never reach an AI provider. Cloud market/instrument/dataset/research egress additionally requires positive Data V2 external-processing licensing/provenance evidence; missing, stale, ambiguous or prohibitive evidence blocks the call fail-closed. Redaction is not a licensing override.**
+- *Authority:* `docs/v2/phase8/PHASE8_DECISION_FREEZE.md`; `docs/superpowers/specs/2026-09-27-phase8-ai-research-shadow-design.md`.
+- *Status:* **FROZEN**
 
 ### Account, release and privacy (Track P — the open items from the existing decision sequence)
 
@@ -182,7 +184,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 ### Rollout
 
 **OD-V2-18 — Live pilot policy** · Blocks Phase 10
-- *Parameters:* capital cap, lot size, one-strategy limit, hard daily-loss cap, minimum number of sessions, stop conditions, who monitors.
+- *Parameters to set:* capital cap, lot size, one-strategy limit, hard daily-loss cap, minimum number of sessions, stop conditions, who monitors.
 - *Status:* OPEN
 - *Safety note:* V2 implementation and qualification may proceed through research, backtest, paper, shadow, read-only broker integration and dry-run evidence while live mutation remains DISARMED. No automatic live-money enablement is authorized by this register.
 
@@ -215,6 +217,8 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | OD-V2-06 | Foreign broker activity halts new entries + alerts; explicit audited human adoption only; never ignore or auto-adopt. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
 | OD-V2-08 | Broker-resident protection mandatory where supported; unsupported required protection keeps affected Live mutation DISARMED pending separate policy approval. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
 | OD-V2-09 | Dated current broker/exchange/regulatory verification is mandatory before G6 exit; historical assumptions are insufficient. | 2026-09-26 | `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` |
+| OD-V2-15 | Research + Shadow only; one local + one cloud provider seam; committee/ensemble deferred T2. | 2026-09-27 | `docs/v2/phase8/PHASE8_DECISION_FREEZE.md`; Phase-8 design spec. |
+| OD-V2-16 | Strict provider allowlist/redaction; cloud egress requires positive Data V2 external-processing licensing/provenance evidence. | 2026-09-27 | `docs/v2/phase8/PHASE8_DECISION_FREEZE.md`; Phase-8 design spec. |
 
 ---
 
@@ -229,7 +233,7 @@ These come from earlier decision sheets. **Confirm each still holds before Phase
 | Phase 4 | 11, 17, ORB protective-policy governance — **FROZEN 2026-09-24** |
 | Phase 5 | 19, 24 — **FROZEN 2026-09-25** |
 | Phase 6 | 05, 06, 08, 09 — **FROZEN 2026-09-26** |
-| Phase 8 | 15, 16 |
+| Phase 8 | 15, 16 — **FROZEN 2026-09-27** |
 | Phase 9 | 25 |
 | Phase 10 | 18, 26 |
 | Track P1 | 20, 21, 22, 23 |
