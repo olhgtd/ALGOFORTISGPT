@@ -15,6 +15,10 @@ REQUIRED = (
     "engine/broker_contract/read_only_conformance_v2.py",
     "engine/live/phase6_readonly_coordinator.py",
     "engine/live/phase6_evidence.py",
+    "engine/data/transports/__init__.py",
+    "engine/data/transports/contracts.py",
+    "engine/data/transports/sequence.py",
+    "engine/data/transports/policy.py",
     "build/tools/check_phase6_live_readonly.py",
     "build/tools/phase6_probe.py",
     ".github/workflows/v2-phase6-readonly.yml",
@@ -36,25 +40,8 @@ REQUIRED = (
     "tests_v1/test_phase6_qualification_guard.py",
 )
 
-_MUTATION_NAMES = frozenset(
-    {
-        "place",
-        "place_order",
-        "submit",
-        "submit_order",
-        "modify",
-        "modify_order",
-        "cancel",
-        "cancel_order",
-        "create_gtt",
-        "modify_gtt",
-        "cancel_gtt",
-    }
-)
-_FORBIDDEN_IMPORT_ROOTS = (
-    "engine.broker_adapters.angel_adapter",
-    "engine.execution",
-)
+_MUTATION_NAMES = frozenset({"place","place_order","submit","submit_order","modify","modify_order","cancel","cancel_order","create_gtt","modify_gtt","cancel_gtt"})
+_FORBIDDEN_IMPORT_ROOTS = ("engine.broker_adapters.angel_adapter", "engine.execution")
 _ENV_BYPASS_TOKENS = ("ARM", "MUTATION", "BROKER_WRITE", "LIVE_EXECUTION", "ALLOW_LIVE")
 
 
@@ -74,6 +61,9 @@ def _production_paths(root: Path) -> tuple[Path, ...]:
     live_root = root / "engine" / "live"
     if live_root.is_dir():
         paths.extend(sorted(live_root.glob("phase6*.py")))
+    transport_root = root / "engine" / "data" / "transports"
+    if transport_root.is_dir():
+        paths.extend(sorted(transport_root.rglob("*.py")))
     return tuple(dict.fromkeys(paths))
 
 
@@ -118,6 +108,13 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
 
     problems: list[str] = []
     imports = _import_names(tree)
+    is_transport = relative.startswith("engine/data/transports/")
+    if is_transport:
+        for imported in imports:
+            if imported == "engine.risk.gate_v2" or imported.startswith("engine.risk.gate_v2."):
+                problems.append(f"{relative}: direct RiskGate import is forbidden in transport code")
+            if imported == "engine.live.state_machine_v2" or imported.startswith("engine.live.state_machine_v2."):
+                problems.append(f"{relative}: direct Phase-5 operational-state import is forbidden in transport code")
     for imported in imports:
         for forbidden in _FORBIDDEN_IMPORT_ROOTS:
             if imported == forbidden or imported.startswith(forbidden + "."):
@@ -131,10 +128,8 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
             for alias in node.names:
                 if alias.name == "ApprovedOrder":
                     problems.append(f"{relative}: ApprovedOrder import is forbidden in Phase-6 read-only code")
-
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in _MUTATION_NAMES:
             problems.append(f"{relative}: mutation entrypoint {node.name} is structurally forbidden")
-
         if isinstance(node, ast.Call):
             name = _call_name(node)
             if name in _MUTATION_NAMES:
@@ -143,7 +138,6 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
                 key = node.args[0].value
                 if isinstance(key, str) and any(token in key.upper() for token in _ENV_BYPASS_TOKENS):
                     problems.append(f"{relative}: environment/config mutation bypass {key!r} is forbidden")
-
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             value = node.value
@@ -153,7 +147,6 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
                         problems.append(f"{relative}: arm_enabled=True is forbidden")
                     if isinstance(target, ast.Attribute) and target.attr == "arm_enabled":
                         problems.append(f"{relative}: arm_enabled=True is forbidden")
-
     return tuple(problems)
 
 
@@ -164,7 +157,6 @@ def verify(root: Path, *, check_presence: bool = True) -> tuple[str, ...]:
         for relative in REQUIRED:
             if not (root / relative).is_file():
                 problems.append(f"missing required Phase-6 read-only file: {relative}")
-
     for path in _production_paths(root):
         source = _read(path, problems)
         if source is None:
@@ -182,7 +174,6 @@ def main() -> int:
         return 1
     print("PHASE6_LIVE_READONLY_STATIC_PASS: mutation capability absent and read-only boundary locked")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
