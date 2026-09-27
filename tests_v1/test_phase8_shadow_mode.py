@@ -58,6 +58,5 @@ def test_missing_policy_licensing_or_provenance_blocks_valid_classification():
         kwargs=dict(candidate=candidate,validation=result,challenger_verdict='PASS',policy_ref='candidate/v1',licensing_ref='lic:1',audit_ref='audit:1',provider_version='1.0.0',model_version='m1',agent_version='research/1',observed_at=now)
         kwargs[field]=''
         with pytest.raises(api.ShadowPolicyError): ledger.record(**kwargs)
-    bad=c.TradeCandidate(candidate.candidate_id,candidate.context_ref,candidate.instrument_ref,candidate.action,candidate.created_at,candidate.valid_until,candidate.input_fingerprint,candidate.provider_id,candidate.model_id,candidate.agent_id,candidate.schema_version,(),candidate.rationale_refs,candidate.input_data_valid_until)
-    with pytest.raises(api.ShadowPolicyError):
-        ledger.record(candidate=bad,validation=result,challenger_verdict='PASS',policy_ref='candidate/v1',licensing_ref='lic:1',audit_ref='audit:1',provider_version='1.0.0',model_version='m1',agent_version='research/1',observed_at=now)
+    with pytest.raises(c.AIContractError):
+        c.TradeCandidate(candidate.candidate_id,candidate.context_ref,candidate.instrument_ref,candidate.action,candidate.created_at,candidate.valid_until,candidate.input_fingerprint,candidate.provider_id,candidate.model_id,candidate.agent_id,candidate.schema_version,(),candidate.rationale_refs,candidate.input_data_valid_until)
