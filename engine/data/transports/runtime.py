@@ -185,6 +185,12 @@ class MarketDataTransportRuntime:
         self._driver.encode_subscribe(request)
         self._subscription_replays.add(key)
         self._record("SUBSCRIPTION_SENT", generation=self._connection_generation)
+        if not self._driver.capabilities.supports_subscription_ack:
+            active = self._active_subscriptions.setdefault(self._connection_generation, set())
+            active.add(request)
+            self._record("SUBSCRIPTION_ACTIVATED_WITHOUT_ACK", generation=self._connection_generation)
+            if self._desired_subscriptions.issubset(active):
+                self._transition(TransportHealthState.HEALTHY)
         return True
 
     def replay_desired_subscriptions(self) -> int:
