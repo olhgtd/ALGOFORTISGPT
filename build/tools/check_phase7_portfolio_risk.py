@@ -97,8 +97,10 @@ def verify(root: Path, *, check_presence: bool = True) -> tuple[str, ...]:
                     name = node.func.id
                 elif isinstance(node.func, ast.Attribute):
                     name = node.func.attr
-                if name in {"_mint_approved_order", "ApprovedOrder"}:
-                    problems.append(f"{relative}: {name} call is forbidden")
+                if name == "_mint_approved_order":
+                    problems.append(f"{relative}: _mint_approved_order call is forbidden")
+                elif name == "ApprovedOrder":
+                    problems.append(f"{relative}: ApprovedOrder constructor is forbidden")
 
         if THRESHOLD_RE.search(source):
             problems.append(
