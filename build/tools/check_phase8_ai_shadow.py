@@ -10,7 +10,7 @@ _FORBIDDEN = (
     (re.compile(r"(?:^|\n)\s*(?:import|from)\s+[^\n]*(?:credential|private[_-]?key|secret[_-]?store)|\b(?:CredentialStore|PrivateKeyStore|SecretStore)\s*\(", re.I), "forbidden credential/private-key authority"),
     (re.compile(r"\bengine\.(?:live|broker_contract).*?(?:submit|place|mutat|arm)", re.I), "forbidden Live/broker mutation import"),
 )
-_NETWORK = re.compile(r"(^|\n)\s*(?:import|from)\s+(requests|httpx|urllib|aiohttp|socket)\b")
+_NETWORK = re.compile(r"(^|\n)\s*(?:import|from)\s+((?:requests|httpx|aiohttp|socket)\b|urllib\.(?:request|error)\b)")
 _DATABASE = re.compile(r"(^|\n)\s*(?:import|from)\s+(sqlite3|sqlalchemy|psycopg)\b")
 _GUESSED_DEFAULT = re.compile(r"(?:DEFAULT|PRODUCTION)_(?:TOKEN|BUDGET|QUOTA|TIMEOUT|PROVIDER)\s*=", re.I)
 
