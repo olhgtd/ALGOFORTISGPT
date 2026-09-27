@@ -155,6 +155,23 @@ class MarketDataTransportRuntime:
         detail = reason.strip() if isinstance(reason, str) and reason.strip() else "client_disconnect"
         self._record("CLIENT_DISCONNECT", generation=generation, detail=detail)
 
+    def fail_closed(self, code: str, *, detail: str = "") -> None:
+        """Record a transport-local fatal condition and invalidate the active wire.
+
+        This is a lower-level health signal only. It does not mutate RiskGate,
+        Phase-5 operational state, broker orders, or Live arm state.
+        """
+        if not isinstance(code, str) or not code.strip():
+            raise ValueError("code must be a non-empty string")
+        generation = self._connection_generation or None
+        self._connection = None
+        self._queue.clear()
+        if generation is not None:
+            self._active_subscriptions.pop(generation, None)
+        self._transition(TransportHealthState.FAILED_CLOSED)
+        safe_detail = detail.strip() if isinstance(detail, str) else type(detail).__name__
+        self._record(code.strip().upper(), generation=generation, detail=safe_detail)
+
     def unexpected_disconnect(self, reason: str) -> None:
         self._connection = None
         self._queue.clear()
