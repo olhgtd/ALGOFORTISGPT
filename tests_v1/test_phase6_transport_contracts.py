@@ -71,6 +71,12 @@ def test_driver_protocol_exposes_only_transport_edge_contract() -> None:
         assert required in names
     assert not ({"place","submit","modify","cancel","mint_approved_order"} & names)
 
+def test_decode_contract_is_multiplex_safe() -> None:
+    c = _contracts()
+    annotation = c.BrokerTransportDriver.decode_frame.__annotations__["return"]
+    assert "ProviderEnvelopeBatch" in str(annotation)
+    assert c.ProviderEnvelopeBatch == tuple[c.ProviderEnvelope, ...]
+
 def test_capabilities_bind_broker_heartbeat_and_sequence_semantics() -> None:
     c = _contracts(); s = _sequence()
     caps = c.TransportCapabilities(c.BrokerId.UPSTOX, c.HeartbeatMode.DATA_ACTIVITY, s.SequenceSemantics.UNAVAILABLE, s.SequenceScope.NONE, True)
