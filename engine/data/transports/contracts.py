@@ -42,6 +42,25 @@ class BrokerId(str, Enum):
     UPSTOX = "UPSTOX"
 
 
+BrokerRef: TypeAlias = BrokerId | str
+
+
+def normalize_broker_ref(value: object) -> BrokerRef:
+    """Keep built-ins strongly typed while allowing extension brokers by key."""
+    if isinstance(value, BrokerId):
+        return value
+    text = _text(value, "broker_id").upper()
+    try:
+        return BrokerId(text)
+    except ValueError:
+        return text
+
+
+def broker_ref_key(value: BrokerRef) -> str:
+    normalized = normalize_broker_ref(value)
+    return normalized.value if isinstance(normalized, BrokerId) else normalized
+
+
 class TransportHealthState(str, Enum):
     STOPPED = "STOPPED"
     CONNECTING = "CONNECTING"
@@ -72,15 +91,14 @@ class FrameKind(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class TransportCapabilities:
-    broker_id: BrokerId
+    broker_id: BrokerRef
     heartbeat_mode: HeartbeatMode
     source_sequence_semantics: SequenceSemantics
     source_sequence_scope: SequenceScope
     supports_subscription_ack: bool
 
     def __post_init__(self) -> None:
-        if not isinstance(self.broker_id, BrokerId):
-            raise TypeError("broker_id must be BrokerId")
+        object.__setattr__(self, "broker_id", normalize_broker_ref(self.broker_id))
         if not isinstance(self.heartbeat_mode, HeartbeatMode):
             raise TypeError("heartbeat_mode must be HeartbeatMode")
         if not isinstance(self.source_sequence_semantics, SequenceSemantics):
@@ -132,7 +150,7 @@ class SubscriptionRequest:
 
 @dataclass(frozen=True, slots=True)
 class ProviderEnvelope:
-    broker_id: BrokerId
+    broker_id: BrokerRef
     connection_id: str
     connection_generation: int
     instrument_token: str
@@ -143,8 +161,7 @@ class ProviderEnvelope:
     decoded_payload: Mapping[str, Any]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.broker_id, BrokerId):
-            raise TypeError("broker_id must be BrokerId")
+        object.__setattr__(self, "broker_id", normalize_broker_ref(self.broker_id))
         object.__setattr__(self, "connection_id", _text(self.connection_id, "connection_id"))
         object.__setattr__(self, "connection_generation", _generation(self.connection_generation))
         object.__setattr__(self, "instrument_token", _text(self.instrument_token, "instrument_token"))
@@ -160,15 +177,12 @@ class ProviderEnvelope:
         object.__setattr__(self, "decoded_payload", MappingProxyType(dict(self.decoded_payload)))
 
 
-# One physical WebSocket frame may contain updates for multiple instruments.
-# The driver must preserve every decoded instrument packet rather than choosing
-# one arbitrary envelope.
 ProviderEnvelopeBatch: TypeAlias = tuple[ProviderEnvelope, ...]
 
 
 @runtime_checkable
 class BrokerTransportDriver(Protocol):
-    broker_id: BrokerId
+    broker_id: BrokerRef
     capabilities: TransportCapabilities
 
     def authorize(self, auth_context: object) -> object: ...
@@ -177,11 +191,14 @@ class BrokerTransportDriver(Protocol):
     def encode_unsubscribe(self, request: SubscriptionRequest) -> object: ...
     def decode_frame(self, frame: object, *, connection: TransportConnection) -> ProviderEnvelopeBatch: ...
     def classify_frame(self, frame: object) -> FrameKind: ...
-    def extract_source_sequence(self, frame: object) -> SourceSequence | None: ...
+    def extract_source_sequence(self, decoded_packet: object) -> SourceSequence | None: ...
 
 
 __all__ = [
     "BrokerId",
+    "BrokerRef",
+    "normalize_broker_ref",
+    "broker_ref_key",
     "TransportHealthState",
     "HeartbeatMode",
     "FrameKind",
