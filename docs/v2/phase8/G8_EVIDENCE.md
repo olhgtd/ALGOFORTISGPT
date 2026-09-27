@@ -8,8 +8,10 @@
 ## 1. Dependency and implementation heads
 
 - Phase-5 dependency/base head used to start Phase 8: `8b2f9849c5cd064d0169ac40601dae6fb62b87fe` (`v2-phase5-paper-recovery`).
-- Phase-8 qualification-code head before this evidence-only document commit: `b04eff07f8c5968f48b5671fbe6b1d4cbcdae005`.
+- Phase-8 qualification-code head: `b04eff07f8c5968f48b5671fbe6b1d4cbcdae005`.
+- Final reviewed code/config head after removal of the temporary development workflow: `fd4f0f8d84adbe9166095af6e0759ba9cf2c937d`.
 - Canonical implementation PR: #18, `v2-phase8-ai-shadow-impl` -> `v2-phase5-paper-recovery`, draft/unmerged.
+- This evidence-file update is documentation-only and does not change the qualified runtime/workflow tree recorded above.
 
 ## 2. Implemented G8 safety scope
 
@@ -66,16 +68,18 @@ The G8 probe binds the following markers:
 
 GitHub hosted execution remains externally blocked before repository steps start.
 
-Latest exact-head-adjacent development workflow evidence inspected while drafting this record:
+Final code/config head qualification attempt:
 
-- workflow: `Phase 8 TDD Development`
-- run ID: `36297027146`
-- head: `b04eff07f8c5968f48b5671fbe6b1d4cbcdae005`
-- job: `baseline`
-- result: `failure`
-- critical observation: job returned **`steps=null`**; no checkout, Python setup, dependency install, static guard or pytest step executed.
+- workflow: `V2 Phase 8 AI Shadow Qualification`
+- run ID: `36297188757`
+- head: `fd4f0f8d84adbe9166095af6e0759ba9cf2c937d`
+- `g8-windows-latest` job ID `108558114043`: `failure`, **`steps=null`**
+- `g8-windows-2022` job ID `108558113966`: `failure`, **`steps=null`**
+- `G8 cross-Windows compare` job ID `108558122761`: `skipped`, **`steps=null`**
 
-The same pre-step provisioning pattern has already affected Phase 5/6/7 verification attempts. This result is therefore recorded as **runner/infrastructure execution unavailable**, not as a repository code-test failure and not as GREEN evidence.
+No checkout, Python setup, dependency install, static firewall, pytest, deterministic probe, artifact upload, or cross-Windows compare step executed. The failure therefore occurred before repository code/test execution.
+
+The same pre-step provisioning pattern has already affected Phase 5/6/7 verification attempts. This result is recorded as **runner/infrastructure execution unavailable**, not as a repository code-test failure and not as GREEN evidence.
 
 The final G8 workflow requires:
 
