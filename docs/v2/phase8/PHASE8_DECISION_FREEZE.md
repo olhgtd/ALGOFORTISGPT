@@ -12,11 +12,15 @@
 
 **Decision:** Strict provider data allowlists and redaction at the tool/provider gateway. Broker credentials, broker/account identifiers, personal data, raw trade logs, or other disallowed sensitive trading data must not be sent to any AI provider. Cloud-provider use must be auditable and fail closed when data classification or redaction evidence is unavailable.
 
+**Market/instrument data licensing boundary:** Before any market, instrument, dataset-derived, news-derived, or research data leaves the local machine for a cloud AI provider, Phase 8 must verify the authoritative Data V2 provenance/licensing policy permits that external/provider use. Redaction does not make otherwise restricted data exportable. Missing, stale, ambiguous, or prohibitive licensing/provenance evidence blocks the outbound provider call fail-closed. Local-provider processing remains subject to the dataset's own usage policy but does not create cloud egress.
+
 ## Standing safety boundary
 
 - AI remains advisory/research/shadow only.
 - AI cannot create or mint `ApprovedOrder`.
 - AI has no direct broker, Live execution, credential-store, or trading-state mutation authority.
 - Any future executable path must still pass deterministic strategy/rules plus the existing central `RiskGateV2`.
-- Provider outage or malformed/policy-violating output degrades to `NO_TRADE` / `HOLD`, not fallback execution.
+- Provider outage, malformed/policy-violating output, or an expired/stale `TradeCandidate` degrades to `NO_TRADE` / `HOLD`, not fallback execution.
+- All runtime agent tools are reached through the deny-by-default Tool Gateway with declared scope, rate/budget limits, and per-call audit evidence.
+- Cloud data egress is additionally gated by Data V2 provenance/licensing policy; disallowed or unproven external use is blocked.
 - Live remains `READ_ONLY / DISARMED`.
