@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, TypeAlias, runtime_checkable
 
 from .sequence import SequenceScope, SequenceSemantics, SourceSequence
 
@@ -160,6 +160,12 @@ class ProviderEnvelope:
         object.__setattr__(self, "decoded_payload", MappingProxyType(dict(self.decoded_payload)))
 
 
+# One physical WebSocket frame may contain updates for multiple instruments.
+# The driver must preserve every decoded instrument packet rather than choosing
+# one arbitrary envelope.
+ProviderEnvelopeBatch: TypeAlias = tuple[ProviderEnvelope, ...]
+
+
 @runtime_checkable
 class BrokerTransportDriver(Protocol):
     broker_id: BrokerId
@@ -169,7 +175,7 @@ class BrokerTransportDriver(Protocol):
     def connect(self, authorized_endpoint: object, *, connection_generation: int) -> TransportConnection: ...
     def encode_subscribe(self, request: SubscriptionRequest) -> object: ...
     def encode_unsubscribe(self, request: SubscriptionRequest) -> object: ...
-    def decode_frame(self, frame: object, *, connection: TransportConnection) -> ProviderEnvelope: ...
+    def decode_frame(self, frame: object, *, connection: TransportConnection) -> ProviderEnvelopeBatch: ...
     def classify_frame(self, frame: object) -> FrameKind: ...
     def extract_source_sequence(self, frame: object) -> SourceSequence | None: ...
 
@@ -183,5 +189,6 @@ __all__ = [
     "TransportConnection",
     "SubscriptionRequest",
     "ProviderEnvelope",
+    "ProviderEnvelopeBatch",
     "BrokerTransportDriver",
 ]
