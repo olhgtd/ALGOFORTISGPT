@@ -1,4 +1,4 @@
-"""Static mutation firewall for AlgoFortis Phase-6 read-only Live qualification."""
+"""Static mutation firewall for AlgoFortis Phase-6 multi-broker read-only qualification."""
 
 import ast
 from pathlib import Path
@@ -19,6 +19,15 @@ REQUIRED = (
     "engine/data/transports/contracts.py",
     "engine/data/transports/sequence.py",
     "engine/data/transports/policy.py",
+    "engine/data/transports/runtime.py",
+    "engine/data/transports/bridge.py",
+    "engine/data/transports/registry.py",
+    "engine/data/transports/brokers/__init__.py",
+    "engine/data/transports/brokers/_base.py",
+    "engine/data/transports/brokers/angelone.py",
+    "engine/data/transports/brokers/zerodha.py",
+    "engine/data/transports/brokers/dhan.py",
+    "engine/data/transports/brokers/upstox.py",
     "build/tools/check_phase6_live_readonly.py",
     "build/tools/phase6_probe.py",
     ".github/workflows/v2-phase6-readonly.yml",
@@ -36,6 +45,20 @@ REQUIRED = (
     "tests_v1/test_phase6_order_policy.py",
     "tests_v1/test_phase6_protection_capability.py",
     "tests_v1/test_phase6_connectivity_chaos.py",
+    "tests_v1/test_phase6_transport_contracts.py",
+    "tests_v1/test_phase6_transport_runtime.py",
+    "tests_v1/test_phase6_transport_runtime_subscriptions.py",
+    "tests_v1/test_phase6_market_event_bridge.py",
+    "tests_v1/test_phase6_feed_monitor_multi_instrument.py",
+    "tests_v1/test_phase6_feed_riskgate_handoff.py",
+    "tests_v1/test_phase6_broker_normalizer_bridge.py",
+    "tests_v1/test_phase6_transport_angelone.py",
+    "tests_v1/test_phase6_transport_zerodha.py",
+    "tests_v1/test_phase6_transport_dhan.py",
+    "tests_v1/test_phase6_transport_upstox.py",
+    "tests_v1/test_phase6_transport_registry.py",
+    "tests_v1/test_phase6_transport_extension.py",
+    "tests_v1/test_phase6_transport_conformance.py",
     "tests_v1/test_phase6_evidence.py",
     "tests_v1/test_phase6_qualification_guard.py",
 )
@@ -172,7 +195,7 @@ def main() -> int:
         for problem in problems:
             print(f"PHASE6_LIVE_READONLY_STATIC_FAIL: {problem}")
         return 1
-    print("PHASE6_LIVE_READONLY_STATIC_PASS: mutation capability absent and read-only boundary locked")
+    print("PHASE6_LIVE_READONLY_STATIC_PASS: multi-broker mutation capability absent and read-only boundary locked")
     return 0
 
 if __name__ == "__main__":
