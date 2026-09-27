@@ -13,6 +13,13 @@ _FORBIDDEN = (
 _NETWORK = re.compile(r"(^|\n)\s*(?:import|from)\s+((?:requests|httpx|aiohttp|socket)\b|urllib\.(?:request|error)\b)")
 _DATABASE = re.compile(r"(^|\n)\s*(?:import|from)\s+(sqlite3|sqlalchemy|psycopg)\b")
 _GUESSED_DEFAULT = re.compile(r"(?:DEFAULT|PRODUCTION)_(?:TOKEN|BUDGET|QUOTA|TIMEOUT|PROVIDER)\s*=", re.I)
+_REQUIRED_ARTIFACTS = (
+    "engine/ai/v2/evidence.py",
+    "build/tools/phase8_ai_probe.py",
+    "tests_v1/test_phase8_ai_evidence.py",
+    "tests_v1/test_phase8_ai_qualification_guard.py",
+    ".github/workflows/v2-phase8-ai-shadow.yml",
+)
 
 
 def scan_phase8_tree(repo_root: Path | str) -> tuple[str, ...]:
@@ -38,13 +45,38 @@ def scan_phase8_tree(repo_root: Path | str) -> tuple[str, ...]:
     return tuple(findings)
 
 
+def check_qualification_artifacts(repo_root: Path | str) -> tuple[str, ...]:
+    root = Path(repo_root)
+    return tuple(path for path in _REQUIRED_ARTIFACTS if not (root / path).exists())
+
+
+def check_g8_workflow(path: Path | str) -> tuple[str, ...]:
+    workflow = Path(path)
+    if not workflow.exists():
+        return ("workflow missing",)
+    text = workflow.read_text(encoding="utf-8")
+    required = (
+        ("windows-latest", "workflow missing windows-latest leg"),
+        ("windows-2022", "workflow missing windows-2022 leg"),
+        ("phase8_ai_probe.py", "workflow missing deterministic Phase 8 probe"),
+        ("upload-artifact", "workflow missing probe artifact upload"),
+        ("download-artifact", "workflow missing compare artifact download"),
+        ("compare", "workflow missing cross-platform compare job"),
+    )
+    return tuple(message for needle, message in required if needle.lower() not in text.lower())
+
+
 def main() -> int:
-    findings = scan_phase8_tree(Path.cwd())
+    root = Path.cwd()
+    findings = list(scan_phase8_tree(root))
+    findings.extend(f"missing qualification artifact: {path}" for path in check_qualification_artifacts(root))
+    findings.extend(check_g8_workflow(root / ".github" / "workflows" / "v2-phase8-ai-shadow.yml"))
     if findings:
         for item in findings:
             print(f"PHASE8_FIREWALL_FAIL={item}")
         return 1
     print("PHASE8_FIREWALL=PASS")
+    print("G8_QUALIFICATION_ARTIFACTS=PASS")
     print("AI_AUTHORITY=RESEARCH_SHADOW_ONLY")
     print("LIVE_STATE=READ_ONLY/DISARMED")
     return 0
