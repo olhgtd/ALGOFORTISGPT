@@ -9,9 +9,10 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from engine.data.transports.contracts import (
-    BrokerId,
+    BrokerRef,
     FrameKind,
     ProviderEnvelope,
     ProviderEnvelopeBatch,
@@ -39,10 +40,18 @@ def _text(value: object, field: str) -> str:
     return value.strip()
 
 
+def _redacted_endpoint_ref(endpoint: str) -> str:
+    """Preserve only scheme/host/path; query/fragment may contain credentials."""
+    parts = urlsplit(endpoint)
+    if parts.scheme != "wss" or not parts.netloc:
+        raise TransportDriverError("authorized endpoint must use wss://")
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
 class ThinInjectedTransportDriver:
     """Provider-edge driver using injected I/O seams and no lifecycle authority."""
 
-    broker_id: BrokerId
+    broker_id: BrokerRef
     capabilities: TransportCapabilities
 
     def __init__(
@@ -68,16 +77,15 @@ class ThinInjectedTransportDriver:
 
     def authorize(self, auth_context: object) -> str:
         endpoint = _text(self._endpoint_provider(auth_context), "authorized endpoint")
-        if not endpoint.startswith("wss://"):
-            raise TransportDriverError("authorized endpoint must use wss://")
+        _redacted_endpoint_ref(endpoint)
         return endpoint
 
     def connect(self, authorized_endpoint: object, *, connection_generation: int) -> TransportConnection:
         endpoint = _text(authorized_endpoint, "authorized endpoint")
-        if not endpoint.startswith("wss://"):
-            raise TransportDriverError("authorized endpoint must use wss://")
+        redacted_ref = _redacted_endpoint_ref(endpoint)
+        # Only the injected wire connector receives the credential-bearing URL.
         connection_id = _text(self._connector(endpoint), "connection_id")
-        return TransportConnection(connection_id, connection_generation, endpoint)
+        return TransportConnection(connection_id, connection_generation, redacted_ref)
 
     def _send(self, payload: object) -> object:
         self._sender(payload)
