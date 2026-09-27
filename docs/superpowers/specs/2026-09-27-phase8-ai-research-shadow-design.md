@@ -33,7 +33,9 @@ Never send to any AI provider:
 - secrets from config/environment/secrets stores;
 - any data class not explicitly allowed by the active provider policy.
 
-Cloud calls fail closed when data classification, allowlist, redaction, or provider-retention evidence is missing/unavailable.
+Cloud calls fail closed when data classification, allowlist, redaction, provider-retention evidence, or required external-use licensing/provenance evidence is missing/unavailable.
+
+**Market/instrument data licensing boundary:** before market, instrument, dataset-derived, news-derived, or research data leaves the local machine for a cloud AI provider, Phase 8 must verify the authoritative Data V2 provenance/licensing policy permits that external/provider use. Redaction does not make otherwise restricted data exportable. Missing, stale, ambiguous, or prohibitive licensing/provenance evidence blocks the outbound call fail-closed. Local-provider processing remains subject to the dataset's own usage policy but does not create cloud egress.
 
 ## 2. Phase-8 goal
 
@@ -56,13 +58,14 @@ while proving there is **no path from AI output to broker mutation or an `Approv
 3. AI cannot arm Live, alter hard risk limits, modify kill switches, promote a strategy, or bypass normal strategy/promotion/risk lifecycle.
 4. `TradeCandidate` is **not executable**. It is TTL-bound, provenance-bearing evidence only.
 5. Candidate validation is deterministic and model-independent.
-6. Malformed, stale, ambiguous, policy-violating, unsupported, or unavailable AI output becomes `NO_TRADE` / `HOLD`.
-7. Provider fallback is allowed only when explicitly policy-approved and must preserve schema, data-sharing rules, audit, budgets, and safety.
+6. Malformed, stale, expired-TTL, ambiguous, policy-violating, unsupported, or unavailable AI output becomes `NO_TRADE` / `HOLD`; an expired candidate is discarded even if its schema is otherwise valid.
+7. Provider fallback is allowed only when explicitly policy-approved and must preserve schema, data-sharing rules, audit, budgets, licensing/provenance policy, and safety.
 8. Provider/tool outage never creates a permissive default or execution fallback.
 9. Retrieved web/news/tool content is untrusted data. It never changes system instructions, tool permissions, policy, or risk authority.
-10. Agent/tool actions are deny-by-default and allowlist-scoped.
+10. Agent/tool actions are deny-by-default and allowlist-scoped through the Tool Gateway; declared scope, rate/budget controls, and per-call audit evidence are mandatory.
 11. Long-term agent memory stores only approved non-secret facts with provenance; no credentials, personal data, account identifiers, or raw trade logs.
-12. Live remains `READ_ONLY / DISARMED`; G8 GREEN does not authorize real-money trading.
+12. Any cloud egress of market/instrument/dataset-derived content requires positive Data V2 licensing/provenance evidence permitting external/provider use; unknown or restricted policy blocks the call.
+13. Live remains `READ_ONLY / DISARMED`; G8 GREEN does not authorize real-money trading.
 
 ## 4. Architecture
 
@@ -75,6 +78,7 @@ It owns:
 - provider contracts and manifests;
 - provider registry/routing policy;
 - data classification + provider allowlist policy;
+- Data V2 licensing/provenance egress policy check;
 - deterministic redaction gateway;
 - AI request/response envelope;
 - `TradeCandidate` / `NO_TRADE` contract;
@@ -121,22 +125,26 @@ The internal adapter registry from Phase 1 remains the registry authority; Phase
 
 V2.0 includes exactly two provider seams: one local adapter and one cloud adapter. Concrete model choice remains configuration, so a future local Laya-compatible adapter can bind behind the same contract without changing AI safety or trading authority.
 
-### 4.3 Provider data gateway
+### 4.3 Provider data + licensing gateway
 
-All provider-bound content passes through one policy gateway before provider code sees it.
+All provider-bound content passes through one policy gateway before provider code sees it. Cloud-bound market/instrument/dataset-derived content additionally requires positive Data V2 external-use licensing/provenance evidence before egress.
 
 Pipeline:
 
 1. classify data into versioned data classes;
-2. check provider-specific allowlist;
-3. redact/remove forbidden identifiers/secrets;
-4. produce a deterministic outbound-content fingerprint;
-5. write safe audit evidence;
-6. only then call the provider.
+2. resolve source dataset/content provenance where licensing policy applies;
+3. for cloud egress, verify the authoritative Data V2 licensing policy explicitly permits external/provider use;
+4. check provider-specific allowlist;
+5. redact/remove forbidden identifiers/secrets;
+6. produce a deterministic outbound-content fingerprint plus licensing-policy evidence reference;
+7. write safe audit evidence;
+8. only then call the provider.
 
-Missing classifier, missing policy, unknown class, redaction failure, or unsafe field causes fail-closed rejection.
+Missing classifier, missing provider policy, unknown data class, redaction failure, missing/stale/ambiguous licensing evidence, or a policy that forbids external/provider use causes fail-closed rejection.
 
-The gateway must be independently testable with secret canaries and negative fixtures.
+Redaction is not a licensing override: data that is contractually/policy restricted from external processing stays local even after identifiers are removed.
+
+The gateway must be independently testable with secret canaries, licensing-denial fixtures, stale/missing provenance fixtures, and negative data-class fixtures.
 
 ### 4.4 `TradeCandidate` contract
 
@@ -162,7 +170,7 @@ It explicitly excludes:
 - hard-risk overrides;
 - direct executable quantity authority unless a later deterministic strategy rule derives/validates it through the normal path.
 
-The deterministic validator checks schema, TTL, instrument scope, allowed action vocabulary, provenance completeness, data freshness/policy markers, and required evidence. Invalid candidate => `NO_TRADE`.
+The deterministic validator checks schema, TTL, instrument scope, allowed action vocabulary, provenance completeness, data freshness/policy markers, and required evidence. `now >= valid_until` is a hard stale-candidate rejection even when all other fields are valid. Invalid or expired candidate => discard as `NO_TRADE` / `HOLD`.
 
 ### 4.5 Deterministic strategy/risk boundary
 
@@ -176,7 +184,7 @@ Phase-8 code cannot import or call the private approval mint. A static architect
 
 ### 4.6 Tool gateway
 
-Agents act only through a deny-by-default tool gateway.
+Agents act only through a deny-by-default Tool Gateway; runtime agents never receive direct DB/filesystem/broker/network authority outside declared gateway tools.
 
 Each tool manifest declares:
 
@@ -184,9 +192,11 @@ Each tool manifest declares:
 - read/write classification;
 - allowed path/data scope;
 - input/output schema;
-- maximum invocation budget;
+- maximum invocation budget/rate;
 - side-effect class;
 - audit requirements.
+
+Every tool invocation must pass capability/scope validation, rate/quota/budget enforcement, and per-call audit evidence before dispatch. Tool failure or missing enforcement evidence fails closed.
 
 Phase-8 research/shadow default tools are read-only wherever practical. Any write-capable research artifact tool must be scoped to approved research/artifact locations and can never reach broker, Live, credentials, risk-limit, kill-switch, or promotion authority.
 
@@ -274,11 +284,13 @@ Provider policy supplies explicit versioned limits for:
 
 No guessed production budget is embedded in source.
 
+Provider and Tool Gateway quota/budget enforcement is deny-by-default and auditable per call/request. A request with missing budget/quota policy or unavailable usage evidence fails closed rather than exceeding an unknown limit.
+
 If the chosen provider is unavailable:
 
 - use only an explicitly approved compatible fallback;
 - otherwise return `NO_TRADE` / research-unavailable;
-- never skip schema/data-policy/audit checks;
+- never skip schema/data-policy/licensing/audit checks;
 - never switch to an unknown provider automatically.
 
 ## 5. Audit and replay
@@ -288,6 +300,7 @@ Every AI/provider/tool/agent decision uses the existing audit envelope conventio
 - user/research/run/correlation IDs;
 - agent/provider/model/tool versions;
 - policy/data-class/redaction versions;
+- licensing/provenance policy/evidence reference for provider-bound market/instrument/dataset content;
 - input/output fingerprints;
 - candidate/validator/shadow verdict;
 - quota/latency/health evidence;
@@ -309,7 +322,7 @@ Create `build/tools/check_phase8_ai_shadow.py` that rejects Phase-8 runtime code
 - writes risk hard limits, kill-switch authority, or promotion authority;
 - contains direct network/vendor calls in pure domain modules rather than provider adapters;
 - embeds unapproved production provider/budget/data-sharing defaults;
-- bypasses the provider data gateway for cloud adapters.
+- bypasses the provider data/licensing gateway for cloud adapters.
 
 The checker also requires Phase-8 focused tests, G8 probe, evidence doc, and workflow once those artifacts exist.
 
@@ -318,15 +331,16 @@ The checker also requires Phase-8 focused tests, G8 probe, evidence doc, and wor
 G8 must prove at minimum:
 
 1. AI output has no direct order/broker path.
-2. `TradeCandidate` is non-executable and TTL/provenance validated.
+2. `TradeCandidate` is non-executable and TTL/provenance validated; a well-formed but expired candidate is discarded to `NO_TRADE` / `HOLD`.
 3. No-bypass tests prove only deterministic rules + existing `RiskGateV2` can lead toward an executable order contract.
 4. Provider data gateway blocks secrets/account IDs/personal data/raw trade logs and unknown data classes.
-5. Prompt-injection/adversarial retrieved-content suite cannot expand permissions or cause policy/tool changes.
-6. Provider outage degrades to `NO_TRADE` unless an explicitly approved compatible fallback is available.
-7. Tool gateway deny-by-default and read/write/path/data allowlists are enforced.
-8. Memory isolation/secret exclusion tests pass.
-9. Shadow logs are deterministic, auditable and accumulating without order placement.
-10. Deterministic G8 evidence matches across required environments when hosted runners are available.
+5. Cloud-provider egress tests prove market/instrument/dataset-derived content is blocked when Data V2 licensing/provenance evidence is missing, stale, ambiguous, or prohibits external/provider processing; redaction cannot bypass that denial.
+6. Prompt-injection/adversarial retrieved-content suite cannot expand permissions or cause policy/tool changes.
+7. Provider outage degrades to `NO_TRADE` unless an explicitly approved compatible fallback is available.
+8. Tool Gateway deny-by-default, read/write/path/data allowlists, per-call rate/budget/quota enforcement, and per-call audit evidence are enforced.
+9. Memory isolation/secret exclusion tests pass.
+10. Shadow logs are deterministic, auditable and accumulating without order placement.
+11. Deterministic G8 evidence matches across required environments when hosted runners are available.
 
 Suggested deterministic markers:
 
@@ -335,8 +349,10 @@ Suggested deterministic markers:
 - `PROVIDER_SCOPE=ONE_LOCAL_ONE_CLOUD`
 - `COMMITTEE_ENSEMBLE=DEFERRED_T2`
 - `PROVIDER_DATA_GATE=ALLOWLIST_REDACT_FAIL_CLOSED`
+- `CLOUD_DATA_EGRESS=LICENSING_PROVENANCE_GATED`
 - `TRADE_CANDIDATE=NON_EXECUTABLE_TTL_PROVENANCE`
-- `TOOL_GATEWAY=DENY_BY_DEFAULT`
+- `STALE_CANDIDATE=DISCARD_NO_TRADE`
+- `TOOL_GATEWAY=DENY_DEFAULT_QUOTA_AUDIT_PER_CALL`
 - `PROMPT_INJECTION=UNTRUSTED_CONTENT_BOUNDARY`
 - `PROVIDER_OUTAGE=NO_TRADE_OR_APPROVED_FALLBACK`
 - `LIVE_STATE=READ_ONLY/DISARMED`
@@ -347,12 +363,12 @@ Suggested deterministic markers:
 After Owner reviews this written spec, the implementation plan should be split into small TDD slices in this order:
 
 1. immutable AI/provider/data-class/candidate contracts + static firewall;
-2. data classification/redaction/provider-policy gateway;
-3. provider registry/routing/health/budget contracts;
+2. data classification/redaction/Data V2 licensing-provenance/provider-policy gateway;
+3. provider registry/routing/health/budget/quota contracts;
 4. local provider adapter seam;
-5. cloud provider adapter seam using the same data gateway;
-6. deterministic `TradeCandidate` validator;
-7. deny-by-default tool gateway;
+5. cloud provider adapter seam using the same data/licensing gateway;
+6. deterministic `TradeCandidate` validator including strict TTL-expiry rejection;
+7. deny-by-default Tool Gateway with per-call scope/quota/budget/audit enforcement;
 8. Prime/Research/Risk-challenger orchestration;
 9. prompt-injection/untrusted-content defenses;
 10. memory boundary;
@@ -370,6 +386,7 @@ After Owner reviews this written spec, the implementation plan should be split i
 - autonomous Live arming;
 - unrestricted shell/filesystem/network access;
 - cloud storage of broker credentials/account identifiers/raw trade logs;
+- cloud-provider export of market/instrument/dataset content without positive external-use licensing/provenance evidence;
 - any assumption that G8 GREEN enables Live trading.
 
 ## 10. Final invariant
