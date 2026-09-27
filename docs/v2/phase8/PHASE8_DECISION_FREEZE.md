@@ -2,6 +2,7 @@
 
 **Date:** 2026-09-27
 **Status:** FROZEN BY OWNER APPROVAL
+**Authority:** This dated freeze is the controlling Phase-8 decision record and supersedes any older `OPEN` labels for OD-V2-15 / OD-V2-16 until the consolidated Owner Decision Register is synchronized.
 
 ## OD-V2-15 — AI scope and provider set for V2.0
 
