@@ -13,6 +13,7 @@ from typing import Iterable
 
 from engine.core.runtime import Clock
 from engine.data.live_feed import LiveMarketEvent, MarketState
+from engine.data.transports.contracts import TransportHealthState
 from engine.data.transports.sequence import SequenceSemantics, SourceSequence
 
 
@@ -30,6 +31,8 @@ class FeedHealthReason(str, Enum):
     MARKET_HALTED = "MARKET_HALTED"
     RECONNECTING = "RECONNECTING"
     RESUBSCRIBE_REQUIRED = "RESUBSCRIBE_REQUIRED"
+    TRANSPORT_DEGRADED = "TRANSPORT_DEGRADED"
+    TRANSPORT_FAILED_CLOSED = "TRANSPORT_FAILED_CLOSED"
 
 
 class _ConnectionState(str, Enum):
@@ -87,6 +90,7 @@ class FeedMonitor:
             if not self._required_instruments:
                 raise FeedMonitorError("required_instruments must not be empty when provided")
         self._connection_state = _ConnectionState.CONNECTED
+        self._transport_health_state = TransportHealthState.STOPPED
 
     def observe(
         self,
@@ -137,6 +141,13 @@ class FeedMonitor:
         if not self._explicit_required:
             self._required_instruments.add(token)
 
+    def observe_transport_health(self, state: TransportHealthState) -> None:
+        """Consume transport evidence without becoming a second policy authority."""
+
+        if not isinstance(state, TransportHealthState):
+            raise FeedMonitorError("state must be TransportHealthState")
+        self._transport_health_state = state
+
     def mark_disconnected(self) -> None:
         self._connection_state = _ConnectionState.RECONNECTING
 
@@ -176,6 +187,10 @@ class FeedMonitor:
             reasons.add(FeedHealthReason.RECONNECTING)
         elif self._connection_state is _ConnectionState.RESUBSCRIBE_REQUIRED:
             reasons.add(FeedHealthReason.RESUBSCRIBE_REQUIRED)
+        if self._transport_health_state is TransportHealthState.DEGRADED:
+            reasons.add(FeedHealthReason.TRANSPORT_DEGRADED)
+        elif self._transport_health_state is TransportHealthState.FAILED_CLOSED:
+            reasons.add(FeedHealthReason.TRANSPORT_FAILED_CLOSED)
 
         if not self._required_instruments:
             reasons.add(FeedHealthReason.NO_DATA)
