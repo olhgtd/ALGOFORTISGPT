@@ -79,6 +79,11 @@ class NoTradeReason(str, Enum):
     POLICY_DENIED = "POLICY_DENIED"
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
     PROVENANCE_MISSING = "PROVENANCE_MISSING"
+    STALE_INPUT_DATA = "STALE_INPUT_DATA"
+    UNSUPPORTED_SCHEMA = "UNSUPPORTED_SCHEMA"
+    INSTRUMENT_OUT_OF_SCOPE = "INSTRUMENT_OUT_OF_SCOPE"
+    ACTION_INSTRUMENT_MISMATCH = "ACTION_INSTRUMENT_MISMATCH"
+    HOLD_REQUESTED = "HOLD_REQUESTED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +189,7 @@ class TradeCandidate:
     schema_version: str
     provenance_refs: tuple[str, ...]
     rationale_refs: tuple[str, ...]
+    input_data_valid_until: datetime | None = None
 
     def __post_init__(self) -> None:
         for name in ("candidate_id", "context_ref", "instrument_ref", "provider_id", "model_id", "agent_id", "schema_version"):
@@ -200,6 +206,8 @@ class TradeCandidate:
         object.__setattr__(self, "input_fingerprint", fp)
         object.__setattr__(self, "provenance_refs", _text_tuple(self.provenance_refs, "provenance_refs"))
         object.__setattr__(self, "rationale_refs", _text_tuple(self.rationale_refs, "rationale_refs", allow_empty=True))
+        if self.input_data_valid_until is not None:
+            _aware(self.input_data_valid_until, "input_data_valid_until")
 
 
 __all__ = [
