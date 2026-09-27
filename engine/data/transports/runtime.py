@@ -144,6 +144,17 @@ class MarketDataTransportRuntime:
             self.replay_desired_subscriptions()
         return connection
 
+    def disconnect(self, reason: str = "client_disconnect") -> None:
+        """Stop the current transport generation without granting resume authority."""
+        generation = self._connection_generation or None
+        self._connection = None
+        self._queue.clear()
+        if generation is not None:
+            self._active_subscriptions.pop(generation, None)
+        self._transition(TransportHealthState.STOPPED)
+        detail = reason.strip() if isinstance(reason, str) and reason.strip() else "client_disconnect"
+        self._record("CLIENT_DISCONNECT", generation=generation, detail=detail)
+
     def unexpected_disconnect(self, reason: str) -> None:
         self._connection = None
         self._queue.clear()
