@@ -1,40 +1,33 @@
-"""AlgoFortis V1 — Four Broker Live Market Data Feeds (ADR §130 / Phase 4).
+"""Legacy feed wrappers plus pure broker quote normalizers.
 
-Implements LiveMarketDataFeed protocol for:
-1. Upstox Live Market Feed
-2. Zerodha / Kite Live Market Feed
-3. Dhan Live Market Feed
-4. Angel One Live Market Feed
-
-Includes:
-- Bounded backoff reconnect logic
-- Out-of-order quote protection
-- Stale-feed / heartbeat detection
-- Subscription recovery on reconnect
-- Normalized canonical QuoteSnapshot & LiveQuoteEvent generation
+Phase-6 architecture rule:
+- pure normalizers translate broker payloads -> QuoteSnapshot only;
+- shared ``engine.data.transports`` runtime owns reconnect, heartbeat,
+  generation fencing, backpressure and subscription replay;
+- legacy feed wrappers remain for compatibility and delegate parsing to the
+  pure normalizers, but they are not the new Phase-6 transport authority.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
-from engine.broker_adapters.contracts import BrokerCapability, UnsupportedCapabilityError
+from engine.broker_adapters.contracts import UnsupportedCapabilityError
 from engine.core.numeric import as_decimal
-from engine.execution.quote import QuoteSnapshot
 from engine.data.feeds.live_feed import (
     FeedConnectionState,
     LiveMarketDataFeed,
     LiveQuoteEvent,
+    LiveQuoteTransportMetadata,
     QuoteListener,
     deterministic_live_quote_event_id,
 )
+from engine.execution.quote import QuoteSnapshot
 from engine.portfolio.model import InstrumentIdentity
 
 logger = logging.getLogger(__name__)
@@ -43,13 +36,123 @@ IST = ZoneInfo("Asia/Kolkata")
 UTC = timezone.utc
 
 
+def _exchange_timestamp(data: dict[str, Any], *keys: str) -> datetime:
+    value: object | None = None
+    for key in keys:
+        if data.get(key) is not None:
+            value = data.get(key)
+            break
+    if isinstance(value, str):
+        parsed = datetime.fromisoformat(value)
+    elif isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=IST)
+    return parsed
+
+
+class BrokerQuoteNormalizer(Protocol):
+    """Pure provider-edge payload normalizer with no transport authority."""
+
+    provider_name: str
+
+    def normalize(self, data: dict[str, Any], identity: InstrumentIdentity) -> QuoteSnapshot: ...
+
+
+class UpstoxQuoteNormalizer:
+    provider_name = "UPSTOX"
+
+    def normalize(self, data: dict[str, Any], identity: InstrumentIdentity) -> QuoteSnapshot:
+        dt = _exchange_timestamp(data, "timestamp")
+        bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
+        ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
+        last = as_decimal(data["last_price"], "last_price") if data.get("last_price") is not None else None
+        return QuoteSnapshot(
+            instrument_identity=identity,
+            exchange_timestamp=dt,
+            bid_price=bid,
+            ask_price=ask,
+            last_price=last,
+            source=self.provider_name,
+        )
+
+
+class KiteQuoteNormalizer:
+    provider_name = "ZERODHA_KITE"
+
+    def normalize(self, data: dict[str, Any], identity: InstrumentIdentity) -> QuoteSnapshot:
+        dt = _exchange_timestamp(data, "timestamp")
+        bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
+        ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
+        last = as_decimal(data["last_price"], "last_price") if data.get("last_price") is not None else None
+        return QuoteSnapshot(
+            instrument_identity=identity,
+            exchange_timestamp=dt,
+            bid_price=bid,
+            ask_price=ask,
+            last_price=last,
+            source=self.provider_name,
+        )
+
+
+class DhanQuoteNormalizer:
+    provider_name = "DHAN"
+
+    def normalize(self, data: dict[str, Any], identity: InstrumentIdentity) -> QuoteSnapshot:
+        dt = _exchange_timestamp(data, "time", "timestamp")
+        bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
+        ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
+        last_raw = data.get("LTP") if data.get("LTP") is not None else data.get("last_price")
+        last = as_decimal(last_raw, "last_price") if last_raw is not None else None
+        return QuoteSnapshot(
+            instrument_identity=identity,
+            exchange_timestamp=dt,
+            bid_price=bid,
+            ask_price=ask,
+            last_price=last,
+            source=self.provider_name,
+        )
+
+
+class AngelOneQuoteNormalizer:
+    provider_name = "ANGEL_ONE"
+
+    def normalize(self, data: dict[str, Any], identity: InstrumentIdentity) -> QuoteSnapshot:
+        dt = _exchange_timestamp(data, "time", "timestamp")
+        bid_raw = data.get("best_buy") if data.get("best_buy") is not None else data.get("bid")
+        ask_raw = data.get("best_sell") if data.get("best_sell") is not None else data.get("ask")
+        last_raw = data.get("last_traded_price") if data.get("last_traded_price") is not None else data.get("last_price")
+        bid = as_decimal(bid_raw, "bid_price") if bid_raw is not None else None
+        ask = as_decimal(ask_raw, "ask_price") if ask_raw is not None else None
+        last = as_decimal(last_raw, "last_price") if last_raw is not None else None
+        return QuoteSnapshot(
+            instrument_identity=identity,
+            exchange_timestamp=dt,
+            bid_price=bid,
+            ask_price=ask,
+            last_price=last,
+            source=self.provider_name,
+        )
+
+
 class BaseLiveMarketDataFeed(ABC):
-    """Base live market feed with reconnect backoff, staleness guards, and subscription recovery."""
+    """Legacy compatibility wrapper around pure broker quote normalizers.
+
+    This class predates the Phase-6 shared transport runtime. New Phase-6
+    drivers must not use its reconnect/backoff methods as authoritative
+    transport lifecycle; those responsibilities live in
+    ``MarketDataTransportRuntime``.
+    """
+
+    normalizer: BrokerQuoteNormalizer
 
     def __init__(
         self,
         *,
         provider_name: str,
+        normalizer: BrokerQuoteNormalizer,
         initial_subscriptions: set[InstrumentIdentity] | None = None,
         max_backoff_sec: float = 30.0,
         initial_backoff_sec: float = 1.0,
@@ -57,21 +160,19 @@ class BaseLiveMarketDataFeed(ABC):
         stale_threshold_sec: float = 15.0,
     ) -> None:
         self._provider_name = provider_name
+        self.normalizer = normalizer
         self._subscribed_identities: set[InstrumentIdentity] = set(initial_subscriptions or set())
         self._quote_listeners: list[QuoteListener] = []
         self._connection_state = FeedConnectionState.DISCONNECTED
-
         self._lock = threading.RLock()
         self._latest_timestamps: dict[InstrumentIdentity, datetime] = {}
         self._last_packet_time: datetime | None = None
-
         self._max_backoff_sec = max_backoff_sec
         self._initial_backoff_sec = initial_backoff_sec
         self._backoff_multiplier = backoff_multiplier
         self._current_backoff = initial_backoff_sec
         self._reconnect_attempts = 0
         self._stale_threshold_sec = stale_threshold_sec
-
         self.out_of_order_dropped = 0
         self.malformed_dropped = 0
 
@@ -95,7 +196,6 @@ class BaseLiveMarketDataFeed(ABC):
             return self._last_packet_time
 
     def is_stale(self, max_age_sec: float | None = None) -> bool:
-        """Return True if no valid tick has been observed within the threshold."""
         threshold = max_age_sec or self._stale_threshold_sec
         with self._lock:
             if not self.is_connected or self._last_packet_time is None:
@@ -142,7 +242,6 @@ class BaseLiveMarketDataFeed(ABC):
             self._reconnect_attempts = 0
             self._current_backoff = self._initial_backoff_sec
             self._last_packet_time = datetime.now(timezone.utc)
-            # Replay subscriptions
             for ident in self._subscribed_identities:
                 self._send_subscription(ident)
 
@@ -152,235 +251,125 @@ class BaseLiveMarketDataFeed(ABC):
             logger.info("Feed %s disconnected: %s", self._provider_name, reason)
 
     def reconnect(self) -> float:
-        """Trigger bounded backoff reconnect. Returns wait time in seconds."""
+        """Legacy compatibility only; Phase-6 runtime owns real reconnect."""
         with self._lock:
             self._connection_state = FeedConnectionState.RECONNECTING
             self._reconnect_attempts += 1
             wait_time = min(self._current_backoff, self._max_backoff_sec)
             self._current_backoff = min(self._current_backoff * self._backoff_multiplier, self._max_backoff_sec)
-            logger.info(
-                "Feed %s reconnect attempt #%d backing off %.2fs",
-                self._provider_name,
-                self._reconnect_attempts,
-                wait_time,
-            )
             return wait_time
 
     def _send_subscription(self, identity: InstrumentIdentity) -> None:
-        """Subclasses send physical WebSocket subscription payload."""
-        pass
+        """Legacy no-op compatibility seam; Phase-6 driver encodes subscriptions."""
 
     def _send_unsubscription(self, identity: InstrumentIdentity) -> None:
-        """Subclasses send physical WebSocket unsubscription payload."""
-        pass
+        """Legacy no-op compatibility seam; Phase-6 driver encodes unsubscriptions."""
 
-    def dispatch_quote(self, quote: QuoteSnapshot, event_id: str | None = None) -> None:
-        """Process, validate, and broadcast a canonical quote."""
+    def dispatch_quote(
+        self,
+        quote: QuoteSnapshot,
+        event_id: str | None = None,
+        *,
+        transport_metadata: LiveQuoteTransportMetadata | None = None,
+    ) -> None:
         with self._lock:
             if not self.is_connected:
                 logger.warning("Dropped quote received while feed disconnected: %s", quote)
                 return
-
             ident = quote.instrument_identity
             ts = quote.exchange_timestamp
-
-            # Out-of-order timestamp check
             last_ts = self._latest_timestamps.get(ident)
             if last_ts is not None and ts < last_ts:
                 self.out_of_order_dropped += 1
-                logger.warning(
-                    "Dropped out-of-order quote for %s: incoming %s < latest %s",
-                    ident.instrument,
-                    ts.isoformat(),
-                    last_ts.isoformat(),
-                )
                 return
-
             self._latest_timestamps[ident] = ts
             self._last_packet_time = datetime.now(timezone.utc)
-
             eid = event_id or deterministic_live_quote_event_id(quote)
-            event = LiveQuoteEvent(event_id=eid, quote=quote)
+            event = LiveQuoteEvent(
+                event_id=eid,
+                quote=quote,
+                transport_metadata=transport_metadata,
+            )
             listeners = list(self._quote_listeners)
-
-        # Deliver to listeners outside lock
         for listener in listeners:
             try:
                 listener(event)
             except Exception as exc:
                 logger.error("Error in quote listener: %s", exc, exc_info=True)
 
-
-class UpstoxLiveMarketFeed(BaseLiveMarketDataFeed):
-    """Operational Upstox Live Market Feed adapter."""
-
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("provider_name", "UPSTOX")
-        super().__init__(**kwargs)
-
-    def ingest_tick(self, data: dict[str, Any], identity: InstrumentIdentity) -> None:
+    def ingest_tick(
+        self,
+        data: dict[str, Any],
+        identity: InstrumentIdentity,
+        *,
+        transport_metadata: LiveQuoteTransportMetadata | None = None,
+    ) -> None:
         try:
-            ts = data.get("timestamp")
-            if isinstance(ts, str):
-                dt = datetime.fromisoformat(ts)
-            elif isinstance(ts, datetime):
-                dt = ts
-            else:
-                dt = datetime.now(timezone.utc)
-
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=IST)
-
-            bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
-            ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
-            last = as_decimal(data["last_price"], "last_price") if data.get("last_price") is not None else None
-
-            quote = QuoteSnapshot(
-                instrument_identity=identity,
-                exchange_timestamp=dt,
-                bid_price=bid,
-                ask_price=ask,
-                last_price=last,
-                source=self.provider_name,
+            quote = self.normalizer.normalize(data, identity)
+            self.dispatch_quote(
+                quote,
+                data.get("event_id"),
+                transport_metadata=transport_metadata,
             )
-            self.dispatch_quote(quote, data.get("event_id"))
         except Exception as exc:
             self.malformed_dropped += 1
-            logger.warning("Malformed Upstox tick dropped: %s (%s)", data, exc)
+            logger.warning("Malformed %s tick dropped: %s (%s)", self.provider_name, data, exc)
+
+
+class UpstoxLiveMarketFeed(BaseLiveMarketDataFeed):
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("provider_name", "UPSTOX")
+        kwargs.setdefault("normalizer", UpstoxQuoteNormalizer())
+        super().__init__(**kwargs)
 
 
 class KiteLiveMarketFeed(BaseLiveMarketDataFeed):
-    """Zerodha / Kite Live Market Feed adapter."""
-
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("provider_name", "ZERODHA_KITE")
+        kwargs.setdefault("normalizer", KiteQuoteNormalizer())
         super().__init__(**kwargs)
-
-    def ingest_tick(self, data: dict[str, Any], identity: InstrumentIdentity) -> None:
-        try:
-            ts = data.get("timestamp")
-            if isinstance(ts, str):
-                dt = datetime.fromisoformat(ts)
-            elif isinstance(ts, datetime):
-                dt = ts
-            else:
-                dt = datetime.now(timezone.utc)
-
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=IST)
-
-            bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
-            ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
-            last = as_decimal(data["last_price"], "last_price") if data.get("last_price") is not None else None
-
-            quote = QuoteSnapshot(
-                instrument_identity=identity,
-                exchange_timestamp=dt,
-                bid_price=bid,
-                ask_price=ask,
-                last_price=last,
-                source=self.provider_name,
-            )
-            self.dispatch_quote(quote, data.get("event_id"))
-        except Exception as exc:
-            self.malformed_dropped += 1
-            logger.warning("Malformed Kite tick dropped: %s (%s)", data, exc)
 
 
 class DhanLiveMarketFeed(BaseLiveMarketDataFeed):
-    """DhanHQ Live Market Feed adapter."""
-
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("provider_name", "DHAN")
+        kwargs.setdefault("normalizer", DhanQuoteNormalizer())
         super().__init__(**kwargs)
-
-    def ingest_tick(self, data: dict[str, Any], identity: InstrumentIdentity) -> None:
-        try:
-            ts = data.get("time") or data.get("timestamp")
-            if isinstance(ts, str):
-                dt = datetime.fromisoformat(ts)
-            elif isinstance(ts, datetime):
-                dt = ts
-            else:
-                dt = datetime.now(timezone.utc)
-
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=IST)
-
-            bid = as_decimal(data["bid"], "bid_price") if data.get("bid") is not None else None
-            ask = as_decimal(data["ask"], "ask_price") if data.get("ask") is not None else None
-            last_raw = data.get("LTP") if data.get("LTP") is not None else data.get("last_price")
-            last = as_decimal(last_raw, "last_price") if last_raw is not None else None
-
-            quote = QuoteSnapshot(
-                instrument_identity=identity,
-                exchange_timestamp=dt,
-                bid_price=bid,
-                ask_price=ask,
-                last_price=last,
-                source=self.provider_name,
-            )
-            self.dispatch_quote(quote, data.get("event_id"))
-        except Exception as exc:
-            self.malformed_dropped += 1
-            logger.warning("Malformed Dhan tick dropped: %s (%s)", data, exc)
 
 
 class AngelOneLiveMarketFeed(BaseLiveMarketDataFeed):
-    """Angel One SmartAPI Live Market Feed adapter."""
-
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("provider_name", "ANGEL_ONE")
+        kwargs.setdefault("normalizer", AngelOneQuoteNormalizer())
         super().__init__(**kwargs)
-
-    def ingest_tick(self, data: dict[str, Any], identity: InstrumentIdentity) -> None:
-        try:
-            ts = data.get("time") or data.get("timestamp")
-            if isinstance(ts, str):
-                dt = datetime.fromisoformat(ts)
-            elif isinstance(ts, datetime):
-                dt = ts
-            else:
-                dt = datetime.now(timezone.utc)
-
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=IST)
-
-            bid_raw = data.get("best_buy") if data.get("best_buy") is not None else data.get("bid")
-            ask_raw = data.get("best_sell") if data.get("best_sell") is not None else data.get("ask")
-            last_raw = data.get("last_traded_price") if data.get("last_traded_price") is not None else data.get("last_price")
-
-            bid = as_decimal(bid_raw, "bid_price") if bid_raw is not None else None
-            ask = as_decimal(ask_raw, "ask_price") if ask_raw is not None else None
-            last = as_decimal(last_raw, "last_price") if last_raw is not None else None
-
-            quote = QuoteSnapshot(
-                instrument_identity=identity,
-                exchange_timestamp=dt,
-                bid_price=bid,
-                ask_price=ask,
-                last_price=last,
-                source=self.provider_name,
-            )
-            self.dispatch_quote(quote, data.get("event_id"))
-        except Exception as exc:
-            self.malformed_dropped += 1
-            logger.warning("Malformed Angel One tick dropped: %s (%s)", data, exc)
 
 
 def create_live_market_feed(provider_name: str, **kwargs: Any) -> BaseLiveMarketDataFeed:
-    """Factory creating the appropriate live market feed."""
     norm = provider_name.upper().strip()
     if norm == "UPSTOX":
         return UpstoxLiveMarketFeed(**kwargs)
-    elif norm in ("ZERODHA", "KITE", "ZERODHA_KITE"):
+    if norm in ("ZERODHA", "KITE", "ZERODHA_KITE"):
         return KiteLiveMarketFeed(**kwargs)
-    elif norm == "DHAN":
+    if norm == "DHAN":
         return DhanLiveMarketFeed(**kwargs)
-    elif norm in ("ANGELONE", "ANGEL_ONE"):
+    if norm in ("ANGELONE", "ANGEL_ONE"):
         return AngelOneLiveMarketFeed(**kwargs)
-    else:
-        raise UnsupportedCapabilityError(
-            f"Provider '{provider_name}' does not support live market feed streaming",
-            provider_name,
-        )
+    raise UnsupportedCapabilityError(
+        f"Provider '{provider_name}' does not support live market feed streaming",
+        provider_name,
+    )
+
+
+__all__ = [
+    "BrokerQuoteNormalizer",
+    "UpstoxQuoteNormalizer",
+    "KiteQuoteNormalizer",
+    "DhanQuoteNormalizer",
+    "AngelOneQuoteNormalizer",
+    "BaseLiveMarketDataFeed",
+    "UpstoxLiveMarketFeed",
+    "KiteLiveMarketFeed",
+    "DhanLiveMarketFeed",
+    "AngelOneLiveMarketFeed",
+    "create_live_market_feed",
+]
