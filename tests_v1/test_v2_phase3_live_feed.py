@@ -8,6 +8,7 @@ from importlib import import_module
 import pytest
 
 from engine.core.runtime import DeterministicIdGenerator, DeterministicSeedSource, FixedClock
+from engine.data.transports.sequence import SequenceScope, SequenceSemantics, SourceSequence
 from engine.orders.contracts_v2 import OrderIntent, OrderSource, RunMode
 from engine.orders.model import OrderType
 from engine.portfolio.model import InstrumentIdentity
@@ -44,6 +45,24 @@ def _event(*, sequence: int = 1, receive_second: int = 59, exchange_second: int 
     )
 
 
+def _source(sequence: int) -> SourceSequence:
+    return SourceSequence(
+        sequence,
+        SequenceSemantics.STRICT_CONTIGUOUS,
+        SequenceScope.INSTRUMENT,
+        "phase3_test_sequence",
+    )
+
+
+def _observe(monitor, event) -> None:
+    monitor.observe(
+        event,
+        connection_generation=1,
+        instrument_token="NIFTY",
+        source_sequence=_source(event.sequence),
+    )
+
+
 def _monitor(*, clock: FixedClock | None = None):
     api = _monitor_api()
     return api.FeedMonitor(
@@ -55,7 +74,7 @@ def _monitor(*, clock: FixedClock | None = None):
 
 def test_healthy_feed_allows_new_entries_and_preserves_protective_exits():
     monitor = _monitor()
-    monitor.observe(_event())
+    _observe(monitor, _event())
 
     assert monitor.entries_allowed is True
     assert monitor.protective_exits_allowed is True
@@ -64,7 +83,7 @@ def test_healthy_feed_allows_new_entries_and_preserves_protective_exits():
 
 def test_stale_feed_blocks_entries_but_not_protective_exits():
     monitor = _monitor()
-    monitor.observe(_event(receive_second=50, exchange_second=49))
+    _observe(monitor, _event(receive_second=50, exchange_second=49))
 
     assert monitor.entries_allowed is False
     assert _monitor_api().FeedHealthReason.STALE in monitor.reasons
@@ -74,14 +93,14 @@ def test_stale_feed_blocks_entries_but_not_protective_exits():
 def test_sequence_gap_and_out_of_order_events_fail_closed():
     api = _monitor_api()
     gap = _monitor()
-    gap.observe(_event(sequence=10))
-    gap.observe(_event(sequence=12))
+    _observe(gap, _event(sequence=10))
+    _observe(gap, _event(sequence=12))
     assert gap.entries_allowed is False
     assert api.FeedHealthReason.SEQUENCE_GAP in gap.reasons
 
     out_of_order = _monitor()
-    out_of_order.observe(_event(sequence=10))
-    out_of_order.observe(_event(sequence=9))
+    _observe(out_of_order, _event(sequence=10))
+    _observe(out_of_order, _event(sequence=9))
     assert out_of_order.entries_allowed is False
     assert api.FeedHealthReason.OUT_OF_ORDER in out_of_order.reasons
 
@@ -89,7 +108,7 @@ def test_sequence_gap_and_out_of_order_events_fail_closed():
 def test_excessive_exchange_receive_clock_skew_blocks_entries():
     api = _monitor_api()
     monitor = _monitor()
-    monitor.observe(_event(receive_second=59, exchange_second=40))
+    _observe(monitor, _event(receive_second=59, exchange_second=40))
 
     assert monitor.entries_allowed is False
     assert api.FeedHealthReason.CLOCK_SKEW in monitor.reasons
@@ -99,7 +118,7 @@ def test_closed_or_halted_market_blocks_entries():
     api = _monitor_api()
     for state in ("CLOSED", "HALTED"):
         monitor = _monitor()
-        monitor.observe(_event(state_name=state))
+        _observe(monitor, _event(state_name=state))
         assert monitor.entries_allowed is False
         expected = api.FeedHealthReason.MARKET_CLOSED if state == "CLOSED" else api.FeedHealthReason.MARKET_HALTED
         assert expected in monitor.reasons
@@ -109,7 +128,7 @@ def test_closed_or_halted_market_blocks_entries():
 def test_reconnect_requires_explicit_resubscribe_before_entries_resume():
     api = _monitor_api()
     monitor = _monitor()
-    monitor.observe(_event())
+    _observe(monitor, _event())
     assert monitor.entries_allowed is True
 
     monitor.mark_disconnected()
@@ -121,7 +140,7 @@ def test_reconnect_requires_explicit_resubscribe_before_entries_resume():
     assert api.FeedHealthReason.RESUBSCRIBE_REQUIRED in monitor.reasons
 
     monitor.mark_resubscribed()
-    monitor.observe(_event(sequence=2))
+    _observe(monitor, _event(sequence=2))
     assert monitor.entries_allowed is True
 
 
@@ -177,7 +196,7 @@ def _intent() -> OrderIntent:
 def test_stale_feed_policy_blocks_risk_gate_before_evaluator():
     clock = _clock()
     monitor = _monitor(clock=clock)
-    monitor.observe(_event(receive_second=50, exchange_second=49))
+    _observe(monitor, _event(receive_second=50, exchange_second=49))
     evaluator = _Evaluator()
     audit = _Audit()
     gate = RiskGateV2(
