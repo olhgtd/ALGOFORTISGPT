@@ -7,6 +7,12 @@ versioned policy; invalid or missing required values fail closed upstream.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class QueueOverflowAction(str, Enum):
+    DEGRADED = "DEGRADED"
+    FAILED_CLOSED = "FAILED_CLOSED"
 
 
 def _text(value: object, field: str) -> str:
@@ -45,6 +51,7 @@ class BrokerTransportPolicy:
     max_subscriptions_per_socket: int
     subscription_batch_limit: int
     max_connections: int
+    queue_overflow_action: QueueOverflowAction
     test_only: bool = False
 
     def __post_init__(self) -> None:
@@ -56,6 +63,8 @@ class BrokerTransportPolicy:
             raise ValueError("TEST_ONLY policy_id must start with TEST_ONLY/")
         if not self.test_only and policy_id.startswith("TEST_ONLY/"):
             raise ValueError("TEST_ONLY policy_id requires test_only=True")
+        if not isinstance(self.queue_overflow_action, QueueOverflowAction):
+            raise TypeError("queue_overflow_action must be QueueOverflowAction")
         attempts = _non_negative_int(self.max_reconnect_attempts, "max_reconnect_attempts")
         if not isinstance(self.reconnect_backoff_seconds, tuple):
             raise TypeError("reconnect_backoff_seconds must be a tuple")
@@ -84,4 +93,4 @@ class BrokerTransportPolicy:
         return f"{self.policy_id}@{self.version}"
 
 
-__all__ = ["BrokerTransportPolicy"]
+__all__ = ["QueueOverflowAction", "BrokerTransportPolicy"]
