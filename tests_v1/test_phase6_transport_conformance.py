@@ -144,16 +144,37 @@ def test_reconnect_exhaustion_and_authorization_failure_fail_closed(case: _Broke
     def fail_connect(_endpoint: str) -> str:
         raise RuntimeError("wire unavailable")
 
-    if case.driver_type is UpstoxTransportDriver:
-        driver = _driver(case, sent, connector=fail_connect)
-    else:
-        driver = _driver(case, sent, connector=fail_connect)
+    driver = _driver(case, sent, connector=fail_connect)
     runtime = MarketDataTransportRuntime(driver, _policy(attempts=2))
 
     assert runtime.reconnect(object()) is False
     assert runtime.state is TransportHealthState.FAILED_CLOSED
     assert sum(event.code == "RECONNECT_ATTEMPT_FAILED" for event in runtime.events) == 2
     assert runtime.events[-1].code == "RECONNECT_EXHAUSTED"
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda item: item.name)
+def test_auth_expiry_invalidates_wire_and_requires_explicit_reauth(case: _BrokerCase) -> None:
+    runtime = MarketDataTransportRuntime(_driver(case, []), _policy())
+    request = _request(case)
+    runtime.connect(object())
+    runtime.subscribe(request)
+    first_generation = runtime.connection_generation
+
+    runtime.fail_closed("AUTH_EXPIRED", detail="session_expired")
+
+    assert runtime.connection is None
+    assert runtime.state is TransportHealthState.FAILED_CLOSED
+    assert runtime.active_subscriptions == ()
+    assert runtime.desired_subscriptions == (request,)
+    assert runtime.events[-1].code == "AUTH_EXPIRED"
+    assert not hasattr(runtime, "arm_live")
+    assert not hasattr(runtime, "resume_execution")
+
+    assert runtime.reconnect(object()) is True
+    assert runtime.connection_generation == first_generation + 1
+    assert runtime.state is TransportHealthState.HEALTHY
+    assert request in runtime.active_subscriptions
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda item: item.name)
