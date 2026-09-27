@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - v2-phase6-live-readonly-impl
   workflow_dispatch:
 
 permissions:
