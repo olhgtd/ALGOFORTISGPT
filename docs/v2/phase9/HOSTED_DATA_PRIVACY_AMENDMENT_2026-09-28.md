@@ -1,132 +1,120 @@
-# AlgoFortis V2 Phase 9 — Hosted Data & Privacy Amendment
+# AlgoFortis V2 Phase 9 — Cloud Go-Live Privacy Trigger
 
 **Date:** 2026-09-28  
-**Status:** REQUIRED RE-REVIEW / DOCUMENTATION AMENDMENT  
+**Status:** DEFERRED TRIGGER / DOCUMENTATION CORRECTION  
 **Phase:** Phase 9 — Product & Operations  
-**Decision impact:** OD-V2-25  
+**Decision impact:** OD-V2-25 hosted-data re-review is **not activated for V2.0 local-first scope**  
 **Safety invariant:** This document does not authorize Live trading; Live remains `READ_ONLY / DISARMED`.
 
-## 1. Why OD-V2-25 must be re-reviewed
+> **Correction note:** The earlier version of this file incorrectly treated hosted trade/position/runtime data as current V2 scope. That is superseded. OD-V2-02 remains local-first for V2.0, so hosted-data privacy re-review is a future cloud go-live trigger.
 
-The previous privacy/data-protection framing primarily assumed a central account plane holding identity/device/session/entitlement data while trading state remained local.
+## 1. V2.0 privacy scope remains local-first
 
-OD-V2-02/27 now allows the user's trading engine to run on a dedicated cloud instance. That can place trade/position/runtime data with a cloud hosting provider and changes the hosted-data processing model.
+For V2.0:
 
-Therefore OD-V2-25 remains OPEN but is now explicitly marked **RE-REVIEW REQUIRED for remote single-tenant hosting**.
+- trading engine remains local;
+- broker credentials remain local;
+- trade logs/live positions/trading runtime state remain local under the existing architecture;
+- the central account plane remains limited to its already-approved account/device/session/entitlement/security data and permitted non-sensitive settings.
 
-## 2. Hosted data boundary
+Therefore the prior hosted-engine expansion does not change the current V2.0 Phase-9 data model.
 
-The future Phase-9 data-flow inventory must distinguish at least:
+## 2. OD-V2-25 base status
 
-### Central Account Authority
-May hold the approved identity/account/device/session/entitlement/security data and permitted non-sensitive settings.
+OD-V2-25 returns to its original V2.0 question:
 
-It has no trading authority and must not become the repository for broker credentials merely because remote hosting exists.
+> Owner obligations for identity data held in the central plane: consent, retention, deletion, breach handling.
 
-### Dedicated Engine Instance
-May hold execution/runtime data required by the approved engine design, including trade/position/order/reconciliation/audit state and the instance-side encrypted broker secret store.
+Its existing Phase-9 status remains OPEN until resolved through the normal Product & Operations/legal-review path.
 
-One user = one isolated engine instance.
+This correction does **not** mark OD-V2-25 as currently re-reviewed for hosted trade/position/runtime data.
 
-### Client surfaces
-Desktop/web/mobile receive only data required for the authenticated user experience and according to notification/redaction policy.
+## 3. Future hosted-data re-review trigger
 
-### External notification channels
-Push is redacted by default. Detailed Telegram/email content is explicit opt-in only.
+A new hosted-data OD-V2-25 re-review is triggered only when the Owner later approves `REMOTE_HOST` for production/cloud go-live.
 
-## 3. Cloud provider role
+At that time the actual selected hosted architecture must be reviewed for:
 
-The selected cloud hosting provider must be assessed as a data processor/service provider or equivalent role under the final applicable legal model because hosted engine data may be processed/stored on its infrastructure.
+- hosted trade/position/order/runtime/audit data classes;
+- selected provider/region/data flow;
+- processor/service-provider/subprocessor treatment under the then-current applicable legal model;
+- notice/consent updates;
+- retention/deletion/access/correction/erasure/grievance/nomination handling as applicable;
+- incident/breach responsibilities;
+- backup/restore and hosted-data deletion behavior;
+- dated qualified legal review using the actual production architecture.
 
-This document does not select:
+No provider, region, retention number, legal conclusion, or deadline is selected now.
 
-- a provider;
-- region;
-- contractual terms;
-- data-residency conclusion;
-- retention period;
-- legal basis/conclusion.
+## 4. No false compliance claim
 
-Those require the later provider choice and dated qualified review.
+The standing rule remains:
 
-## 4. Notice and consent update
+- technical tests can provide engineering evidence;
+- green CI/security tests do not prove legal compliance;
+- a future hosted-data legal conclusion requires the dated qualified review applicable to the actual go-live architecture.
 
-Before production hosted-data use, Phase 9 must update/review user-facing notice/consent materials so they accurately describe:
+This rule is retained as a future cloud go-live requirement, not a statement that V2.0 currently hosts trading data.
 
-- dedicated cloud engine hosting;
-- categories of hosted data;
-- purpose of processing;
-- relevant processor/service-provider involvement;
-- external notification behavior and opt-in detail sharing;
-- retention/deletion handling once legally and operationally frozen;
-- user rights/request channels applicable to the final legal model.
+## 5. Mobile / push — future cloud go-live trigger
 
-Consent/notice version must be recorded/auditable where the final product/legal design requires it.
+Mobile/push is not added to current V2.0 Phase-9 scope by OD-V2-27.
 
-## 5. User privacy request surface
+When a future cloud go-live is approved, product/privacy design must then decide and qualify:
 
-The product/privacy design must preserve an explicit path for applicable requests concerning:
+- whether the mobile client is native or PWA;
+- mobile authentication/session model against the remote engine;
+- push transport/provider;
+- default redacted push payload behavior;
+- detailed in-app trading information only after authenticated access;
+- external-channel detailed data only under explicit opt-in if that policy is retained/frozen for the final design.
 
-- access;
-- correction;
-- erasure/deletion;
-- data export where offered/required;
-- grievance;
-- nomination;
-- account deletion;
-- explanation of any legally/safety-required retention that prevents immediate deletion.
+Until that trigger, current OD-V2-19 alert behavior remains the V2.0 authority.
 
-No production response deadlines or retention durations are guessed in this amendment.
+## 6. Cloud provider / remote secret custody — future trigger
 
-## 6. Qualified legal review gate
+This file does not select a cloud provider, KMS, remote secret store, region, residency model, or per-instance cost.
 
-A **dated qualified legal review** of the then-current hosted architecture and applicable current legal/regulatory requirements is mandatory before the hosted production / Live pilot path can be approved.
+Those belong to future `REMOTE_HOST` cloud go-live design and must preserve:
 
-The review must use the actual selected provider, data flow, region, notice/consent design, retention design, security controls, and current applicable law/rules available at that date.
+- no broker credential centralization in the central account DB;
+- secret redaction from logs/support artifacts/backups as governed by the final remote design;
+- least-privilege secret access;
+- fail-closed behavior on secret-store uncertainty.
 
-Historical assumptions are insufficient.
+## 7. OD-V2-09 hosted questions — future trigger
 
-## 7. No false compliance claim
+Hosted static-IP/broker-registration/current SEBI-exchange-broker questions are not current V2.0 Phase-9 scope.
 
-AlgoFortis documentation, CI, release evidence, dashboards, or gate reports must not state or imply:
+They become a dated OD-V2-09 cloud go-live verification only when the Owner moves `REMOTE_HOST` toward production.
 
-> tests green = legally compliant
+No answer is invented by this document.
 
-Technical security/privacy tests can provide engineering evidence. They do not substitute for the required dated qualified legal review.
+## 8. Internet-facing API security test — future trigger
 
-Likewise, this documentation amendment is not a legal conclusion.
+V2.0's headless engine API is authenticated and localhost/local-machine bound by default under the corrected portability design.
 
-## 8. Security/privacy engineering inputs for later implementation
+An external/independent security assessment specifically for an internet-facing engine API is therefore not a current Phase-9/V2.0 requirement.
 
-Phase 9 design/qualification should include, without selecting production numbers here:
+Before future cloud go-live exposes the engine API over the internet, that assessment becomes mandatory against the actual final network/auth/API architecture.
 
-- hosted-data inventory and flow diagram;
-- minimization by data class;
-- encryption in transit/at rest;
-- instance isolation evidence;
-- KMS-backed broker-secret custody on the user instance;
-- central DB prohibition for broker credentials;
-- access/audit controls;
-- redaction in logs/support bundles/notifications;
-- backup/restore data-class handling;
-- deletion/retention mechanics once policy is legally frozen;
-- incident/breach runbook inputs;
-- provider/subprocessor documentation needed for the qualified review.
+## 9. Phase-9 current scope correction
 
-## 9. Open items
+Current V2.0 Phase 9 keeps its existing Product & Operations obligations only.
 
-Remain OPEN and must not be inferred by this spec:
+This file adds no current requirement for:
 
-- cloud provider;
-- region/data residency choice;
-- provider contract/subprocessor list;
-- retention periods;
-- per-instance cost;
-- production legal conclusions;
-- current SEBI/exchange/broker hosted-engine requirements (OD-V2-09 dated verification).
+- hosted trade-state processing;
+- cloud processor contracts for trading data;
+- mobile/push;
+- remote-host data-residency design;
+- public engine API;
+- remote hosted consent UI.
+
+Those are deferred cloud go-live triggers.
 
 ## 10. Documentation-only boundary
 
-No runtime, database, workflow, cloud resource, configuration, consent UI, retention job, or production policy is changed by this file.
+No runtime, database, workflow, cloud resource, configuration, consent UI, retention job, notification transport, or production policy is changed by this file.
 
 Implementation planning/coding requires separate Owner approval after review.

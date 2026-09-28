@@ -1,138 +1,173 @@
-# AlgoFortis V2 Phase 6 — Remote Engine Deployment & Secret-Custody Amendment
+# AlgoFortis V2 Phase 6 — Deployment Portability & Host-Abstraction Amendment
 
 **Date:** 2026-09-28  
-**Status:** OWNER-FROZEN DESIGN AMENDMENT — NO IMPLEMENTATION AUTHORIZATION  
+**Status:** OWNER-FROZEN DESIGN AMENDMENT — CORRECTED / NO IMPLEMENTATION AUTHORIZATION  
 **Phase:** Phase 6 — Live Execution V2 (still `READ_ONLY / DISARMED`)  
-**Authority:** OD-V2-02 amendment + OD-V2-27 in `docs/v2/REMOTE_SINGLE_TENANT_ENGINE_AUTH_MOBILE_OWNER_DECISION_FREEZE.md`
+**Authority:** unchanged OD-V2-02 + corrected OD-V2-27 in `docs/v2/REMOTE_SINGLE_TENANT_ENGINE_AUTH_MOBILE_OWNER_DECISION_FREEZE.md`
+
+> **Correction note:** The earlier version of this file incorrectly added a remote-engine deployment/secret-custody implementation path to Phase 6. That is superseded. Phase 6 V2.0 remains local-first.
 
 ## 1. Purpose
 
-Phase 6 must now design/qualify the broker/execution boundary for a user-dedicated remote single-tenant engine in addition to the supported local execution placement.
+Phase 6 must keep the local V2.0 broker/execution path portable enough that a future single-tenant remote host can reuse the same engine build with different adapters/configuration rather than a trading-domain rewrite.
 
-This document changes Phase-6 documentation only. It does not add a deployment, broker mutation path, workflow, secret, cloud resource, or production configuration.
+This document changes Phase-6 documentation only. It does not add a remote deployment, broker mutation path, workflow, cloud resource, secret store, public endpoint, or production configuration.
 
-## 2. Deployment boundary
+## 2. V2.0 execution placement
 
-Permitted execution placements:
+V2.0 permitted/current execution placement remains:
 
-1. supported local execution host; or
-2. user's isolated remote engine instance.
+- `LOCAL_PC` — supported local execution host.
 
-Remote-hosted execution is **single tenant**:
+`REMOTE_HOST` is a future deployment profile only. It is not V2.0 scope and is not a Phase-6 exit requirement.
 
-- one user = one isolated engine instance;
-- no shared multi-user trading-engine state/process;
-- central Account Authority remains separate;
-- authenticated mobile/web/desktop clients call the owning user's engine API;
-- no client or central service becomes order authority.
+The central Account Authority remains separate and has no trading authority.
 
-## 3. Secret custody
+## 3. Host-neutral ports/adapters requirement
 
-For the remote engine path:
+Phase-6 broker/order/risk application/domain code must consume host-specific services through explicit ports/adapters.
 
-- broker credentials/tokens are stored only in that user's isolated engine-side encrypted secret store;
-- encryption keys use KMS-backed custody;
-- exact provider/KMS product remains OPEN;
-- credentials are never copied to the central account database for trading use;
-- raw credentials are never exposed back through normal UI/API responses;
-- instance role/identity must use least privilege to retrieve/decrypt only that user's engine secrets;
-- secret access/rotation/failure is auditable;
-- logs, crash artifacts, support bundles, telemetry, and backups must preserve existing secret-redaction invariants;
-- KMS/secret-store uncertainty fails closed for any operation needing the unavailable credential.
+Required boundaries include at least:
 
-## 4. OD-V2-05 exclusivity amendment
+- `PathProvider` / filesystem-path abstraction;
+- secret-store abstraction;
+- execution-state/persistence storage abstraction;
+- `Clock` / time-evidence abstraction;
+- host lifecycle/health/restart abstraction;
+- alert/notifier abstraction;
+- bind/network adapter where an API host is involved.
 
-The exclusivity invariant applies across local and remote engine placements for the same broker account.
+Exact names may differ in the later implementation plan, but the dependency direction is frozen: **domain/application logic must not directly depend on host-specific implementations.**
 
-If broker truth or execution evidence indicates both a local engine and a remote engine are attempting/claiming eligible activity on the same account:
+## 4. Windows/DPAPI assumptions stay at the LOCAL_PC adapter edge
 
-1. halt new entries;
-2. raise auditable alert/evidence;
-3. reconcile against broker truth;
-4. do not auto-adopt ambiguous/foreign activity;
-5. require the qualified manual recovery/resume path before entries can resume.
+V2.0 may use Windows-specific implementations for `LOCAL_PC`, including approved Windows path resolution, CNG/TPM, DPAPI, service/process integration, and sleep/hibernate handling.
 
-A cloud account record may support coordination/visibility but cannot be the sole safety authority and cannot place/cancel/modify broker orders.
+However, trading-domain/application modules must not directly import or assume:
 
-## 5. OD-V2-08 hosted implication
+- `%LOCALAPPDATA%` / hard-coded drive paths;
+- DPAPI APIs;
+- Windows registry/service APIs;
+- Windows sleep/hibernate APIs;
+- a Windows-only secret format;
+- a Windows-only storage path layout;
+- Telegram/local-toast delivery implementations.
 
-Broker-resident protective orders are more important under remote hosting because host or network failure can make the engine temporarily unreachable.
+This preserves the future ability to implement a different `REMOTE_HOST` adapter set without rewriting RiskGate/order/reconciliation logic.
 
-Where the broker/API supports the required resident protection, the Live path must not substitute host-only protection as equivalent.
+## 5. Headless engine + authenticated API seam
 
-If required broker-resident protection is unsupported/unknown, the affected Live path remains DISARMED until a separate degraded policy is documented, qualified, and Owner-approved.
+Phase 6 must preserve a headless-capable engine/process boundary with a versioned API contract.
 
-## 6. Recovery semantics
+For V2.0:
 
-The following never auto-arm or auto-resume a safety-halted engine:
+- API authentication is required from day one;
+- API authorization follows S2/session assurance rules;
+- default production bind is localhost/local-machine only;
+- no internet-facing engine API is required or authorized;
+- no API method can bypass `RiskGateV2` or construct `ApprovedOrder` directly;
+- password-only session step-up restrictions apply to protected risk-increasing mutations;
+- risk-reducing Pause/Halt/Exit remains available under the frozen auth exception;
+- the central account service gains no broker mutation endpoint.
 
-- instance restart;
-- process crash/watchdog restart;
-- host replacement;
-- update/migration restart;
-- broker reconnect;
-- client reconnect;
-- central account service recovery.
+## 6. Broker credentials — current local custody
 
-Execution uncertainty enters `RECOVERY` (or the corresponding frozen fail-closed state), reconciles broker truth, reaches the qualified ready-for-resume state, and then requires manual resume where `INV-15`/recovery policy requires it.
+For V2.0, broker credentials remain local under the existing local-first architecture.
 
-## 7. Authenticated engine API boundary
+This portability amendment does not select or implement:
 
-The remote engine API must be designed so that:
+- cloud secret storage;
+- KMS product/provider;
+- remote instance IAM/identity;
+- remote encrypted-volume design;
+- central broker-secret storage.
 
-- unauthenticated requests cannot access engine/trading state;
-- authenticated clients are scoped to their owning user/instance;
-- sensitive actions are authorized and audited;
-- replay/idempotency protections apply where relevant;
-- password-only session assurance restrictions from the S2/Auth amendment are enforced for sensitive risk-increasing mutations;
-- risk-reducing Pause/Halt/Exit actions do not depend on an extra step-up ceremony for an otherwise authorized authenticated user;
-- no API call bypasses `RiskGateV2` or directly constructs `ApprovedOrder`;
-- central Account Authority has no broker mutation endpoint/authority.
+A future cloud go-live must provide a `REMOTE_HOST` secret-store adapter that preserves the existing no-centralization and secret-redaction invariants. That future design may use KMS-backed custody, but no product/provider is frozen here.
 
-## 8. Mobile/web client boundary
+## 7. OD-V2-05 future host cutover rule
 
-Mobile/web/desktop are clients, not trading engines.
+The existing OD-V2-05 local safety backstop remains authoritative for V2.0.
 
-They may request authorized operations from the user's dedicated engine, but:
+Deployment portability freezes an additional future cutover rule:
 
-- trading logic/order authority stays in the execution instance;
-- Live ARM remains gated and currently unavailable while Live is DISARMED;
-- push payloads are redacted by default;
-- detailed trading data is authenticated-app content by default.
+- the same broker account may never have both `LOCAL_PC` and `REMOTE_HOST` eligible for new entries simultaneously;
+- source eligibility must be removed before target eligibility is granted;
+- ambiguous/overlapping activity -> halt new entries + auditable alert/evidence + broker reconciliation;
+- no automatic takeover;
+- no auto-arm on the target host.
 
-Native vs PWA remains OPEN.
+A central coordination record may assist but cannot override broker truth or become order authority.
 
-## 9. OD-V2-09 remains dated/open verification work
+## 8. `AlgoFortisBackup/v1` migration contract
 
-This amendment does not decide:
+A future host move must use the frozen `AlgoFortisBackup/v1` backup/restore mechanism rather than ad-hoc state copying.
 
-- whether a static IP is currently required;
-- how a selected broker registers/approves a hosted engine;
-- current SEBI/exchange/broker requirements;
+The cutover contract requires:
+
+1. halt/prep the source safely;
+2. resolve pending entry state under existing lifecycle/kill-switch rules;
+3. capture final reconciliation/audit state;
+4. create and verify backup;
+5. disable source eligibility;
+6. restore target state through target-profile adapters;
+7. separately re-establish secrets/device keys that are intentionally non-exportable/not backed up;
+8. target starts in `RECOVERY`;
+9. broker-truth reconciliation;
+10. target-host qualification rerun;
+11. explicit manual resume/arming.
+
+No backup/restore success may imply trading readiness by itself.
+
+## 9. Target-host qualification
+
+Before a materially different target host/profile becomes eligible for trading, qualification must re-run at minimum:
+
+- applicable golden suite / deterministic fingerprint checks;
+- broker reconciliation cases;
+- restart/recovery cases;
+- `INV-15` no-auto-arm;
+- local/remote exclusivity/cutover case when applicable;
+- applicable failure-injection catalogue;
+- host adapter secret/audit/redaction tests;
+- any required host-specific clock/performance evidence.
+
+Exact production thresholds are evidence-driven and remain unfrozen unless already governed by a separate Owner decision.
+
+## 10. OD-V2-08 unchanged for V2.0
+
+Broker-resident protective-order requirements remain exactly as frozen in ADR-015.
+
+No new remote-host implication is added to current V2.0 Phase-6 scope.
+
+When/if `REMOTE_HOST` moves toward cloud go-live, OD-V2-08 must be re-applied to that deployment and its host/network failure model before production approval.
+
+## 11. OD-V2-09 cloud go-live trigger — not current Phase-6 scope
+
+This portability amendment does not decide or require current Phase-6 work on:
+
+- hosted static-IP requirements;
+- hosted-engine broker registration/approval;
+- current SEBI/exchange/broker requirements specific to a remote/cloud host;
 - provider/region/network topology.
 
-Those questions remain subject to the dated OD-V2-09 verification before the relevant production gate.
+Those become dated OD-V2-09 verification items only when the Owner later activates cloud go-live for `REMOTE_HOST`.
 
-## 10. Phase-6 qualification addition
+The normal currently frozen OD-V2-09 review obligations for the selected V2.0 broker path remain unchanged.
 
-Before the hosted execution path can be considered for Live pilot, evidence must include:
+## 12. Internet-facing API assessment — future cloud trigger
 
-- single-tenant instance isolation;
-- cross-user/cross-instance denial;
-- central account service cannot mutate broker state;
-- broker credentials absent from central DB;
-- instance secret-store/KMS fail-closed behavior;
-- local-vs-remote same-account exclusivity halt/reconcile behavior;
-- remote restart/reconnect/update never auto-arms;
-- broker-resident protection behavior;
-- external/independent security test of the internet-facing engine API.
+Current V2.0 API is authenticated and localhost/local-machine bound by default.
 
-Exact production numeric thresholds, cloud provider, instance size, and external test vendor remain OPEN.
+Therefore an external/independent security test of an **internet-facing engine API** is not a current Phase-6 exit requirement.
 
-## 11. Standing constraints
+Before any future `REMOTE_HOST` engine API is exposed over the internet, the cloud go-live gate must add the appropriate external/independent security assessment against the final network/auth/API architecture.
+
+## 13. Standing constraints
 
 - Live remains `READ_ONLY / DISARMED`.
+- V2.0 remains local-first under OD-V2-02.
 - `RiskGateV2` remains sole executable-order authority.
 - Options remain BUY-only.
 - Fail closed on uncertainty.
+- Restart/reconnect/update never auto-arms.
 - No runtime/code/config/workflow change is authorized by this document.

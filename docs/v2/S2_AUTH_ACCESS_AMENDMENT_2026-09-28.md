@@ -1,7 +1,7 @@
 # AlgoFortis V2 — S2 / AUTH_ACCESS_CONTRACT_V1 Amendment
 
 **Date:** 2026-09-28  
-**Status:** OWNER-FROZEN DOCUMENTATION AMENDMENT  
+**Status:** OWNER-FROZEN DOCUMENTATION AMENDMENT — CORRECTED  
 **Amends:**
 - `docs/superpowers/specs/2026-09-26-s2-account-device-session-gating-design.md`
 - `docs/AUTH_ACCESS_CONTRACT_V1.md` for V2 interpretation/carry-forward
@@ -9,11 +9,13 @@
 
 **Safety invariant:** Live remains `READ_ONLY / DISARMED`. Identity/authentication state cannot mint `ApprovedOrder`, arm Live, or call broker mutation.
 
+> **Correction note:** Earlier 2026-09-28 text that treated remote execution/mobile as current V2 scope is superseded. OD-V2-02 remains local-first for V2.0. This amendment keeps the password-fallback/step-up decision and adds only deployment-portability seams needed to avoid a future engine rewrite.
+
 ## 1. Precedence and historical-contract rule
 
-`AUTH_ACCESS_CONTRACT_V1.md` remains an immutable historical record of the V1 behavioral contract. This dated amendment is the authoritative V2 overlay where its requirements differ from or extend V1 wording.
+`AUTH_ACCESS_CONTRACT_V1.md` remains an immutable historical record of the V1 behavioral contract. This dated amendment is the authoritative V2 overlay where its authentication requirements differ from or extend V1 wording.
 
-The S2 design remains authoritative except where this amendment explicitly supersedes local-only execution placement or WebAuthn-only assumptions.
+The S2 design remains authoritative. Its local-first execution placement remains in force for V2.0 under OD-V2-02.
 
 This amendment does not silently rewrite historical V1 numeric policies. Existing V1 values remain evidence of V1 behavior, not automatically selected V2 production values.
 
@@ -97,26 +99,19 @@ Historical V1 values such as the V1 failed-attempt/cooldown settings remain hist
 
 TEST_ONLY profiles may use explicit test values and must never be presented as production policy.
 
-## 6. S2 execution-plane amendment
+## 6. V2.0 local-first execution boundary
 
-The original S2 design uses `local Windows plane` language because the then-frozen deployment model was local-first. For V2 after OD-V2-02/27 amendment, interpret this as two distinct responsibilities:
+OD-V2-02 remains unchanged: V2.0 trading execution is local-first.
 
-### 6.1 Client/device plane
+### 6.1 Local client/device plane
 
-A desktop, web, or mobile client may hold only the client/device authentication material required for its role, such as device-bound keys/tokens under the S2 contract.
+The local AlgoFortis client holds the approved user/device authentication material required by S2, including the separate device-binding key under the frozen policy.
 
 The client does not own RiskGate/order authority merely because it is authenticated.
 
-### 6.2 Execution-instance plane
+### 6.2 Local execution plane
 
-The trading engine may run:
-
-- on the supported local execution host; or
-- on that user's isolated remote single-tenant engine instance.
-
-The execution instance owns the execution-side state required by its approved design, including broker runtime state and secret custody. A remote execution instance is not the central account service.
-
-### 6.3 Central Account Authority
+For V2.0, the trading engine and trading state remain local. Broker credentials remain local under the existing local secret-custody design.
 
 The central Account Authority remains authoritative for account identity, registered devices, sessions, revocation/recovery, entitlement/account security state and permitted non-sensitive account preferences.
 
@@ -125,93 +120,107 @@ It remains prohibited from:
 - minting `ApprovedOrder`;
 - arming Live;
 - placing/canceling/modifying broker orders;
-- storing broker credentials in the central account database;
+- storing broker credentials for trading use;
 - becoming a shared trading engine.
 
-## 7. Remote secret custody
+## 7. Deployment-portability seam under OD-V2-27
 
-When the engine is remote:
+S2 must not force future remote hosting to require a trading-domain rewrite.
 
-- broker credentials/tokens exist only in that user's isolated engine instance-side secret store;
-- credential material is encrypted at rest with KMS-backed key custody;
-- exact provider/KMS product remains OPEN;
-- raw secret values are not returned to normal mobile/web/desktop UI;
-- central account database contains no broker credential plaintext/ciphertext copy intended for trading use;
-- secret access and rotation are auditable;
-- logs, telemetry, crash data, support bundles and backups obey secret-redaction rules.
+The engine architecture therefore preserves two conceptual deployment profiles:
 
-## 8. Client-to-engine authentication
+- `LOCAL_PC` — V2.0/current profile;
+- `REMOTE_HOST` — future single-tenant profile, not currently activated.
 
-Mobile/web/desktop clients may access the dedicated engine through an authenticated, versioned API.
+Profile-specific concerns belong behind ports/adapters, including:
 
-The design must provide:
+- paths/filesystem;
+- secret storage;
+- persistence/storage;
+- clock/time evidence;
+- host lifecycle/health/restart integration;
+- alert delivery;
+- bind/network exposure.
 
-- authenticated session/device binding appropriate to S2;
-- authorization scoped to the owning user/engine instance;
-- replay resistance for security-sensitive requests;
-- rate limiting/abuse controls;
-- audit correlation between client request and engine action;
-- no unauthenticated public trading endpoint;
-- fail-closed behavior on unverifiable identity/session evidence.
+Trading-domain code must not directly depend on Windows path/DPAPI/registry/sleep APIs. Windows/CNG/DPAPI behavior remains valid at the `LOCAL_PC` adapter edge.
 
-Exact API gateway/vendor/network topology is not frozen here.
+Future `REMOTE_HOST` secret/network implementations are cloud go-live design work; no KMS/provider/network product is selected by this amendment.
 
-## 9. Mobile notification/privacy rule
+## 8. Headless engine API — local by default
 
-Mobile is now in scope.
+V2.0 should preserve a headless-capable engine/process boundary with a versioned API used by approved local UI/client surfaces.
 
-Default push payload is minimal/redacted, for example:
+Required properties from day one:
 
-`Action required — AlgoFortis kholo`
+- authenticated API;
+- versioned contract;
+- authorization tied to S2 account/device/session rules;
+- no direct `ApprovedOrder` construction;
+- no RiskGate bypass;
+- sensitive actions enforce the password-only step-up policy;
+- localhost/local-machine bind by default for V2.0;
+- fail closed on unverifiable auth/session evidence.
 
-Detailed trade/position/order/P&L information is shown by default only inside an authenticated AlgoFortis client.
+An internet-facing API is **not** required by V2.0 and is not qualified by this amendment.
 
-Telegram/email or other external channel may receive detailed content only after explicit opt-in under the notification/privacy policy.
-
-No notification may contain credentials, tokens, raw broker secrets, or unrestricted raw account identifiers.
-
-Native versus PWA remains OPEN.
-
-## 10. Recovery and arming semantics
+## 9. Recovery and arming semantics
 
 Execution-host restart, crash, reconnect, replacement, migration, or update cannot auto-arm Live.
 
-A safety halt or `RECOVERY` state requires:
+For the current local profile, existing recovery rules remain authoritative.
 
-1. broker-truth reconciliation;
-2. resolution of mismatches/unknown activity;
-3. transition to the appropriate ready-for-resume state; and
-4. explicit manual resume where required by `INV-15` and the frozen recovery policy.
+For any future host migration under OD-V2-27, the restored target host must:
 
-A clean login, successful password fallback, successful step-up, cloud-account recovery, broker reconnect, or API reconnect is never sufficient by itself to resume/arm trading.
+1. start in `RECOVERY` or equivalent fail-closed state;
+2. reconcile broker truth;
+3. resolve ambiguity before readiness;
+4. require explicit manual resume/arming under the normal policy.
 
-## 11. S2 qualification additions
+A clean login, successful password fallback, successful step-up, account recovery, broker reconnect, or API reconnect is never sufficient by itself to resume/arm trading.
 
-GP-S2 / later security qualification must add evidence for:
+## 10. Current S2 qualification additions
 
 ### Password fallback
+
+Qualification must prove:
+
 - valid password fallback authenticates only to its documented assurance level;
 - password-only session cannot Arm Live;
 - password-only session cannot mutate broker credentials;
 - password-only session cannot enroll/revoke devices;
 - password-only session cannot delete account;
-- successful step-up enables only the action classes authorized by policy;
+- successful step-up enables only action classes authorized by policy;
 - Pause/Halt/Exit remain available without extra step-up to an otherwise authorized authenticated user;
 - password hashes/secrets do not appear in logs/support artifacts;
 - rate-limit/lockout flows are isolated;
-- breached-password and credential-stuffing controls have qualified production design before release;
+- breached-password and credential-stuffing controls have a qualified production design before release;
 - no guessed production threshold is embedded merely to pass qualification.
 
-### Remote execution API
-- cross-user/cross-instance API access denied;
-- authenticated client cannot bypass `RiskGateV2`;
-- authenticated client cannot construct an executable approval directly;
-- replayed sensitive request rejected/idempotently handled as required by the endpoint contract;
-- unauthorized request cannot mutate engine/trading state;
-- rate-limit/abuse controls verified;
-- broker credential centralization absent;
-- remote instance secret isolation verified;
-- external/independent security test of the internet-facing engine API is required before the Live pilot gate.
+### Local authenticated engine API
+
+Qualification for V2.0 must prove:
+
+- API authentication is enforced;
+- default production bind is localhost/local-machine only;
+- unauthorized local requests cannot mutate protected engine state;
+- an authenticated API caller cannot bypass `RiskGateV2` or directly construct an executable approval;
+- password-only assurance restrictions apply to protected sensitive actions;
+- risk-reducing actions remain available under the frozen exception;
+- API/versioning seam does not add broker mutation authority to the central account service.
+
+## 11. Future cloud go-live triggers — not current S2 scope
+
+Only when the Owner later activates `REMOTE_HOST` for cloud production do the following become mandatory:
+
+- remote client/engine internet exposure design;
+- mobile client / push-notification design;
+- cross-instance remote isolation qualification;
+- remote secret-store/KMS selection and qualification;
+- internet-facing API external/independent security test;
+- hosted/static-IP/broker-registration OD-V2-09 dated verification;
+- hosted-data privacy/OD-V2-25 re-review.
+
+These are not V2.0 S2 exit requirements merely because the portability seam exists.
 
 ## 12. Unchanged S2 invariants
 
@@ -234,11 +243,12 @@ The amendment does not weaken:
 
 This amendment does not select:
 
-- cloud provider or region;
-- instance size/cost;
+- cloud provider/region;
+- remote instance size/cost;
+- cloud KMS/secret product;
 - native versus PWA;
 - static-IP policy;
-- current broker/SEBI/exchange production requirements;
+- current hosted broker/SEBI/exchange requirements;
 - production password/rate-limit numeric constants.
 
-These remain open or governed by their existing dated verification gates.
+These remain future/open or governed by their dated verification gates.

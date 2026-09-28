@@ -1,64 +1,73 @@
-# AlgoFortis V2 — Remote Engine / Mobile Roadmap & Qualification Amendment
+# AlgoFortis V2 — Deployment Portability Roadmap & Qualification Amendment
 
 **Date:** 2026-09-28  
-**Status:** OWNER-FROZEN DOCUMENTATION AMENDMENT  
-**Amends:** `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md` and `ALGOFORTIS_V2_TEST_AND_RELEASE_PLAN.md`  
-**Authority:** `docs/v2/REMOTE_SINGLE_TENANT_ENGINE_AUTH_MOBILE_OWNER_DECISION_FREEZE.md`  
-**Safety invariant:** Live remains `READ_ONLY / DISARMED`; this amendment schedules design/qualification only.
+**Status:** OWNER-FROZEN DOCUMENTATION AMENDMENT — CORRECTED  
+**Amends:** `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md` and `ALGOFORTIS_V2_TEST_AND_RELEASE_PLAN.md` by dated overlay only  
+**Authority:** corrected OD-V2-27 in `docs/v2/REMOTE_SINGLE_TENANT_ENGINE_AUTH_MOBILE_OWNER_DECISION_FREEZE.md`  
+**Safety invariant:** Live remains `READ_ONLY / DISARMED`; this amendment schedules architecture/qualification seams only.
+
+> **Correction note:** The earlier version of this file incorrectly made remote hosting/mobile qualification a current pre-pilot requirement. That is superseded. V2.0 remains local-first under OD-V2-02.
 
 ## 1. Canonical roadmap insertion
 
-Add the following Track-P item **after S2 account/device/session gating and before any Live pilot authorization**:
+Add a bounded Track-P architecture item after S2:
 
-### Track P — Remote Engine Hosting + Mobile Client
+### Track P — Deployment Portability Foundation
 
-**Goal:** qualify the user-dedicated remote execution placement and authenticated mobile/web client path without turning the central account service into trading authority.
+**Goal:** make the V2.0 local engine portable enough that a later move to a single-tenant remote host changes configuration/adapters rather than trading-domain code.
 
-**Required design deliverables:**
+**Current V2.0 deliverables:**
 
-- dedicated single-tenant execution-instance contract (`one user = one isolated engine instance`);
-- authenticated, versioned client-to-engine API contract;
-- remote engine provisioning/isolation design;
-- KMS-backed instance-side broker-secret custody design;
-- local-versus-remote broker-account exclusivity design under OD-V2-05;
-- restart/crash/update/reconnect -> `RECOVERY` / reconciliation / manual-resume semantics;
-- mobile client security boundary and redacted push-notification policy;
-- hosted-data privacy/notice update;
-- external/independent security assessment scope for the internet-facing engine API.
+- one engine build;
+- deployment profile contract with `LOCAL_PC` current and `REMOTE_HOST` future;
+- headless-capable engine/process boundary;
+- authenticated, versioned engine API from day one;
+- V2.0 default API bind limited to localhost/local machine;
+- path/filesystem port + local adapter;
+- secret-store port + local secure adapter;
+- storage/persistence port + local adapter;
+- clock/time-evidence port;
+- host lifecycle/health/recovery port;
+- alert/notifier port;
+- no Windows/DPAPI/path/power assumptions in trading-domain code;
+- `AlgoFortisBackup/v1` backup/restore as the host-migration contract;
+- future cutover contract that preserves OD-V2-05 exclusivity and no-auto-arm.
 
-**Explicit non-goals of this documentation amendment:**
+**Explicit non-goals for V2.0:**
 
-- choosing cloud provider/region;
-- choosing instance size/cost;
-- choosing native versus PWA;
-- enabling Live;
-- adding runtime/workflow/configuration;
-- choosing current static-IP/broker-registration/regulatory answers without OD-V2-09 dated verification.
+- provisioning a remote engine;
+- selecting cloud provider/region/instance size/cost;
+- exposing the engine API to the internet;
+- mobile client or push implementation;
+- hosted-data privacy redesign;
+- static-IP/broker-hosting regulatory conclusion;
+- remote KMS/secret product selection.
 
-## 2. Sync/gate placement
+## 2. Sequence and scope
 
-The existing S2 remains the account/device/session prerequisite.
+The current sequence remains conceptually:
 
-The new sequence is conceptually:
+`Track P account decisions -> S2 account/device/session gate -> Deployment Portability Foundation -> normal V2.0 local qualification / Live pilot gates`
 
-`Track P account decisions -> S2 account/device/session gate -> Remote Engine Hosting + Mobile Client qualification -> Live pilot gate`
+The portability foundation is **not** a remote-hosting go-live gate and does not change OD-V2-02.
 
-This does not require changing the frozen core order-authority path.
+A future cloud sequence, activated only by a later Owner decision, is conceptually:
 
-Remote hosting/mobile qualification is a **new prerequisite for using those production paths**, not permission to enable Live.
+`qualified LOCAL_PC product -> cloud go-live design -> REMOTE_HOST adapters/provisioning -> hosted/privacy/network/security qualification -> target-host requalification -> explicit production approval`
 
-## 3. Phase 6 documentation amendment
+## 3. Phase 6 documentation impact — current V2.0
 
-Phase 6 — Live Execution V2 (still DISARMED) gains documentation/design scope for:
+Phase 6 remains local-first and DISARMED.
 
-- remote-engine deployment boundary;
-- dedicated-instance isolation;
-- remote broker-session lifecycle;
-- KMS-backed secret custody on the user's isolated instance;
-- local/remote execution exclusivity for the same broker account;
-- remote host restart/crash/update recovery behavior;
-- authenticated engine API boundary needed by web/mobile clients;
-- current broker/static-IP/registration applicability as an OD-V2-09 dated verification item, not an assumption.
+Add only portability-aware architecture constraints:
+
+- broker/order/risk domain remains host-neutral;
+- path, secret, storage, clock, host lifecycle and alert mechanisms are consumed through ports/adapters;
+- local Windows/DPAPI/CNG implementation details remain at the adapter edge;
+- headless engine/API seam is authenticated and versioned;
+- localhost/local bind is the default V2.0 exposure;
+- deployment-profile selection cannot alter `RiskGateV2`, order lifecycle or BUY-only semantics;
+- future migration/cutover contract is documented without implementing remote hosting.
 
 ### Phase 6 unchanged safety conditions
 
@@ -70,96 +79,128 @@ Phase 6 — Live Execution V2 (still DISARMED) gains documentation/design scope 
 - broker-resident protective orders remain mandatory where supported under OD-V2-08.
 - restart/reconnect never auto-arms.
 
-## 4. Phase 9 documentation amendment
+## 4. Host migration / cutover qualification contract
 
-Phase 9 — Product & Operations gains hosted-data/product scope for:
+The portability foundation must document a future cutover that uses:
 
-- hosted engine privacy notice/consent changes;
-- cloud-provider processor/service-provider role assessment under the final legal model;
-- hosted trade/position/runtime data inventory and data-flow map;
-- retention/deletion/access/correction/erasure/grievance/nomination handling for hosted data as applicable;
-- redacted-by-default external notification policy;
-- authenticated mobile in-app detail policy;
-- OD-V2-25 dated qualified legal re-review evidence.
+1. source `HALT_ENTRIES` / safe shutdown preparation;
+2. pending-order handling under existing kill-switch/order-lifecycle rules;
+3. verified final source reconciliation/audit state;
+4. verified `AlgoFortisBackup/v1` backup;
+5. old host made ineligible before target host eligibility;
+6. target restore using the target profile's adapters;
+7. re-entry of non-exported secrets/device material where required;
+8. target starts `RECOVERY`;
+9. broker reconciliation;
+10. target-host golden regression and applicable failure-injection re-run;
+11. explicit manual resume/arming.
 
-Phase 9/G9 technical completion must not be described as legal compliance merely because tests are green.
+No silent live-state transfer or auto-arm is permitted.
 
-## 5. Security qualification amendment
+## 5. Target-host qualification rule
 
-The Security Verification section of the Test & Release Qualification Plan gains a required row/concept:
+A deployment profile/host is not qualified merely because the same binary starts successfully.
 
-### Internet-facing Engine API
+Before trading eligibility on a materially different target host/profile, evidence must re-run at minimum:
 
-Before the Live pilot gate for remote hosting, qualification must include an **external or independent security test** of the internet-facing dedicated-engine API.
+- deterministic/golden regression fingerprints applicable to the engine;
+- restart/recovery cases;
+- reconciliation cases;
+- `INV-15` no-auto-arm;
+- same-account exclusivity/cutover case;
+- applicable failure-injection catalogue;
+- selected adapter secret/audit/redaction tests;
+- any host-specific performance/clock evidence required by the then-current policy.
 
-Minimum assessment scope includes:
+Exact production thresholds remain evidence-driven and are not invented here.
 
-- authentication/session enforcement;
-- authorization and user/instance isolation;
-- replay/idempotency abuse on sensitive endpoints;
-- rate limiting / credential-stuffing / brute-force resistance where applicable;
-- injection/input-validation classes applicable to the exposed API;
-- SSRF/request-pivoting risk where applicable;
-- secret-custody and secret-exposure boundaries;
-- logs/error responses/support artifacts for sensitive-data leakage;
-- proof that API/client access cannot bypass `RiskGateV2` or directly mint an executable order;
-- proof that central account infrastructure cannot mutate broker orders;
-- recovery behavior under API/control-plane disruption.
+## 6. OD-V2-05 portability consequence
 
-The exact test provider, tooling, engagement format, severity thresholds, and production numerical limits remain to be selected by the later qualification plan. They are not guessed here.
+`LOCAL_PC` and future `REMOTE_HOST` must never be simultaneously eligible for new entries on the same broker account.
 
-## 6. Failure-injection / resilience additions
+If overlap/ambiguity is detected during a future cutover:
 
-Later qualification must include at minimum:
+- halt new entries;
+- preserve protective exits;
+- produce auditable evidence;
+- reconcile broker truth;
+- require the manual recovery/resume path.
 
-- remote engine process restart with no auto-arm;
-- remote instance reboot/replacement -> recovery/reconciliation/manual resume;
-- client-to-engine network loss while broker-resident protective orders remain the primary host-independent protection where supported;
-- remote and local engine activity detected for the same broker account -> halt new entries + reconcile;
-- central account authority unavailable while already-running execution safety remains fail-closed and protective behavior continues according to the qualified execution-plane design;
-- notification delivery degradation without weakening trading safety;
-- remote secret-store/KMS access failure -> fail closed for operations requiring the unavailable secret, never fallback to plaintext/central DB.
+A central coordination record may assist but never replaces broker truth or RiskGate/order authority.
 
-## 7. OD-V2-20 application to remote engine
+## 7. OD-V2-20 / OD-V2-24 portability consequence
 
-Signed/versioned update and safe-window rules apply to remote engine instances too:
+### OD-V2-20
 
-- no update/restart/migration while ACTIVE or while open exposure makes the transition unsafe;
-- missing/invalid safe-window policy defers change;
-- update/restart never auto-arms;
-- post-update/restart execution state requires recovery/reconciliation/manual resume under the frozen safety model.
+The update/no-auto-arm semantics are profile-independent. V2.0 applies them to `LOCAL_PC`; any future `REMOTE_HOST` adapter must preserve the same safe-window/recovery contract when activated.
 
-No cloud maintenance window or schedule is invented by this amendment.
+### OD-V2-24
 
-## 8. OD-V2-24 application to remote engine
+OD-V2-24 remains frozen for the current Windows `LOCAL_PC` profile, including its sleep/resume/clock/recovery rules.
 
-Local Windows sleep/hibernate requirements do not apply to a server host that has no desktop sleep lifecycle.
+Future `REMOTE_HOST` host-specific lifecycle rules are a cloud go-live design item. They must preserve the invariant that host uncertainty -> recovery/reconciliation/manual resume, but they are not current V2.0 implementation scope.
 
-The invariant that **host uncertainty cannot silently resume entries** does apply:
+## 8. Cloud go-live triggers — deferred
 
-- restart/crash/watchdog/instance replacement -> recovery;
-- reconcile before readiness;
-- manual resume after safety recovery;
-- never auto-arm.
+The following do **not** belong to current V2.0 portability implementation/qualification. They activate only when a future Owner decision approves cloud go-live:
 
-Cloud SLA, availability target, hardware profile, and sizing remain OPEN.
+### Mobile/push
 
-## 9. Mobile client roadmap scope
+- mobile client;
+- native vs PWA decision;
+- push transport;
+- redacted push default / authenticated in-app detail policy.
 
-Mobile is not deferred to V2.5.
+### Hosted-data privacy
 
-The product track must support a secure authenticated mobile client capable of the approved user-side operations, subject to S2 and execution API authorization.
+- hosted trade/position/runtime data map;
+- cloud-provider processor/service-provider analysis;
+- OD-V2-25 hosted-data re-review;
+- hosted notice/consent/legal-review update.
 
-Notification default:
+### OD-V2-09 hosted networking/regulatory verification
 
-`Action required — AlgoFortis kholo`
+- static-IP requirement;
+- hosted-engine broker registration/approval;
+- then-current SEBI/exchange/broker hosted-algo requirements.
 
-Detailed trade/position/order/P&L content is default in authenticated app only. Detailed Telegram/email payloads require explicit opt-in.
+### Internet-facing API security
 
-Native vs PWA remains OPEN and must not be implied by roadmap wording.
+- network exposure design;
+- remote ingress/auth gateway design;
+- external/independent security testing of the internet-facing engine API.
 
-## 10. Exit condition for this amendment
+V2.0's authenticated localhost/local-machine API does not trigger this external internet-facing assessment.
 
-This amendment is documentation-only. It is satisfied when the canonical decision/roadmap/security documentation consistently records the new architecture and open questions without any runtime, workflow, or configuration mutation.
+## 9. Phase 9 correction
+
+No hosted-data/mobile product scope is added to current Phase 9 merely because OD-V2-27 exists.
+
+Phase 9 keeps its existing V2.0 product/privacy obligations, including the original OD-V2-25 central-account-plane review.
+
+Hosted-data/mobile/privacy additions are activated only by a future cloud go-live decision and are documented as deferred triggers in `docs/v2/phase9/HOSTED_DATA_PRIVACY_AMENDMENT_2026-09-28.md`.
+
+## 10. Security qualification correction
+
+Current V2.0 security qualification must cover the authenticated local engine API and prove its localhost/local-machine default exposure and no RiskGate bypass.
+
+An **external/independent security test of an internet-facing engine API is not a current V2.0 requirement** because no internet-facing engine API is authorized by this freeze.
+
+That assessment becomes mandatory before a future cloud go-live exposes `REMOTE_HOST` over the internet.
+
+## 11. Documentation-only boundary
+
+This amendment is documentation-only.
+
+It does not:
+
+- enable remote hosting;
+- expose an API publicly;
+- add mobile/push;
+- change runtime code;
+- change workflows/CI;
+- change application configuration;
+- enable broker mutation;
+- change current Live state.
 
 Implementation planning/coding starts only after separate Owner review/approval.
