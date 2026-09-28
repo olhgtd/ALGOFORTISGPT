@@ -76,6 +76,16 @@ describe("UserDashboardShell", () => {
     expect(node.querySelector("[data-manual-resume-required='true']")).not.toBeNull();
   });
 
+  it("keeps a compact authoritative safety strip in the shell for narrow layouts", async () => {
+    const node = await mount();
+    const strip = node.querySelector<HTMLElement>("[data-testid='mobile-safety-bar']");
+    expect(strip).not.toBeNull();
+    expect(strip?.textContent).toContain("Live");
+    expect(strip?.textContent).toContain("READ_ONLY / DISARMED");
+    expect(strip?.textContent).toContain("READY_FOR_RESUME");
+    expect(strip?.textContent).toContain("Manual resume required");
+  });
+
   it("opens the global notification layer from the bell", async () => {
     const node = await mount();
     const bell = node.querySelector<HTMLButtonElement>("[data-testid='notification-bell']");
