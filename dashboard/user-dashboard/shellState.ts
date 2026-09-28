@@ -1,11 +1,12 @@
-export type TradingMode = "BACKTEST" | "PAPER" | "LIVE";
+export type TradingMode = "BACKTEST" | "PAPER" | "LIVE" | "UNKNOWN";
 export type AutomationState =
   | "RUNNING"
   | "PAUSED"
   | "STOPPED"
   | "HALT_ENTRIES"
   | "RECOVERY"
-  | "READY_FOR_RESUME";
+  | "READY_FOR_RESUME"
+  | "UNKNOWN";
 export type AuthorityState = "AVAILABLE" | "STALE" | "UNAVAILABLE" | "UNKNOWN";
 export type BrokerState = "CONNECTED" | "DISCONNECTED" | "NEEDS_ATTENTION" | "UNAVAILABLE" | "UNKNOWN";
 
@@ -37,7 +38,7 @@ const nonNegative = (value: number | undefined): number => Math.max(0, Math.trun
 
 export const deriveUserShellStatus = (input: UserShellStatusInput): UserShellStatus => ({
   mode: input.mode,
-  modeLabel: input.mode === "BACKTEST" ? "Backtest" : input.mode === "PAPER" ? "Paper" : "Live",
+  modeLabel: input.mode === "BACKTEST" ? "Backtest" : input.mode === "PAPER" ? "Paper" : input.mode === "LIVE" ? "Live" : "Unavailable",
   liveStateLabel: input.mode === "LIVE" ? "READ_ONLY / DISARMED" : null,
   automationState: input.automationState,
   manualResumeRequired: ["HALT_ENTRIES", "RECOVERY", "READY_FOR_RESUME"].includes(input.automationState),
