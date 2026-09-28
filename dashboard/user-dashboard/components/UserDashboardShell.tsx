@@ -51,6 +51,7 @@ export const UserDashboardShell: React.FC<UserDashboardShellProps> = ({
         notificationCount={notificationCount}
         onNotifications={() => setNotificationsOpen(true)}
         onOpenPalette={onOpenPalette}
+        onAccount={() => onNavigate("account")}
         onExit={onExit}
       />
       <UserNavRail activeScreen={activeScreen} onNavigate={onNavigate} />
