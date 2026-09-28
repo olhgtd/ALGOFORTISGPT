@@ -5,6 +5,13 @@ const money = (value: number | null) => value === null
   ? "UNAVAILABLE"
   : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
 
+const pnlClass = (value: number | null): string => {
+  if (value === null) return "af-value-unavailable";
+  if (value > 0) return "af-value-positive";
+  if (value < 0) return "af-value-negative";
+  return "af-value-neutral";
+};
+
 export const CapitalSummary: React.FC<{ capital: HomeCommandCenterModel["capital"] }> = ({ capital }) => (
   <section className="af-home-card af-capital-card">
     <header className="af-home-card-head">
@@ -24,8 +31,8 @@ export const CapitalSummary: React.FC<{ capital: HomeCommandCenterModel["capital
               <div><span>Equity</span><strong>{money(pool.equity)}</strong></div>
               <div><span>Available</span><strong>{money(pool.availableFunds)}</strong></div>
               <div><span>Used</span><strong>{money(pool.usedCapital)}</strong></div>
-              <div><span>Open P&amp;L</span><strong>{money(pool.unrealizedPnl)}</strong></div>
-              <div><span>Realized P&amp;L</span><strong>{money(pool.realizedPnl)}</strong></div>
+              <div><span>Open P&amp;L</span><strong className={pnlClass(pool.unrealizedPnl)}>{money(pool.unrealizedPnl)}</strong></div>
+              <div><span>Realized P&amp;L</span><strong className={pnlClass(pool.realizedPnl)}>{money(pool.realizedPnl)}</strong></div>
             </div>
             <div className="af-home-meta"><span>{pool.strategy ?? "Strategy unavailable"}</span><span>{pool.source ?? "Source unavailable"}</span></div>
           </article>
