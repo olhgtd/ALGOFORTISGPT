@@ -13,7 +13,7 @@ export const MarketSnapshotCard: React.FC<{ market: Market }> = ({ market }) => 
       <div><span className="af-eyebrow">Market</span><h3>{market.symbol}</h3></div>
       <span className={`af-authority af-authority-${market.state.toLowerCase()}`}>{market.state}</span>
     </header>
-    <div className="af-market-price">{formatPrice(market.price)}</div>
+    <div className={`af-market-price ${market.price === null ? "af-market-price-unavailable" : ""}`}>{formatPrice(market.price)}</div>
     <div className="af-home-meta">
       <span>{market.asOf ? `As of ${market.asOf}` : "Timestamp unavailable"}</span>
       <span>{market.source ?? "Authority unavailable"}</span>
