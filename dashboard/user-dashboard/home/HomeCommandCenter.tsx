@@ -25,7 +25,7 @@ export const HomeCommandCenter: React.FC<HomeCommandCenterProps> = ({ model, onN
       <div className="af-home-actions" aria-label="Quick navigation">
         <button type="button" onClick={() => onNavigate("markets")}>Markets</button>
         <button type="button" onClick={() => onNavigate("strategies")}>Strategies</button>
-        <button type="button" onClick={() => onNavigate("testing")}>Testing</button>
+        <button type="button" onClick={() => onNavigate("testing")}>Testing &amp; Validation</button>
         <button type="button" onClick={() => onNavigate("trades")}>Trades</button>
       </div>
     </header>
