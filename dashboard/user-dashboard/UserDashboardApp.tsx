@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import { UserHome } from "./screens/UserHome";
+import { UserMarkets } from "./markets/UserMarkets";
 import { PendingUserSurface } from "./components/PendingUserSurface";
 import { UserDashboardShell } from "./components/UserDashboardShell";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
@@ -108,7 +109,9 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
   const selected = USER_NAV_ITEMS.find((item) => item.id === screen);
   const content = screen === "home"
     ? <UserHome go={go} onShellStatus={setShellStatus} />
-    : <PendingUserSurface title={selected?.label ?? "User Workspace"} />;
+    : screen === "markets"
+      ? <UserMarkets theme={theme} />
+      : <PendingUserSurface title={selected?.label ?? "User Workspace"} />;
 
   return (
     <>
