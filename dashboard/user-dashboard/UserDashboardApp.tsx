@@ -6,6 +6,7 @@ import { UserDashboardShell } from "./components/UserDashboardShell";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
 import { deriveUserShellStatus, type UserShellStatus } from "./shellState";
 import "./user-dashboard.css";
+import "./user-dashboard-finish.css";
 
 export type ThemeMode = "dark" | "light";
 
