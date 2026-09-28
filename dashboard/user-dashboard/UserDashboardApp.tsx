@@ -4,7 +4,7 @@ import { UserHome } from "./screens/UserHome";
 import { PendingUserSurface } from "./components/PendingUserSurface";
 import { UserDashboardShell } from "./components/UserDashboardShell";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
-import { deriveUserShellStatus } from "./shellState";
+import { deriveUserShellStatus, type UserShellStatus } from "./shellState";
 import "./user-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -37,6 +37,15 @@ const locationScreen = (): UserScreenId => {
   return LEGACY_ROUTE_MAP[raw] ?? "home";
 };
 
+const initialShellStatus = (): UserShellStatus => deriveUserShellStatus({
+  mode: "UNKNOWN",
+  automationState: "UNKNOWN",
+  brokerState: "UNKNOWN",
+  engineState: "UNKNOWN",
+  dataFreshness: "UNKNOWN",
+  notifications: {},
+});
+
 export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
   theme,
   toggleTheme,
@@ -44,6 +53,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
 }) => {
   const [screen, setScreen] = useState<UserScreenId>(locationScreen);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shellStatus, setShellStatus] = useState<UserShellStatus>(initialShellStatus);
 
   useEffect(() => {
     const onHash = () => setScreen(locationScreen());
@@ -77,15 +87,6 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
     }
   }, []);
 
-  const shellStatus = useMemo(() => deriveUserShellStatus({
-    mode: "PAPER",
-    automationState: "STOPPED",
-    brokerState: "UNKNOWN",
-    engineState: "UNKNOWN",
-    dataFreshness: "UNKNOWN",
-    notifications: {},
-  }), []);
-
   const commands: PaletteCmd[] = useMemo(() => [
     ...USER_NAV_ITEMS.map((item) => ({
       id: `nav-${item.id}`,
@@ -105,7 +106,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
 
   const selected = USER_NAV_ITEMS.find((item) => item.id === screen);
   const content = screen === "home"
-    ? <UserHome go={go} />
+    ? <UserHome go={go} onShellStatus={setShellStatus} />
     : <PendingUserSurface title={selected?.label ?? "User Workspace"} />;
 
   return (
