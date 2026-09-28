@@ -1,0 +1,14 @@
+{
+  "schema": "algofortis-laya-upstream-lock/v1",
+  "source_repository": "https://github.com/NandhaKishorM/laya",
+  "source_commit": "9d955671415fc19f069b9cc998928075c1f255ec",
+  "source_version_observed": "0.3.21",
+  "license": "Apache-2.0",
+  "model_repository": "convaiinnovations/laya",
+  "model_subfolder": null,
+  "model_file": "model.safetensors",
+  "model_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+  "integration_mode": "single-model-direct-sdk",
+  "laya_owned_agent_routing": false,
+  "algofortis_role": "MARKET_INTELLIGENCE_SHADOW_ONLY"
+}
