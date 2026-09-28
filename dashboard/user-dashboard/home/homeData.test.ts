@@ -25,6 +25,18 @@ describe("Home data fail-closed mappings", () => {
     })).toMatchObject({ state: "AVAILABLE", price: 50180, asOf: "09:20" });
   });
 
+  it("fails closed when an AVAILABLE chart payload has an invalid last close", () => {
+    expect(marketResultToInput({
+      state: "AVAILABLE",
+      instrument: "NIFTY",
+      timeframe: "5m",
+      mode: "LIVE",
+      candles: [
+        { time: "09:20", open: 22000, high: 22100, low: 21950, close: Number.NaN },
+      ],
+    })).toMatchObject({ state: "UNAVAILABLE", price: null, source: "INVALID_AVAILABLE_PAYLOAD" });
+  });
+
   it("rejects sample fallback health as authoritative engine health", () => {
     expect(persistenceResultToEngineState({ source: "SAMPLE_FALLBACK", trust: "UNKNOWN" } as never)).toBe("UNAVAILABLE");
     expect(persistenceResultToEngineState({ source: "BACKEND", trust: "STALE" } as never)).toBe("STALE");
