@@ -54,6 +54,16 @@ export const UserDashboardShell: React.FC<UserDashboardShellProps> = ({
         onAccount={() => onNavigate("account")}
         onExit={onExit}
       />
+
+      <div className="af-mobile-safety-bar" data-testid="mobile-safety-bar" aria-label="Operational safety status">
+        <span className={`af-mode-chip af-mode-${status.mode.toLowerCase()}`}>{status.modeLabel}</span>
+        {status.liveStateLabel && <span className="af-live-lock">{status.liveStateLabel}</span>}
+        <span className={`af-mobile-automation af-state-${attrValue(status.automationState)}`}>
+          {status.automationState}
+        </span>
+        {status.manualResumeRequired && <span className="af-mobile-manual-resume">Manual resume required</span>}
+      </div>
+
       <UserNavRail activeScreen={activeScreen} onNavigate={onNavigate} />
       <main className="af-user-main" id="v3-main-content">
         <div className="af-user-page" key={activeScreen}>{children}</div>
