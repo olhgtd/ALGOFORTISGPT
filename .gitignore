@@ -110,6 +110,11 @@ temp/
 .openclaw/
 .opencode/
 
+# Laya project-local third-party/runtime payloads
+# Lock/manifests/README stay tracked; checkout and large weights stay local.
+third_party/laya/upstream/
+models/laya/original/
+
 # Local MCP/tool configuration
 config/mcporter.json
 
