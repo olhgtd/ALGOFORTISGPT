@@ -2,12 +2,17 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import { UserHome } from "./screens/UserHome";
 import { UserMarkets } from "./markets/UserMarkets";
-import { PendingUserSurface } from "./components/PendingUserSurface";
+import { UserStrategies } from "./screens/UserStrategies";
+import { UserTesting } from "./screens/UserTesting";
+import { UserTrades } from "./screens/UserTrades";
+import { UserPortfolio } from "./screens/UserPortfolio";
+import { UserAccount } from "./screens/UserAccount";
 import { UserDashboardShell } from "./components/UserDashboardShell";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
 import { deriveUserShellStatus, type UserShellStatus } from "./shellState";
 import "./user-dashboard.css";
 import "./user-dashboard-finish.css";
+import "./user-pages.css";
 
 export type ThemeMode = "dark" | "light";
 
@@ -106,12 +111,17 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
     },
   ], [go, theme, toggleTheme]);
 
-  const selected = USER_NAV_ITEMS.find((item) => item.id === screen);
-  const content = screen === "home"
-    ? <UserHome go={go} onShellStatus={setShellStatus} />
-    : screen === "markets"
-      ? <UserMarkets theme={theme} />
-      : <PendingUserSurface title={selected?.label ?? "User Workspace"} />;
+  const content = (() => {
+    switch (screen) {
+      case "home": return <UserHome go={go} onShellStatus={setShellStatus} />;
+      case "markets": return <UserMarkets theme={theme} />;
+      case "strategies": return <UserStrategies />;
+      case "testing": return <UserTesting />;
+      case "trades": return <UserTrades />;
+      case "portfolio": return <UserPortfolio />;
+      case "account": return <UserAccount />;
+    }
+  })();
 
   return (
     <>
