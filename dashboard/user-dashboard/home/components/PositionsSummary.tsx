@@ -5,6 +5,13 @@ const money = (value: number | null) => value === null
   ? "UNAVAILABLE"
   : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
 
+const pnlClass = (value: number | null): string => {
+  if (value === null) return "af-value-unavailable";
+  if (value > 0) return "af-value-positive";
+  if (value < 0) return "af-value-negative";
+  return "af-value-neutral";
+};
+
 export const PositionsSummary: React.FC<{ positions: HomeCommandCenterModel["positions"]; onOpenTrades: () => void }> = ({ positions, onOpenTrades }) => (
   <section className="af-home-card">
     <header className="af-home-card-head">
@@ -26,7 +33,7 @@ export const PositionsSummary: React.FC<{ positions: HomeCommandCenterModel["pos
                 <td>{row.strategy ?? "UNAVAILABLE"}</td>
                 <td>{row.quantity ?? "UNAVAILABLE"}</td>
                 <td>{row.lots ?? "UNAVAILABLE"}</td>
-                <td>{money(row.pnl)}</td>
+                <td className={pnlClass(row.pnl)}>{money(row.pnl)}</td>
                 <td>{row.status ?? "UNAVAILABLE"}</td>
               </tr>
             ))}
