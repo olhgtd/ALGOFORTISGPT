@@ -15,9 +15,12 @@ export const marketResultToInput = (result: MarketChartResult): HomeMarketInput 
     return { state: "UNAVAILABLE", price: null, asOf: null, source: result.state };
   }
   const last = result.candles[result.candles.length - 1];
+  if (typeof last.close !== "number" || !Number.isFinite(last.close)) {
+    return { state: "UNAVAILABLE", price: null, asOf: null, source: "INVALID_AVAILABLE_PAYLOAD" };
+  }
   return {
     state: "AVAILABLE",
-    price: typeof last.close === "number" && Number.isFinite(last.close) ? last.close : null,
+    price: last.close,
     asOf: last.time ?? null,
     source: "CANONICAL_MARKET_SERVICE",
   };
