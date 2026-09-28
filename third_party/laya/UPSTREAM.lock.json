@@ -5,6 +5,7 @@
   "source_version_observed": "0.3.21",
   "license": "Apache-2.0",
   "model_repository": "convaiinnovations/laya",
+  "model_revision": "00c37c405e3c3ad73ee070227614c89cda06b99e",
   "model_subfolder": null,
   "model_file": "model.safetensors",
   "model_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
