@@ -1,8 +1,9 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { UserDashboardShell } from "./UserDashboardShell";
 import { deriveUserShellStatus } from "../shellState";
+import type { UserScreenId } from "../navigation";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -14,7 +15,7 @@ afterEach(async () => {
   container = null;
 });
 
-const mount = async () => {
+const mount = async (onNavigate: (screen: UserScreenId) => void = () => {}) => {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -33,7 +34,7 @@ const mount = async () => {
         theme="dark"
         toggleTheme={() => {}}
         activeScreen="home"
-        onNavigate={() => {}}
+        onNavigate={onNavigate}
         onOpenPalette={() => {}}
         status={status}
         notifications={[{ id: "n1", priority: "Critical", title: "Risk state requires attention" }]}
@@ -72,6 +73,7 @@ describe("UserDashboardShell", () => {
     expect(node.textContent).toContain("AVAILABLE");
     expect(node.querySelector("[data-mode='live']")).not.toBeNull();
     expect(node.querySelector("[data-operational-state='ready-for-resume']")).not.toBeNull();
+    expect(node.querySelector("[data-manual-resume-required='true']")).not.toBeNull();
   });
 
   it("opens the global notification layer from the bell", async () => {
@@ -80,5 +82,14 @@ describe("UserDashboardShell", () => {
     expect(bell).not.toBeNull();
     await act(async () => bell?.click());
     expect(node.querySelector("[data-testid='notification-center']")?.textContent).toContain("Risk state requires attention");
+  });
+
+  it("routes the profile/account entry to the canonical Account surface", async () => {
+    const onNavigate = vi.fn();
+    const node = await mount(onNavigate);
+    const account = node.querySelector<HTMLButtonElement>("[data-testid='account-entry']");
+    expect(account).not.toBeNull();
+    await act(async () => account?.click());
+    expect(onNavigate).toHaveBeenCalledWith("account");
   });
 });
