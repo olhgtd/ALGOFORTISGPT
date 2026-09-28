@@ -17,6 +17,6 @@ export const TestingProgressSummary: React.FC<{ testing: HomeCommandCenterModel[
         </div>
       ))}
     </div>
-    <p className="af-card-footnote">No PASS state is shown without authoritative test evidence.</p>
+    <p className="af-card-footnote">No successful result is shown without authoritative test evidence.</p>
   </section>
 );
