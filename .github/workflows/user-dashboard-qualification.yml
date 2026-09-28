@@ -1,0 +1,70 @@
+name: User Dashboard Qualification
+
+on:
+  push:
+    branches:
+      - v2-convergence-v1-salvage-20260928
+  pull_request:
+    paths:
+      - "dashboard/user-dashboard/**"
+      - "dashboard/web/**"
+      - "dashboard/shared/**"
+      - ".github/workflows/user-dashboard-qualification.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: user-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-user-dashboard:
+    name: User dashboard tests / typecheck / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+
+      - name: Install locked frontend dependencies
+        working-directory: dashboard/web
+        run: npm ci
+
+      - name: User dashboard Vitest suite
+        working-directory: dashboard/web
+        run: npm run test:user-dashboard
+
+      - name: Dashboard TypeScript typecheck
+        working-directory: dashboard/web
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: dashboard/web
+        run: npm run build
+
+      - name: User dashboard anti-regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg 'sampleData|UNDERLYINGS|ACTIVITY|generateCandles|ProfessionalChart|OptionsWorkspace' dashboard/user-dashboard/screens/UserHome.tsx dashboard/user-dashboard/home; then
+            echo 'Production Home still depends on sample/full-market fixtures.' >&2
+            exit 1
+          fi
+          rg 'READ_ONLY / DISARMED' dashboard/user-dashboard dashboard/shared
+          if rg 'connections|Strategy Execution|Backtesting|Paper Trading|Orders|Reports|Help & Docs|Agents' dashboard/user-dashboard/navigation.ts; then
+            echo 'Legacy normal-user navigation entry found.' >&2
+            exit 1
+          fi
+          git diff --check "$(git merge-base origin/main HEAD)" HEAD -- dashboard/user-dashboard dashboard/web
+          test -z "$(git status --short)"
