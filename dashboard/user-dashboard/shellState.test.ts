@@ -31,6 +31,13 @@ describe("user shell safety-state presentation", () => {
     expect(status.dataFreshness).toBe("UNKNOWN");
   });
 
+  it("does not invent an operational mode or automation state when authority is missing", () => {
+    const status = deriveUserShellStatus({ mode: "UNKNOWN", automationState: "UNKNOWN" });
+    expect(status.modeLabel).toBe("Unavailable");
+    expect(status.automationState).toBe("UNKNOWN");
+    expect(status.liveStateLabel).toBeNull();
+  });
+
   it("preserves critical notification priority and count", () => {
     const status = deriveUserShellStatus({
       mode: "BACKTEST",
