@@ -10,6 +10,7 @@ export interface UserTopBarProps {
   notificationCount: number;
   onNotifications: () => void;
   onOpenPalette: () => void;
+  onAccount: () => void;
   onExit?: () => void;
 }
 
@@ -20,6 +21,7 @@ export const UserTopBar: React.FC<UserTopBarProps> = ({
   notificationCount,
   onNotifications,
   onOpenPalette,
+  onAccount,
   onExit,
 }) => (
   <header className="af-user-topbar">
@@ -57,7 +59,14 @@ export const UserTopBar: React.FC<UserTopBarProps> = ({
         <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />
       </button>
       <GlobalRealTimeClock />
-      <button type="button" className="af-profile-button" aria-label="Open account" title="Account">
+      <button
+        type="button"
+        className="af-profile-button"
+        data-testid="account-entry"
+        onClick={onAccount}
+        aria-label="Open account"
+        title="Account"
+      >
         <span>AF</span>
       </button>
       {onExit && <button type="button" className="af-exit-button" onClick={onExit}>Exit</button>}
