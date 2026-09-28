@@ -1,0 +1,577 @@
+/* Final user-only visual finish layer. Keep every rule scoped to the normal-user workspace. */
+
+.af-user-workspace {
+  --af-mobile-safety-h: 0px;
+  --af-content-max: 1540px;
+  --af-radius-card: 12px;
+  --af-radius-control: 8px;
+  background:
+    radial-gradient(circle at 18% -12%, rgba(199, 163, 93, 0.055), transparent 30%),
+    linear-gradient(180deg, #090a0c 0%, #08090b 58%, #090a0c 100%);
+}
+
+.af-user-workspace[data-theme="light"] {
+  background:
+    radial-gradient(circle at 18% -12%, rgba(149, 112, 50, 0.06), transparent 30%),
+    linear-gradient(180deg, #f4f5f6 0%, #f1f2f3 58%, #f4f5f6 100%);
+}
+
+/* Desktop chrome */
+.af-user-workspace .af-user-topbar {
+  border-bottom-color: color-mix(in srgb, var(--af-gold) 10%, var(--af-hairline));
+  background: color-mix(in srgb, var(--af-panel) 97%, transparent);
+}
+
+.af-user-workspace .af-user-brand img {
+  filter: drop-shadow(0 4px 12px rgba(199, 163, 93, 0.10));
+}
+
+.af-user-workspace .af-user-brand strong {
+  letter-spacing: .095em;
+}
+
+.af-user-workspace .af-user-brand span {
+  letter-spacing: .17em;
+}
+
+.af-user-workspace .af-topbar-status {
+  gap: 6px;
+}
+
+.af-user-workspace .af-mode-chip,
+.af-user-workspace .af-status-chip,
+.af-user-workspace .af-live-lock {
+  min-height: 27px;
+  border-radius: 6px;
+  background-clip: padding-box;
+}
+
+.af-user-workspace .af-status-chip {
+  background: color-mix(in srgb, var(--af-panel-raised) 74%, transparent);
+}
+
+.af-user-workspace .af-topbar-actions > button {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+.af-user-workspace .af-topbar-actions > button:active,
+.af-user-workspace .af-home-actions button:active,
+.af-user-workspace .af-text-button:active {
+  transform: translateY(0);
+}
+
+.af-user-workspace .af-user-nav {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--af-panel) 99%, #000 1%), var(--af-panel));
+}
+
+.af-user-workspace .af-user-nav-label {
+  margin-bottom: 13px;
+}
+
+.af-user-workspace .af-user-nav-item {
+  position: relative;
+  min-height: 43px;
+}
+
+.af-user-workspace .af-user-nav-item::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 99px;
+  background: transparent;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.af-user-workspace .af-user-nav-item.active::after {
+  background: var(--af-gold);
+  box-shadow: 0 0 14px rgba(199, 163, 93, .18);
+}
+
+.af-user-workspace .af-user-nav-item.active svg {
+  color: var(--af-gold-soft);
+}
+
+.af-user-workspace .af-user-main {
+  padding-top: calc(var(--af-topbar-h) + var(--af-mobile-safety-h) + 28px);
+}
+
+.af-user-workspace .af-user-page {
+  width: min(100%, var(--af-content-max));
+}
+
+/* Mobile safety strip: hidden on desktop, visible below the top bar on narrow layouts. */
+.af-user-workspace .af-mobile-safety-bar {
+  display: none;
+}
+
+/* Home hierarchy */
+.af-user-workspace .af-home-command-center {
+  gap: 16px;
+}
+
+.af-user-workspace .af-home-header {
+  min-height: 92px;
+  padding: 6px 2px 20px;
+}
+
+.af-user-workspace .af-home-header h1 {
+  max-width: 850px;
+  color: var(--v3-ink);
+  font-weight: 690;
+  text-wrap: balance;
+}
+
+.af-user-workspace .af-home-header p {
+  max-width: 720px;
+}
+
+.af-user-workspace .af-home-actions button,
+.af-user-workspace .af-text-button {
+  border-radius: var(--af-radius-control);
+  background: color-mix(in srgb, var(--af-panel-raised) 58%, transparent);
+}
+
+.af-user-workspace .af-home-actions button:hover,
+.af-user-workspace .af-text-button:hover {
+  box-shadow: inset 0 0 0 1px rgba(199, 163, 93, .035);
+}
+
+.af-user-workspace .af-home-operational {
+  border-radius: var(--af-radius-card);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .22);
+}
+
+.af-user-workspace .af-home-operational > div {
+  position: relative;
+}
+
+.af-user-workspace .af-home-op-primary::after {
+  content: "";
+  position: absolute;
+  left: 17px;
+  right: 17px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--af-gold-line), transparent 70%);
+  opacity: .65;
+}
+
+.af-user-workspace .af-home-op-facts span {
+  padding: 9px 10px;
+  border: 1px solid var(--af-hairline);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--af-panel-raised) 52%, transparent);
+}
+
+.af-user-workspace .af-home-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--af-radius-card);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--af-panel-raised) 14%, var(--af-panel)), var(--af-panel) 42%);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+}
+
+.af-user-workspace .af-home-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(199, 163, 93, .22), transparent);
+  opacity: .55;
+  pointer-events: none;
+}
+
+.af-user-workspace .af-home-card:hover {
+  border-color: color-mix(in srgb, var(--af-gold) 16%, var(--af-hairline-strong));
+  box-shadow: 0 17px 40px rgba(0, 0, 0, .22);
+}
+
+.af-user-workspace .af-home-card-head {
+  min-height: 40px;
+}
+
+.af-user-workspace .af-home-card-head h3 {
+  color: var(--v3-ink);
+  font-size: 15px;
+  font-weight: 690;
+}
+
+.af-user-workspace .af-authority {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+}
+
+.af-user-workspace .af-market-card {
+  display: grid;
+  align-content: space-between;
+  min-height: 168px;
+}
+
+.af-user-workspace .af-market-price {
+  font-weight: 610;
+  font-variant-numeric: tabular-nums;
+}
+
+.af-user-workspace .af-capital-pool {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--af-panel-raised) 88%, var(--af-panel));
+}
+
+.af-user-workspace .af-capital-pool:hover {
+  border-color: var(--af-hairline-strong);
+}
+
+.af-user-workspace .af-metric-grid strong,
+.af-user-workspace .af-compact-table td:nth-child(n+3),
+.af-user-workspace .af-market-price {
+  font-variant-numeric: tabular-nums;
+}
+
+.af-user-workspace .af-value-positive {
+  color: var(--v3-profit-text) !important;
+}
+
+.af-user-workspace .af-value-negative {
+  color: var(--v3-loss-text) !important;
+}
+
+.af-user-workspace .af-value-neutral {
+  color: var(--af-platinum) !important;
+}
+
+.af-user-workspace .af-value-unavailable {
+  color: var(--af-platinum-dim) !important;
+}
+
+.af-user-workspace .af-compact-table-wrap {
+  scrollbar-color: var(--af-hairline-strong) transparent;
+}
+
+.af-user-workspace .af-compact-table tbody tr {
+  transition: background 120ms ease;
+}
+
+.af-user-workspace .af-compact-table tbody tr:hover {
+  background: color-mix(in srgb, var(--af-panel-soft) 42%, transparent);
+}
+
+.af-user-workspace .af-compact-table td:first-child {
+  color: var(--v3-ink-2);
+  font-weight: 650;
+}
+
+.af-user-workspace .af-testing-stage {
+  min-height: 64px;
+  align-content: space-between;
+}
+
+.af-user-workspace .af-testing-stage:hover,
+.af-user-workspace .af-emergency-legend span:hover {
+  border-color: var(--af-hairline-strong);
+}
+
+.af-user-workspace .af-activity-row {
+  min-height: 42px;
+}
+
+.af-user-workspace .af-empty-state {
+  position: relative;
+  overflow: hidden;
+  min-height: 70px;
+  align-content: center;
+  margin-top: 10px;
+}
+
+.af-user-workspace .af-empty-state::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--af-platinum-dim);
+  opacity: .36;
+}
+
+/* Pending surfaces remain deliberate, not broken-looking placeholders. */
+.af-user-workspace .af-pending-surface {
+  min-height: calc(100dvh - var(--af-topbar-h) - 130px);
+  padding: clamp(24px, 5vw, 70px) clamp(2px, 3vw, 34px);
+}
+
+.af-user-workspace .af-pending-surface h1 {
+  max-width: 780px;
+  color: var(--v3-ink);
+}
+
+.af-user-workspace .af-pending-surface .af-empty-state {
+  width: min(100%, 680px);
+}
+
+/* Loading is explicit authority-checking, not fake dashboard content. */
+.af-user-workspace .af-home-loading {
+  position: relative;
+  min-height: calc(100dvh - var(--af-topbar-h) - 150px);
+  padding-left: clamp(2px, 3vw, 30px);
+}
+
+.af-user-workspace .af-home-loading::after {
+  content: "";
+  width: min(420px, 80vw);
+  height: 2px;
+  margin-top: 18px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, transparent, var(--af-gold), transparent);
+  background-size: 220% 100%;
+  opacity: .48;
+  animation: af-authority-scan 1.6s ease-in-out infinite;
+}
+
+@keyframes af-authority-scan {
+  0%, 100% { background-position: 100% 0; opacity: .24; }
+  50% { background-position: 0 0; opacity: .58; }
+}
+
+/* Notification layer */
+.af-user-workspace .af-notification-backdrop {
+  animation: af-notification-fade 140ms ease both;
+}
+
+.af-user-workspace .af-notification-panel {
+  border-radius: 13px;
+  animation: af-notification-in 160ms var(--v3-ease) both;
+}
+
+.af-user-workspace .af-notification-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--af-panel) 96%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+@keyframes af-notification-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes af-notification-in {
+  from { opacity: 0; transform: translateX(10px) scale(.995); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Responsive finish */
+@media (max-width: 1180px) {
+  .af-user-workspace .af-user-main {
+    padding-right: 20px;
+  }
+
+  .af-user-workspace .af-home-header {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .af-user-workspace {
+    --af-mobile-safety-h: 38px;
+  }
+
+  .af-user-workspace .af-mobile-safety-bar {
+    position: fixed;
+    z-index: 76;
+    top: var(--af-topbar-h);
+    left: 0;
+    right: 0;
+    height: var(--af-mobile-safety-h);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--af-hairline);
+    background: color-mix(in srgb, var(--af-panel) 97%, transparent);
+    box-shadow: 0 9px 24px rgba(0,0,0,.15);
+    backdrop-filter: blur(14px);
+  }
+
+  .af-user-workspace .af-mobile-safety-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .af-user-workspace .af-mobile-safety-bar .af-mode-chip,
+  .af-user-workspace .af-mobile-safety-bar .af-live-lock {
+    min-height: 26px;
+    flex: 0 0 auto;
+  }
+
+  .af-user-workspace .af-mobile-automation,
+  .af-user-workspace .af-mobile-manual-resume {
+    min-height: 26px;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 0 8px;
+    border: 1px solid var(--af-hairline);
+    border-radius: 6px;
+    color: var(--af-platinum);
+    background: var(--af-panel-raised);
+    font: 700 9px/1 var(--v3-mono);
+    white-space: nowrap;
+  }
+
+  .af-user-workspace[data-operational-state="recovery"] .af-mobile-automation,
+  .af-user-workspace[data-operational-state="halt-entries"] .af-mobile-automation {
+    color: var(--v3-loss-text);
+    border-color: color-mix(in srgb, var(--v3-loss) 45%, var(--af-hairline));
+    background: var(--v3-loss-bg);
+  }
+
+  .af-user-workspace[data-operational-state="ready-for-resume"] .af-mobile-automation,
+  .af-user-workspace .af-mobile-manual-resume {
+    color: var(--v3-warn-text);
+    border-color: color-mix(in srgb, var(--v3-warn) 42%, var(--af-hairline));
+    background: var(--v3-warn-bg);
+  }
+
+  .af-user-workspace .af-user-main {
+    padding-top: calc(var(--af-topbar-h) + var(--af-mobile-safety-h) + 16px);
+  }
+
+  .af-user-workspace .af-user-nav {
+    scroll-snap-type: x proximity;
+  }
+
+  .af-user-workspace .af-user-nav-item {
+    scroll-snap-align: center;
+  }
+
+  .af-user-workspace .af-home-header {
+    min-height: auto;
+    padding-top: 4px;
+  }
+
+  .af-user-workspace .af-home-actions {
+    width: 100%;
+  }
+
+  .af-user-workspace .af-home-actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .af-user-workspace .af-user-topbar {
+    padding-inline: 9px;
+  }
+
+  .af-user-workspace .af-user-brand {
+    gap: 8px;
+  }
+
+  .af-user-workspace .af-topbar-actions {
+    gap: 5px;
+  }
+
+  .af-user-workspace .af-topbar-actions .af-icon-button,
+  .af-user-workspace .af-profile-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .af-user-workspace .af-exit-button {
+    min-height: 32px;
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+
+  .af-user-workspace .af-user-main {
+    padding-inline: 10px;
+  }
+
+  .af-user-workspace .af-home-header h1 {
+    font-size: clamp(27px, 9vw, 38px);
+  }
+
+  .af-user-workspace .af-home-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .af-user-workspace .af-home-actions button {
+    width: 100%;
+  }
+
+  .af-user-workspace .af-home-card,
+  .af-user-workspace .af-home-operational {
+    border-radius: 10px;
+  }
+
+  .af-user-workspace .af-home-card {
+    padding: 14px;
+  }
+
+  .af-user-workspace .af-home-op-facts span {
+    min-height: 48px;
+  }
+
+  .af-user-workspace .af-market-card {
+    min-height: 146px;
+  }
+
+  .af-user-workspace .af-market-price {
+    font-size: clamp(27px, 9vw, 34px);
+  }
+
+  .af-user-workspace .af-metric-grid.compact {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .af-user-workspace .af-metric-grid.compact > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .af-user-workspace .af-testing-grid {
+    gap: 6px;
+  }
+
+  .af-user-workspace .af-notification-panel {
+    top: calc(var(--af-topbar-h) + 8px);
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+@media (max-width: 420px) {
+  .af-user-workspace .af-user-brand div {
+    display: none;
+  }
+
+  .af-user-workspace .af-user-brand {
+    min-width: 34px;
+  }
+
+  .af-user-workspace .af-home-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .af-user-workspace .af-testing-grid,
+  .af-user-workspace .af-metric-grid.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .af-user-workspace .af-metric-grid.compact > div:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-user-workspace .af-home-loading::after,
+  .af-user-workspace .af-notification-backdrop,
+  .af-user-workspace .af-notification-panel {
+    animation: none !important;
+  }
+}
