@@ -11,15 +11,17 @@ type MarketChartResult = Awaited<ReturnType<typeof queryMarketChart>>;
 type PersistenceResult = Awaited<ReturnType<typeof queryPersistenceHealth>>;
 
 export const marketResultToInput = (result: MarketChartResult): HomeMarketInput => {
-  if (result.state !== "AVAILABLE" || result.candles.length === 0) {
-    return { state: "UNAVAILABLE", price: null, asOf: null, source: result.state };
+  const authorityState = String(result.state);
+  const carriesCanonicalCandles = authorityState === "AVAILABLE" || authorityState === "STALE";
+  if (!carriesCanonicalCandles || result.candles.length === 0) {
+    return { state: "UNAVAILABLE", price: null, asOf: null, source: authorityState };
   }
   const last = result.candles[result.candles.length - 1];
   if (typeof last.close !== "number" || !Number.isFinite(last.close)) {
     return { state: "UNAVAILABLE", price: null, asOf: null, source: "INVALID_AVAILABLE_PAYLOAD" };
   }
   return {
-    state: "AVAILABLE",
+    state: authorityState === "STALE" ? "STALE" : "AVAILABLE",
     price: last.close,
     asOf: last.time ?? null,
     source: "CANONICAL_MARKET_SERVICE",
@@ -33,10 +35,12 @@ export const persistenceResultToEngineState = (result: PersistenceResult): Autho
   return "UNKNOWN";
 };
 
-const marketFreshness = (markets: HomeMarketInput[]): AuthorityState => {
-  const available = markets.filter((item) => item.state === "AVAILABLE").length;
-  if (available === markets.length) return "AVAILABLE";
-  if (available === 0) return "UNAVAILABLE";
+export const marketFreshness = (markets: HomeMarketInput[]): AuthorityState => {
+  if (markets.length === 0) return "UNKNOWN";
+  if (markets.every((item) => item.state === "AVAILABLE")) return "AVAILABLE";
+  if (markets.some((item) => item.state === "STALE")) return "STALE";
+  if (markets.every((item) => item.state === "UNAVAILABLE")) return "UNAVAILABLE";
+  if (markets.some((item) => item.state === "UNKNOWN")) return "UNKNOWN";
   return "UNKNOWN";
 };
 
