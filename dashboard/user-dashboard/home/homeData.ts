@@ -5,7 +5,6 @@ import {
 } from "../../shared/services/integrationClient";
 import { queryUserMarketChart } from "../data/userMarketAuthority";
 import { loadStrategiesSurface, loadTestingSurface, type StrategiesSurfaceData, type TestingSurfaceData } from "../data/userSurfaceData";
-import { loadUserShellAuthority, type UserShellAuthorityData } from "../data/userShellData";
 import type { AuthorityState } from "../shellState";
 import {
   buildHomeCommandCenterModel,
@@ -90,21 +89,14 @@ export const testingToHomeSummary = (surface: TestingSurfaceData): HomeTestingSu
   };
 };
 
-const unavailableShell = (): UserShellAuthorityData => ({
-  status: buildHomeCommandCenterModel({}).shell,
-  notifications: [],
-  risk: { state: "UNKNOWN", level: null, reasons: [] },
-});
-
 export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterModel> => {
-  const [profileResult, portfolioResult, niftyResult, bankNiftyResult, strategiesResult, testingResult, shellResult] = await Promise.allSettled([
+  const [profileResult, portfolioResult, niftyResult, bankNiftyResult, strategiesResult, testingResult] = await Promise.allSettled([
     queryCurrentUserProfile(),
     queryOrdersPortfolio(false, "PAPER"),
     queryUserMarketChart({ instrument: "NIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
     queryUserMarketChart({ instrument: "BANKNIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
     loadStrategiesSurface(),
     loadTestingSurface(),
-    loadUserShellAuthority(),
   ] as const);
 
   const profile = profileResult.status === "fulfilled" && profileResult.value.source === "BACKEND"
@@ -132,7 +124,6 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
     ? marketResultToInput(bankNiftyResult.value)
     : { state: "UNAVAILABLE" as const, price: null, asOf: null, source: "REQUEST_FAILED" };
 
-  const shellAuthority = shellResult.status === "fulfilled" ? shellResult.value : unavailableShell();
   const strategies = strategiesResult.status === "fulfilled"
     ? strategiesToHomeSummary(strategiesResult.value)
     : { state: "UNAVAILABLE" as const, total: null, deployments: null, paperReady: null, liveReady: null };
@@ -142,14 +133,6 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
 
   return buildHomeCommandCenterModel({
     profile,
-    shell: {
-      mode: shellAuthority.status.mode,
-      automationState: shellAuthority.status.automationState,
-      brokerState: shellAuthority.status.brokerState,
-      engineState: shellAuthority.status.engineState,
-      dataFreshness: shellAuthority.status.dataFreshness,
-    },
-    risk: shellAuthority.risk,
     strategies,
     testing,
     portfolio,
