@@ -16,6 +16,7 @@ export default defineConfig({
     environment: "jsdom",
     include: [
       "../user-dashboard/**/*.test.{ts,tsx}",
+      "../owner-dashboard/**/*.test.{ts,tsx}",
       "../shared/components/professionalChartTruth.test.ts",
     ],
     clearMocks: true,
