@@ -40,6 +40,7 @@ ROUTES: tuple[DestructiveRoute, ...] = (
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/connections/(?P<resource>[^/]+)/(?:allowance|capabilities/[^/]+/allowance)$"), "CONNECTION_GOVERNANCE"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/datasets/(?P<resource>[^/]+)/(?:approval|retire|replace)$"), "DATASET_GOVERNANCE"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/settings/confirm$"), "SETTINGS_APPLY", None),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/providers/(?P<resource>[^/]+)/verify$"), "AI_PROVIDER_VERIFY"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/providers/(?P<resource>[^/]+)$"), "AI_PROVIDER_CONFIG"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/models/(?P<resource>[^/]+)$"), "AI_MODEL_CONFIG"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/agents/(?P<resource>[^/]+)/(?:binding|policy)$"), "AI_AGENT_POLICY"),
