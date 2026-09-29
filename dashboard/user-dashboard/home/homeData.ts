@@ -53,7 +53,7 @@ export const marketFreshness = (markets: HomeMarketInput[]): AuthorityState => {
 
 export const strategiesToHomeSummary = (surface: StrategiesSurfaceData): HomeStrategySummaryInput => {
   if (surface.state !== "AVAILABLE") {
-    return { state: "UNAVAILABLE", total: null, deployments: null, paperReady: null, liveReady: null };
+    return { state: surface.state, total: null, deployments: null, paperReady: null, liveReady: null };
   }
   const readinessComplete = surface.strategies.every((item) => item.readiness !== null);
   return {
@@ -75,9 +75,13 @@ export const testingToHomeSummary = (surface: TestingSurfaceData): HomeTestingSu
   const states = [surface.backtests.state, surface.walkForward.state, surface.reports.state];
   const state: AuthorityState = states.every((value) => value === "AVAILABLE")
     ? "AVAILABLE"
-    : states.every((value) => value === "UNAVAILABLE")
-      ? "UNAVAILABLE"
-      : "UNKNOWN";
+    : states.some((value) => value === "STALE")
+      ? "STALE"
+      : states.some((value) => value === "UNKNOWN")
+        ? "UNKNOWN"
+        : states.every((value) => value === "UNAVAILABLE")
+          ? "UNAVAILABLE"
+          : "UNKNOWN";
   return {
     state,
     backtests: surface.backtests.state === "AVAILABLE" ? surface.backtests.data.length : null,
@@ -99,13 +103,20 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
     loadTestingSurface(),
   ] as const);
 
-  const profile = profileResult.status === "fulfilled" && profileResult.value.source === "BACKEND"
+  const profileState: AuthorityState = profileResult.status !== "fulfilled" || profileResult.value.source !== "BACKEND"
+    ? "UNAVAILABLE"
+    : profileResult.value.trust === "FRESH"
+      ? "AVAILABLE"
+      : profileResult.value.trust === "STALE"
+        ? "STALE"
+        : "UNKNOWN";
+  const profile = profileState === "AVAILABLE" && profileResult.status === "fulfilled"
     ? {
         state: "AVAILABLE" as const,
         displayName: profileResult.value.data.display_name ?? null,
         sxId: profileResult.value.data.sx_id ?? null,
       }
-    : { state: "UNAVAILABLE" as const, displayName: null, sxId: null };
+    : { state: profileState, displayName: null, sxId: null };
 
   const portfolio: HomePortfolioInput = portfolioResult.status === "fulfilled" && portfolioResult.value.availability === "AVAILABLE"
     ? {
