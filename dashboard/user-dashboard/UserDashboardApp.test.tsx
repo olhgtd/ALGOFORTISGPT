@@ -95,4 +95,33 @@ describe("UserDashboardApp shared shell authority", () => {
     expect(node.textContent).toContain("Manual resume required");
     expect(node.textContent).toContain("READY_FOR_RESUME is authoritative.");
   });
+
+  it("makes Home consume the same shared shell and risk authority as the global chrome", async () => {
+    window.history.replaceState({}, "", "/?surface=dashboard-v3&workspace=user#home");
+    const node = await mount(async () => ({
+      status: deriveUserShellStatus({
+        mode: "LIVE",
+        automationState: "RECOVERY",
+        brokerState: "CONNECTED",
+        engineState: "AVAILABLE",
+        dataFreshness: "STALE",
+      }),
+      notifications: [],
+      risk: {
+        state: "AVAILABLE" as const,
+        level: "BLOCKED",
+        reasons: ["Authoritative risk gate is blocking continuation."],
+      },
+    }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(node.textContent).toContain("RECOVERY");
+    expect(node.textContent).toContain("BLOCKED");
+    expect(node.textContent).toContain("Authoritative risk gate is blocking continuation.");
+    expect(node.textContent).toContain("READ_ONLY / DISARMED");
+  });
 });
