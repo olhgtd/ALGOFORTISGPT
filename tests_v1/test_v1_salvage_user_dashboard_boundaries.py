@@ -87,12 +87,19 @@ def test_user_surface_keeps_live_read_only_disarmed_and_fail_closed_copy() -> No
 
 def test_shared_shell_is_authoritative_for_all_routes_and_notifications_are_not_hard_coded_empty() -> None:
     app = _text(USER_ROOT / "UserDashboardApp.tsx")
+    home = _text(USER_ROOT / "screens" / "UserHome.tsx")
+    home_data = _text(USER_ROOT / "home" / "homeData.ts")
     shell_data = _text(USER_ROOT / "data" / "userShellData.ts")
     market_data = _text(USER_ROOT / "data" / "userMarketAuthority.ts")
 
     assert "loadUserShellAuthority" in app
     assert "notifications={notifications}" in app
     assert "notifications={[]}" not in app
+    assert "shellStatus={shellStatus}" in app
+    assert "riskAuthority={riskAuthority}" in app
+    assert "shellStatus?: UserShellStatus" in home
+    assert "riskAuthority?: UserRiskAuthority" in home
+    assert "loadUserShellAuthority" not in home_data
     assert "listUserConnections" in shell_data
     assert "listUserDeployments" in shell_data
     assert "queryPersistenceHealth" in shell_data
@@ -109,7 +116,6 @@ def test_home_strategy_testing_and_risk_are_no_longer_hard_coded_placeholders() 
 
     assert "loadStrategiesSurface" in home_data
     assert "loadTestingSurface" in home_data
-    assert "loadUserShellAuthority" in home_data
     assert "strategies: { state: \"UNAVAILABLE\", items: null }" not in home_model
     assert "testing: { state: \"UNAVAILABLE\", items: null }" not in home_model
     assert "not wired into Home yet" not in strategy_component
