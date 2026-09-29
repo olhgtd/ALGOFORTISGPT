@@ -4,8 +4,17 @@ import {
   queryOrdersPortfolio,
   queryPersistenceHealth,
 } from "../../shared/services/integrationClient";
+import { loadStrategiesSurface, loadTestingSurface, type StrategiesSurfaceData, type TestingSurfaceData } from "../data/userSurfaceData";
+import { loadUserShellAuthority, type UserShellAuthorityData } from "../data/userShellData";
 import type { AuthorityState } from "../shellState";
-import { buildHomeCommandCenterModel, type HomeCommandCenterModel, type HomeMarketInput, type HomePortfolioInput } from "./homeModel";
+import {
+  buildHomeCommandCenterModel,
+  type HomeCommandCenterModel,
+  type HomeMarketInput,
+  type HomePortfolioInput,
+  type HomeStrategySummaryInput,
+  type HomeTestingSummaryInput,
+} from "./homeModel";
 
 type MarketChartResult = Awaited<ReturnType<typeof queryMarketChart>>;
 type PersistenceResult = Awaited<ReturnType<typeof queryPersistenceHealth>>;
@@ -44,13 +53,59 @@ export const marketFreshness = (markets: HomeMarketInput[]): AuthorityState => {
   return "UNKNOWN";
 };
 
+export const strategiesToHomeSummary = (surface: StrategiesSurfaceData): HomeStrategySummaryInput => {
+  if (surface.state !== "AVAILABLE") {
+    return { state: "UNAVAILABLE", total: null, deployments: null, paperReady: null, liveReady: null };
+  }
+  const readinessComplete = surface.strategies.every((item) => item.readiness !== null);
+  return {
+    state: "AVAILABLE",
+    total: surface.strategies.length,
+    deployments: surface.deploymentsState === "AVAILABLE"
+      ? surface.strategies.reduce((count, item) => count + item.deployments.length, 0)
+      : null,
+    paperReady: readinessComplete
+      ? surface.strategies.filter((item) => item.readiness?.paper.ready === true).length
+      : null,
+    liveReady: readinessComplete
+      ? surface.strategies.filter((item) => item.readiness?.live.ready === true).length
+      : null,
+  };
+};
+
+export const testingToHomeSummary = (surface: TestingSurfaceData): HomeTestingSummaryInput => {
+  const states = [surface.backtests.state, surface.walkForward.state, surface.reports.state];
+  const state: AuthorityState = states.every((value) => value === "AVAILABLE")
+    ? "AVAILABLE"
+    : states.every((value) => value === "UNAVAILABLE")
+      ? "UNAVAILABLE"
+      : "UNKNOWN";
+  return {
+    state,
+    backtests: surface.backtests.state === "AVAILABLE" ? surface.backtests.data.length : null,
+    walkForward: surface.walkForward.state === "AVAILABLE" ? surface.walkForward.data.length : null,
+    reports: surface.reports.state === "AVAILABLE" ? surface.reports.data.length : null,
+    activeJobs: surface.walkForward.state === "AVAILABLE"
+      ? surface.walkForward.data.filter((job) => job.status === "PENDING" || job.status === "RUNNING").length
+      : null,
+  };
+};
+
+const unavailableShell = (): UserShellAuthorityData => ({
+  status: buildHomeCommandCenterModel({}).shell,
+  notifications: [],
+  risk: { state: "UNKNOWN", level: null, reasons: [] },
+});
+
 export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterModel> => {
-  const [profileResult, persistenceResult, portfolioResult, niftyResult, bankNiftyResult] = await Promise.allSettled([
+  const [profileResult, portfolioResult, niftyResult, bankNiftyResult, strategiesResult, testingResult, shellResult] = await Promise.allSettled([
     queryCurrentUserProfile(),
-    queryPersistenceHealth(),
     queryOrdersPortfolio(false, "PAPER"),
     queryMarketChart({ instrument: "NIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
     queryMarketChart({ instrument: "BANKNIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
+    loadStrategiesSurface(),
+    loadTestingSurface(),
+    loadUserShellAuthority(),
   ] as const);
 
   const profile = profileResult.status === "fulfilled" && profileResult.value.source === "BACKEND"
@@ -60,10 +115,6 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
         sxId: profileResult.value.data.sx_id ?? null,
       }
     : { state: "UNAVAILABLE" as const, displayName: null, sxId: null };
-
-  const engineState = persistenceResult.status === "fulfilled"
-    ? persistenceResultToEngineState(persistenceResult.value)
-    : "UNAVAILABLE" as const;
 
   const portfolio: HomePortfolioInput = portfolioResult.status === "fulfilled" && portfolioResult.value.availability === "AVAILABLE"
     ? {
@@ -82,15 +133,26 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
     ? marketResultToInput(bankNiftyResult.value)
     : { state: "UNAVAILABLE" as const, price: null, asOf: null, source: "REQUEST_FAILED" };
 
+  const shellAuthority = shellResult.status === "fulfilled" ? shellResult.value : unavailableShell();
+  const strategies = strategiesResult.status === "fulfilled"
+    ? strategiesToHomeSummary(strategiesResult.value)
+    : { state: "UNAVAILABLE" as const, total: null, deployments: null, paperReady: null, liveReady: null };
+  const testing = testingResult.status === "fulfilled"
+    ? testingToHomeSummary(testingResult.value)
+    : { state: "UNAVAILABLE" as const, backtests: null, walkForward: null, reports: null, activeJobs: null };
+
   return buildHomeCommandCenterModel({
     profile,
     shell: {
-      mode: "UNKNOWN",
-      automationState: "UNKNOWN",
-      brokerState: "UNKNOWN",
-      engineState,
-      dataFreshness: marketFreshness([nifty, bankNifty]),
+      mode: shellAuthority.status.mode,
+      automationState: shellAuthority.status.automationState,
+      brokerState: shellAuthority.status.brokerState,
+      engineState: shellAuthority.status.engineState,
+      dataFreshness: shellAuthority.status.dataFreshness,
     },
+    risk: shellAuthority.risk,
+    strategies,
+    testing,
     portfolio,
     markets: { NIFTY: nifty, BANKNIFTY: bankNifty },
   });
