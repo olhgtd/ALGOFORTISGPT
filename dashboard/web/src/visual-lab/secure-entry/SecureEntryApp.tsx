@@ -30,7 +30,8 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
   // Query parameters cannot enable preview controls or choose the startup flow.
   const isDevMode = false;
 
-  // Flow and Viewport states — Default is invite-only ACCESS_GATE
+  // Flow and Viewport states — entry flow comes from the authoritative
+  // Owner singleton/bootstrap decision, never from local DB emptiness alone.
   const [viewportMode, setViewportMode] = useState<ViewportMode>("DESKTOP");
   const [flow, setFlow] = useState<EntryFlow | "LOADING" | "UNAVAILABLE">("LOADING");
   const [gateStep, setGateStep] = useState<AccessGateStep>("ENTER_ACCESS_ID");
@@ -38,19 +39,22 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
 
   useEffect(() => {
     let active = true;
-    void api.securityStatus()
-      .then((status) => {
+    void Promise.all([api.securityStatus(), api.ownerBootstrapStatus()])
+      .then(([, bootstrap]) => {
         if (!active) return;
-        if (status.owner_initialized === false) {
-          setFlow("LOCAL_OWNER_SETUP");
-        } else if (status.owner_initialized === true) {
-          setFlow("LOCAL_LOGIN");
-        } else if (status.owner_authenticators_ready === false) {
-          setFlow("OWNER_SETUP");
-        } else if (status.owner_authenticators_ready === true) {
-          setFlow("RETURNING_USER");
-        } else {
-          setFlow("UNAVAILABLE");
+        switch (bootstrap.recommended_flow) {
+          case "LOCAL_LOGIN":
+            setFlow("LOCAL_LOGIN");
+            return;
+          case "RETURNING_USER":
+            setFlow("RETURNING_USER");
+            return;
+          case "LOCAL_OWNER_SETUP":
+            // Setup is rendered only when the backend explicitly authorizes it.
+            setFlow(bootstrap.owner_setup_allowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
+            return;
+          default:
+            setFlow("UNAVAILABLE");
         }
       })
       .catch(() => {
@@ -274,11 +278,11 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
           <div className={`intro-identity-reveal ${isCardVisible ? "revealed" : ""}`} style={{ width: "100%" }}>
             {(flow === "LOADING" || flow === "UNAVAILABLE") && (
               <div className="secure-access-card" id="security-status-card" role={flow === "UNAVAILABLE" ? "alert" : "status"}>
-                <h2 className="card-title">{flow === "LOADING" ? "Checking security status..." : "Security status unavailable"}</h2>
+                <h2 className="card-title">{flow === "LOADING" ? "Checking security status..." : "Account authority unavailable"}</h2>
                 <p className="card-subtitle">
                   {flow === "LOADING"
-                    ? "Waiting for AlgoFortis security authority."
-                    : "Unable to verify AlgoFortis security status. Reload to try again."}
+                    ? "Waiting for AlgoFortis account and security authority."
+                    : "This installation cannot prove that a new Owner may be created. Connect the central account authority or restore the existing Owner identity; Owner Setup stays blocked."}
                 </p>
               </div>
             )}
