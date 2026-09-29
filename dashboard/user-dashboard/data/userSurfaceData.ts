@@ -19,7 +19,7 @@ import {
   type WalkForwardJob,
 } from "../../shared/services/integrationClient";
 
-export type UserSurfaceAuthorityState = "AVAILABLE" | "UNAVAILABLE";
+export type UserSurfaceAuthorityState = "AVAILABLE" | "STALE" | "UNKNOWN" | "UNAVAILABLE";
 
 export interface AuthorityBlock<T> {
   state: UserSurfaceAuthorityState;
@@ -67,19 +67,32 @@ const unavailable = <T,>(data: T): AuthorityBlock<T> => ({
   asOf: null,
 });
 
+const authorityState = (result: { source?: string; trust?: string } | null | undefined): UserSurfaceAuthorityState => {
+  if (!result || result.source !== "BACKEND") return "UNAVAILABLE";
+  if (result.trust === "FRESH") return "AVAILABLE";
+  if (result.trust === "STALE") return "STALE";
+  return "UNKNOWN";
+};
+
 export async function loadStrategiesSurface(
   registryQuery: typeof queryUserStrategyRegistry = queryUserStrategyRegistry,
   deploymentsQuery: typeof listUserDeployments = listUserDeployments,
   readinessQuery: typeof queryStrategyReadiness = queryStrategyReadiness,
 ): Promise<StrategiesSurfaceData> {
   const registry = await registryQuery().catch(() => null);
-  if (!registry || registry.source !== "BACKEND") {
-    return { state: "UNAVAILABLE", strategies: [], deploymentsState: "UNAVAILABLE", asOf: null };
+  const registryState = authorityState(registry);
+  if (registryState !== "AVAILABLE" || !registry) {
+    return {
+      state: registryState,
+      strategies: [],
+      deploymentsState: registryState === "UNAVAILABLE" ? "UNAVAILABLE" : "UNKNOWN",
+      asOf: registry?.asOf ?? null,
+    };
   }
 
   const deployments = await deploymentsQuery().catch(() => null);
-  const deploymentRows = deployments?.source === "BACKEND" ? deployments.data : [];
-  const deploymentsState: UserSurfaceAuthorityState = deployments?.source === "BACKEND" ? "AVAILABLE" : "UNAVAILABLE";
+  const deploymentsState = authorityState(deployments);
+  const deploymentRows = deploymentsState === "AVAILABLE" && deployments ? deployments.data : [];
 
   const items = await Promise.all(registry.data.map(async (entry) => {
     const readiness = await readinessQuery(entry.strategy_id).catch(() => null);
@@ -99,12 +112,15 @@ export async function loadStrategiesSurface(
 }
 
 const backendBlock = async <T,>(
-  query: () => Promise<{ data: T; source: string; asOf: string }>,
+  query: () => Promise<{ data: T; source: string; trust?: string; asOf: string }>,
   emptyValue: T,
 ): Promise<AuthorityBlock<T>> => {
   try {
     const result = await query();
-    if (result.source !== "BACKEND") return unavailable(emptyValue);
+    const state = authorityState(result);
+    if (state !== "AVAILABLE") {
+      return { state, data: emptyValue, asOf: result.asOf ?? null };
+    }
     return { state: "AVAILABLE", data: result.data, asOf: result.asOf ?? null };
   } catch {
     return unavailable(emptyValue);
@@ -156,13 +172,15 @@ export async function loadAccountSurface(
     connectionsQuery().catch(() => null),
   ]);
 
-  const profile: AuthorityBlock<UserProfileData | null> = profileResult?.source === "BACKEND"
+  const profileState = authorityState(profileResult);
+  const profile: AuthorityBlock<UserProfileData | null> = profileState === "AVAILABLE" && profileResult
     ? { state: "AVAILABLE", data: profileResult.data, asOf: profileResult.asOf ?? null }
-    : unavailable<UserProfileData | null>(null);
+    : { state: profileState, data: null, asOf: profileResult?.asOf ?? null };
 
-  const connections: AuthorityBlock<UserConnection[]> = connectionsResult?.source === "BACKEND"
+  const connectionsState = authorityState(connectionsResult);
+  const connections: AuthorityBlock<UserConnection[]> = connectionsState === "AVAILABLE" && connectionsResult
     ? { state: "AVAILABLE", data: connectionsResult.data, asOf: connectionsResult.asOf ?? null }
-    : unavailable<UserConnection[]>([]);
+    : { state: connectionsState, data: [], asOf: connectionsResult?.asOf ?? null };
 
   return { profile, connections };
 }
