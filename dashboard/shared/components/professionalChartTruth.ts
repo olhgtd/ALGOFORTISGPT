@@ -9,10 +9,10 @@ export interface ProfessionalChartQuote {
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 export function deriveProfessionalChartQuote(
-  state: MarketChartState,
+  state: MarketChartState | "STALE",
   candles: readonly MarketCandle[],
 ): ProfessionalChartQuote {
-  if (state !== "AVAILABLE" || candles.length === 0) {
+  if ((state !== "AVAILABLE" && state !== "STALE") || candles.length === 0) {
     return { price: null, change: null, changePct: null };
   }
 
