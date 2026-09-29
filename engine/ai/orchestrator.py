@@ -1,10 +1,11 @@
 """Prime-owned deterministic routing for research/shadow AI jobs."""
 from __future__ import annotations
 
-import json
-from typing import Any, Mapping
+from typing import Any
 
-from .contracts import AgentRole, AIAvailability, AIJobScope, RoutingDecision
+from .contracts import AgentRole, AIJobScope, RoutingDecision
+from .evidence import routing_evidence
+from .provider_registry import ProviderRegistryUnavailable, ProviderRegistryView
 
 
 class AIUnavailable(RuntimeError):
@@ -32,15 +33,7 @@ class PrimeOrchestrator:
 
     def __init__(self, repository: Any) -> None:
         self._repository = repository
-
-    @staticmethod
-    def _state(row: Mapping[str, Any] | None) -> AIAvailability:
-        if not row:
-            return AIAvailability.UNAVAILABLE
-        try:
-            return AIAvailability(str(row.get("authority_state") or "UNKNOWN"))
-        except ValueError:
-            return AIAvailability.UNKNOWN
+        self._registry = ProviderRegistryView(repository)
 
     def route(self, *, job_type: str, scope: str) -> RoutingDecision:
         job_key = str(job_type).upper().strip()
@@ -59,40 +52,27 @@ class PrimeOrchestrator:
         if not agent or not bool(agent.get("enabled")):
             raise AIUnavailable("required AI agent is disabled or unavailable")
 
-        binding = self._repository.get_binding(agent_id)
-        if binding is None:
-            raise AIUnavailable("AI provider/model binding unavailable")
-
-        providers = {row["provider_id"]: row for row in self._repository.list_providers()}
-        models = {row["model_id"]: row for row in self._repository.list_models()}
-        provider = providers.get(binding["provider_id"])
-        model = models.get(binding["model_id"])
-
-        if not provider or not bool(provider.get("enabled")) or self._state(provider) is not AIAvailability.AVAILABLE:
-            raise AIUnavailable("AI provider authority is not AVAILABLE")
-        if not model or not bool(model.get("enabled")) or self._state(model) is not AIAvailability.AVAILABLE:
-            raise AIUnavailable("AI model authority is not AVAILABLE")
-        if model.get("provider_id") != provider.get("provider_id"):
-            raise AIUnavailable("AI model/provider binding mismatch")
-
-        policy = {}
         try:
-            policy = json.loads(binding.get("fallback_policy_json") or "{}")
-        except Exception:
-            policy = {}
-        if str(policy.get("mode") or "FAIL_CLOSED").upper() != "FAIL_CLOSED":
-            raise AIUnavailable("only FAIL_CLOSED provider fallback is qualified")
+            binding = self._registry.binding_for(agent_id)
+        except ProviderRegistryUnavailable as exc:
+            raise AIUnavailable(str(exc)) from exc
 
+        evidence = routing_evidence(
+            agent_id=agent_id,
+            provider_id=binding.provider_id,
+            model_id=binding.model_id,
+            scope=scope_enum.value,
+        )
         return RoutingDecision(
             agent_id=agent_id,
             role=role,
-            provider_id=str(provider["provider_id"]),
-            model_id=str(model["model_id"]),
+            provider_id=binding.provider_id,
+            model_id=binding.model_id,
             scope=scope_enum,
             evidence={
-                "routing_owner": "PRIME",
-                "fallback_mode": "FAIL_CLOSED",
-                "provider_state": provider.get("authority_state"),
-                "model_state": model.get("authority_state"),
+                **dict(evidence.payload),
+                "evidence_ref": evidence.evidence_ref,
+                "provider_state": binding.provider.get("authority_state"),
+                "model_state": binding.model.get("authority_state"),
             },
         )
