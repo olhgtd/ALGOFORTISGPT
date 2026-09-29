@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../shared/icons/V3Icons";
 import { CommandPalette, GlobalRealTimeClock, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import {
-  OwnerAIControlScreen,
   OwnerAccessRegistryScreen,
   OwnerBacktestsScreen,
   OwnerConnectionsScreen,
@@ -17,6 +16,7 @@ import {
   OwnerSystemScreen,
 } from "./authoritative/screens";
 import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
+import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
