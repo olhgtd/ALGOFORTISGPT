@@ -76,8 +76,9 @@ export async function proposeOwnerSetting(key: string, proposedValue: unknown) {
 }
 
 export async function confirmOwnerSetting(proposalId: string) {
-  return ownerFetch<any>("/api/v1/owner/settings/confirm", {
-    method: "POST",
-    body: JSON.stringify({ proposal_id: proposalId }),
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "SETTINGS_APPLY",
+    path: "/api/v1/owner/settings/confirm",
+    body: { proposal_id: proposalId },
   });
 }
