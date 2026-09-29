@@ -2,13 +2,13 @@ import {
   listUserConnections,
   listUserDeployments,
   liveReadinessRequest,
-  queryMarketChart,
   queryPersistenceHealth,
   type LiveReadiness,
   type UserConnection,
   type UserDeployment,
 } from "../../shared/services/integrationClient";
 import type { UserNotification } from "../components/NotificationCenter";
+import { queryUserMarketChart } from "./userMarketAuthority";
 import {
   deriveUserShellStatus,
   type AuthorityState,
@@ -32,7 +32,7 @@ export interface UserShellAuthorityData {
 
 export interface UserShellAuthorityQueries {
   persistenceQuery?: typeof queryPersistenceHealth;
-  marketQuery?: typeof queryMarketChart;
+  marketQuery?: typeof queryUserMarketChart;
   connectionsQuery?: typeof listUserConnections;
   deploymentsQuery?: typeof listUserDeployments;
   liveReadinessQuery?: () => Promise<LiveReadiness>;
@@ -41,8 +41,7 @@ export interface UserShellAuthorityQueries {
 const upper = (value: unknown): string => typeof value === "string" ? value.trim().toUpperCase() : "";
 
 const deploymentMode = (deployment: UserDeployment): TradingMode | null => {
-  const raw = upper((deployment as UserDeployment & { execution_mode?: string }).executionMode
-    ?? (deployment as UserDeployment & { execution_mode?: string }).execution_mode);
+  const raw = upper(deployment.executionMode ?? deployment.execution_mode);
   if (raw === "BACKTEST") return "BACKTEST";
   if (raw === "PAPER" || raw === "LIVE_PAPER") return "PAPER";
   if (raw === "LIVE") return "LIVE";
@@ -71,20 +70,15 @@ export function deriveDeploymentShell(deployments: readonly UserDeployment[]): {
   const nonStopped = deployments.filter((deployment) => !["STOPPED", "COMPLETED", "CANCELLED", "ARCHIVED"].includes(upper(deployment.status)));
   const modeRows = nonStopped.length > 0 ? nonStopped : deployments;
   const modes = new Set(modeRows.map(deploymentMode).filter((mode): mode is TradingMode => mode !== null));
-
   return {
     mode: modes.size === 1 ? [...modes][0] : "UNKNOWN",
     automationState: automationState(deployments),
   };
 }
 
-export function deriveBrokerState(
-  authority: "AVAILABLE" | "UNAVAILABLE",
-  connections: readonly UserConnection[],
-): BrokerState {
+export function deriveBrokerState(authority: "AVAILABLE" | "UNAVAILABLE", connections: readonly UserConnection[]): BrokerState {
   if (authority !== "AVAILABLE") return "UNAVAILABLE";
   if (connections.length === 0) return "DISCONNECTED";
-
   const needsAttention = connections.some((connection) => {
     const status = upper(connection.status);
     const health = upper(connection.healthState);
@@ -93,7 +87,6 @@ export function deriveBrokerState(
       || ["ERROR", "FAILED", "DEGRADED", "EXPIRED", "AUTH_EXPIRED", "NEEDS_ATTENTION"].includes(health);
   });
   if (needsAttention) return "NEEDS_ATTENTION";
-
   const connected = connections.some((connection) =>
     ["CONNECTED", "ACTIVE", "READY"].includes(upper(connection.status))
     || ["CONNECTED", "HEALTHY", "READY"].includes(upper(connection.healthState)));
@@ -107,8 +100,8 @@ const engineStateFromPersistence = (result: Awaited<ReturnType<typeof queryPersi
   return "UNKNOWN";
 };
 
-const marketAuthorityState = (results: Array<Awaited<ReturnType<typeof queryMarketChart>> | null>): AuthorityState => {
-  const states = results.map((result) => result ? String(result.state) : "BACKEND_UNAVAILABLE");
+const marketAuthorityState = (results: Array<Awaited<ReturnType<typeof queryUserMarketChart>> | null>): AuthorityState => {
+  const states = results.map((result) => result?.state ?? "BACKEND_UNAVAILABLE");
   if (states.some((state) => state === "STALE")) return "STALE";
   if (states.length > 0 && states.every((state) => state === "AVAILABLE")) return "AVAILABLE";
   if (states.some((state) => state === "AVAILABLE")) return "UNKNOWN";
@@ -127,8 +120,7 @@ const liveBrokerState = (readiness: LiveReadiness | null): BrokerState | null =>
 
 const combineBrokerState = (connections: BrokerState, live: BrokerState | null): BrokerState => {
   if (connections === "NEEDS_ATTENTION" || live === "NEEDS_ATTENTION") return "NEEDS_ATTENTION";
-  if (live === "CONNECTED") return "CONNECTED";
-  if (connections === "CONNECTED") return "CONNECTED";
+  if (live === "CONNECTED" || connections === "CONNECTED") return "CONNECTED";
   if (connections === "UNAVAILABLE" && live === null) return "UNAVAILABLE";
   if (live === "UNKNOWN" || connections === "UNKNOWN") return "UNKNOWN";
   if (live === "DISCONNECTED" || connections === "DISCONNECTED") return "DISCONNECTED";
@@ -140,7 +132,6 @@ const riskAuthority = (readiness: LiveReadiness | null): UserRiskAuthority => {
   if (!readiness || !level || level === "UNKNOWN" || level === "UNAVAILABLE") {
     return { state: "UNKNOWN", level: null, reasons: [] };
   }
-
   const reasons: string[] = [];
   if (readiness.execution_policy?.global_hold) reasons.push("Global execution hold is active.");
   if (readiness.execution_policy?.safe_mode) reasons.push("Safe mode is active.");
@@ -163,91 +154,40 @@ const attentionNotices = (
   connections: readonly UserConnection[],
 ): UserNotification[] => {
   const notices: UserNotification[] = [];
-
   if (["HALT_ENTRIES", "HALTED", "RECOVERY", "READY_FOR_RESUME"].includes(shell.automationState)) {
-    notices.push({
-      id: `automation-${shell.automationState.toLowerCase()}`,
-      priority: "Action Required",
-      title: "Manual resume required",
-      detail: `Operational state is ${shell.automationState}. AlgoFortis will not infer or auto-resume entry permission.`,
-    });
+    notices.push({ id: `automation-${shell.automationState.toLowerCase()}`, priority: "Action Required", title: "Manual resume required", detail: `Operational state is ${shell.automationState}. AlgoFortis will not infer or auto-resume entry permission.` });
   }
   if (shell.brokerState === "NEEDS_ATTENTION") {
-    notices.push({
-      id: "broker-needs-attention",
-      priority: "Action Required",
-      title: "Broker connection needs attention",
-      detail: "Authoritative connection health reports a suspended, degraded, expired, or failed state.",
-    });
+    notices.push({ id: "broker-needs-attention", priority: "Action Required", title: "Broker connection needs attention", detail: "Authoritative connection health reports a suspended, degraded, expired, or failed state." });
   }
   if (shell.engineState === "UNAVAILABLE") {
-    notices.push({
-      id: "engine-unavailable",
-      priority: "Critical",
-      title: "Engine authority unavailable",
-      detail: "Persistence/runtime authority could not be verified. UNKNOWN is not treated as healthy.",
-    });
+    notices.push({ id: "engine-unavailable", priority: "Critical", title: "Engine authority unavailable", detail: "Persistence/runtime authority could not be verified. UNKNOWN is not treated as healthy." });
   } else if (shell.engineState === "STALE") {
-    notices.push({
-      id: "engine-stale",
-      priority: "Important",
-      title: "Engine health evidence is stale",
-      detail: "The latest authoritative engine health evidence is stale.",
-    });
+    notices.push({ id: "engine-stale", priority: "Important", title: "Engine health evidence is stale", detail: "The latest authoritative engine health evidence is stale." });
   }
   if (shell.dataFreshness === "STALE") {
-    notices.push({
-      id: "market-data-stale",
-      priority: "Important",
-      title: "Market data is stale",
-      detail: "Canonical market authority reports stale data; stale values are labelled and never promoted to fresh.",
-    });
+    notices.push({ id: "market-data-stale", priority: "Important", title: "Market data is stale", detail: "Canonical market authority reports stale data; stale values are labelled and never promoted to fresh." });
   } else if (shell.dataFreshness === "UNAVAILABLE") {
-    notices.push({
-      id: "market-data-unavailable",
-      priority: "Important",
-      title: "Market data authority unavailable",
-      detail: "Canonical market data could not be verified. No sample prices are substituted.",
-    });
+    notices.push({ id: "market-data-unavailable", priority: "Important", title: "Market data authority unavailable", detail: "Canonical market data could not be verified. No sample prices are substituted." });
   }
-
   for (const connection of connections.filter((item) => item.suspended && item.suspendReason)) {
-    notices.push({
-      id: `connection-${connection.connectionId}`,
-      priority: "Important",
-      title: `${connection.provider} connection suspended`,
-      detail: connection.suspendReason ?? undefined,
-      asOf: connection.lastVerifiedAtUtc ?? undefined,
-    });
+    notices.push({ id: `connection-${connection.connectionId}`, priority: "Important", title: `${connection.provider} connection suspended`, detail: connection.suspendReason ?? undefined, asOf: connection.lastVerifiedAtUtc ?? undefined });
   }
-
   if (risk.state === "AVAILABLE" && risk.level && !["HEALTHY", "OK", "CLEAR"].includes(risk.level)) {
-    notices.push({
-      id: `risk-${risk.level.toLowerCase()}`,
-      priority: "Important",
-      title: `Risk authority reports ${risk.level}`,
-      detail: risk.reasons.join(" ") || "Review authoritative risk state before continuing.",
-    });
+    notices.push({ id: `risk-${risk.level.toLowerCase()}`, priority: "Important", title: `Risk authority reports ${risk.level}`, detail: risk.reasons.join(" ") || "Review authoritative risk state before continuing." });
   }
   if (shell.mode === "LIVE") {
-    notices.push({
-      id: "live-read-only",
-      priority: "Info",
-      title: "Live remains READ_ONLY / DISARMED",
-      detail: "Broker connectivity never grants execution authority from the user dashboard.",
-    });
+    notices.push({ id: "live-read-only", priority: "Info", title: "Live remains READ_ONLY / DISARMED", detail: "Broker connectivity never grants execution authority from the user dashboard." });
   }
-
   return notices;
 };
 
 export async function loadUserShellAuthority(queries: UserShellAuthorityQueries = {}): Promise<UserShellAuthorityData> {
   const persistenceQuery = queries.persistenceQuery ?? queryPersistenceHealth;
-  const marketQuery = queries.marketQuery ?? queryMarketChart;
+  const marketQuery = queries.marketQuery ?? queryUserMarketChart;
   const connectionsQuery = queries.connectionsQuery ?? listUserConnections;
   const deploymentsQuery = queries.deploymentsQuery ?? listUserDeployments;
-  const readinessQuery = queries.liveReadinessQuery
-    ?? (() => liveReadinessRequest<LiveReadiness>("/api/v1/user/live-readiness"));
+  const readinessQuery = queries.liveReadinessQuery ?? (() => liveReadinessRequest<LiveReadiness>("/api/v1/user/live-readiness"));
 
   const [persistence, nifty, bankNifty, connectionsResult, deploymentsResult, readiness] = await Promise.all([
     persistenceQuery().catch(() => null),
@@ -261,17 +201,10 @@ export async function loadUserShellAuthority(queries: UserShellAuthorityQueries 
   const connectionsAvailable = connectionsResult?.source === "BACKEND" ? "AVAILABLE" as const : "UNAVAILABLE" as const;
   const connections = connectionsAvailable === "AVAILABLE" ? connectionsResult!.data : [];
   const deployments = deploymentsResult?.source === "BACKEND" ? deploymentsResult.data : [];
-  const deployment = deploymentsResult?.source === "BACKEND"
-    ? deriveDeploymentShell(deployments)
-    : { mode: "UNKNOWN" as const, automationState: "UNKNOWN" as const };
+  const deployment = deploymentsResult?.source === "BACKEND" ? deriveDeploymentShell(deployments) : { mode: "UNKNOWN" as const, automationState: "UNKNOWN" as const };
   const brokerState = combineBrokerState(deriveBrokerState(connectionsAvailable, connections), liveBrokerState(readiness));
   const risk = riskAuthority(readiness);
-  const shellInput = {
-    ...deployment,
-    brokerState,
-    engineState: engineStateFromPersistence(persistence),
-    dataFreshness: marketAuthorityState([nifty, bankNifty]),
-  };
+  const shellInput = { ...deployment, brokerState, engineState: engineStateFromPersistence(persistence), dataFreshness: marketAuthorityState([nifty, bankNifty]) };
   const notifications = attentionNotices(shellInput, risk, connections);
 
   return {
