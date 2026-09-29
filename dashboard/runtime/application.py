@@ -21,6 +21,7 @@ from dashboard.backend.security_store import SQLiteSecurityStore
 from dashboard.backend.governance_store import SQLiteGovernanceStore
 from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
+from dashboard.backend.account_v2.owner_bootstrap import resolve_owner_bootstrap
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
 from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verification_routes
@@ -75,6 +76,19 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     attach_ai_verification_routes(app)
     app.state.roaming_identity = UnavailableRoamingIdentity()
 
+    def owner_bootstrap_decision():
+        """Never infer global Owner absence from an empty local database."""
+        return resolve_owner_bootstrap(
+            local_owner_initialized=security.has_initialized_owner(),
+            roaming_identity_configured=bool(getattr(app.state.roaming_identity, "configured", False)),
+            explicit_trusted_local_bootstrap=(
+                os.environ.get("ALGOFORTIS_ALLOW_LOCAL_OWNER_BOOTSTRAP", "").strip() == "1"
+            ),
+            production=paths.mode is RuntimeMode.PRODUCTION,
+        )
+
+    app.state.owner_bootstrap_decision = owner_bootstrap_decision
+
     backtest_lifespan = app.router.lifespan_context
 
     @asynccontextmanager
@@ -89,6 +103,23 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     app.router.lifespan_context = lifespan
 
     @app.middleware("http")
+    async def owner_bootstrap_firewall(request: Request, call_next):
+        # The legacy local setup route must never become a duplicate-Owner path
+        # on a fresh PC. Only an explicit trusted non-production bootstrap may
+        # reach the local setup handler; production requires central authority.
+        if request.method.upper() == "POST" and request.url.path == "/api/v1/auth/local/setup":
+            decision = owner_bootstrap_decision()
+            if not decision.setup_allowed:
+                return JSONResponse(
+                    {
+                        "detail": "OWNER_SETUP_NOT_AUTHORIZED",
+                        **decision.public_dict(),
+                    },
+                    status_code=403,
+                )
+        return await call_next(request)
+
+    @app.middleware("http")
     async def private_origin(request: Request, call_next):
         # Reject DNS rebinding and cross-origin mutation; no permissive CORS.
         if request.headers.get("host") != origin.removeprefix("http://"):
@@ -98,6 +129,10 @@ def create_runtime_app(paths, origin: str, instance_id: str):
         if paths.mode is RuntimeMode.PRODUCTION and request.url.path.startswith("/api/v1/auth/webauthn/"):
             return JSONResponse({"detail": "Approved HTTPS identity transport is not configured for this local installation"}, status_code=503)
         return await call_next(request)
+
+    @app.get("/api/v1/identity/bootstrap-status")
+    def identity_bootstrap_status():
+        return owner_bootstrap_decision().public_dict()
 
     @app.get("/api/v1/runtime/status")
     def runtime_status():
@@ -109,10 +144,15 @@ def create_runtime_app(paths, origin: str, instance_id: str):
             return JSONResponse({"state": "UNAVAILABLE", "instance_id": instance_id}, status_code=503)
         identity_type = "LOCAL_PRIVATE" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "LOCAL_WEBAUTHN"
         device_authority = "LOCAL_AUTHORITY" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "WEBAUTHN_CREDENTIAL"
+        bootstrap = owner_bootstrap_decision()
         return {"state": "READY", "mode": paths.mode.value, "instance_id": instance_id,
                 "api_base": "/api/v1", "identity": identity_type,
-                "roaming_identity": "UNAVAILABLE", "device_authority": device_authority,
+                "roaming_identity": "CONFIGURED" if getattr(app.state.roaming_identity, "configured", False) else "UNAVAILABLE",
+                "device_authority": device_authority,
                 "local_auth_transport": "UNAVAILABLE" if paths.mode is RuntimeMode.PRODUCTION else "CONFIGURED",
+                "owner_presence": bootstrap.presence.value,
+                "owner_setup_allowed": bootstrap.setup_allowed,
+                "owner_entry_flow": bootstrap.flow.value,
                 "live_execution": "DISARMED"}
 
     @app.post("/api/v1/identity/roaming/verify")
