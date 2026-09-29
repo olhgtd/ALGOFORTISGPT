@@ -15,6 +15,7 @@ import { loadUserShellAuthority, type UserShellAuthorityData } from "./data/user
 import "./user-dashboard.css";
 import "./user-dashboard-finish.css";
 import "./user-pages.css";
+import "./authority-states.css";
 
 export type ThemeMode = "dark" | "light";
 
