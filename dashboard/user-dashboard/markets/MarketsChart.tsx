@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  queryMarketChart,
-  type MarketChartMode,
-  type MarketChartResult,
-} from "../../shared/services/integrationClient";
+import type { MarketChartMode } from "../../shared/services/integrationClient";
 import { deriveProfessionalChartQuote } from "../../shared/components/professionalChartTruth";
+import { queryUserMarketChart, type UserMarketChartResult } from "../data/userMarketAuthority";
 import { MARKET_INSTRUMENTS, marketStateLabel, type MarketInstrumentId, type MarketsAuthorityState } from "./marketsModel";
 
-type MarketQuery = typeof queryMarketChart;
+type MarketQuery = typeof queryUserMarketChart;
 type ChartTimeframe = "1m" | "5m" | "15m" | "1H" | "1d";
 
 const TIMEFRAMES: readonly ChartTimeframe[] = ["1m", "5m", "15m", "1H", "1d"];
@@ -18,7 +15,7 @@ export interface MarketsChartProps {
   queryMarket?: MarketQuery;
 }
 
-const loadingResult = (instrument: string, timeframe: string, mode: MarketChartMode): MarketChartResult => ({
+const loadingResult = (instrument: string, timeframe: string, mode: MarketChartMode): UserMarketChartResult => ({
   state: "LOADING",
   instrument,
   timeframe,
@@ -36,18 +33,13 @@ const formatSigned = (value: number | null, digits = 2) => {
   return `${sign}${value.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 };
 
-const visualState = (state: string): MarketsAuthorityState =>
-  (["LOADING", "AVAILABLE", "STALE", "NO_DATA", "DATA_PROVIDER_NOT_CONFIGURED", "BACKEND_UNAVAILABLE", "ERROR"] as const).includes(state as MarketsAuthorityState)
-    ? state as MarketsAuthorityState
-    : "ERROR";
-
 const authorityClass = (state: MarketsAuthorityState): string =>
   state === "AVAILABLE" ? "available" : state === "STALE" ? "stale" : state === "LOADING" ? "unknown" : "unavailable";
 
-export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, queryMarket = queryMarketChart }) => {
+export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, queryMarket = queryUserMarketChart }) => {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5m");
   const [mode, setMode] = useState<MarketChartMode>("LIVE");
-  const [result, setResult] = useState<MarketChartResult>(() => loadingResult(instrument, timeframe, mode));
+  const [result, setResult] = useState<UserMarketChartResult>(() => loadingResult(instrument, timeframe, mode));
 
   useEffect(() => {
     let active = true;
@@ -55,19 +47,13 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
     queryMarket({ instrument, timeframe, mode, limit: 160 })
       .then((next) => { if (active) setResult(next); })
       .catch(() => {
-        if (active) setResult({
-          state: "BACKEND_UNAVAILABLE",
-          instrument,
-          timeframe,
-          mode,
-          candles: [],
-        });
+        if (active) setResult({ state: "BACKEND_UNAVAILABLE", instrument, timeframe, mode, candles: [] });
       });
     return () => { active = false; };
   }, [instrument, timeframe, mode, queryMarket]);
 
   const meta = MARKET_INSTRUMENTS.find((item) => item.id === instrument) ?? MARKET_INSTRUMENTS[0];
-  const state = visualState(String(result.state));
+  const state: MarketsAuthorityState = result.state;
   const quote = deriveProfessionalChartQuote(state, result.candles);
   const candles = useMemo(() => result.candles.slice(-90), [result.candles]);
   const latest = candles[candles.length - 1] ?? null;
@@ -94,9 +80,7 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
           <div className="af-markets-chart-title-row">
             <h2>{meta.label}</h2>
             <span className="af-markets-exchange">{meta.exchange}</span>
-            <span className={`af-authority af-authority-${authorityClass(state)}`}>
-              {marketStateLabel(state)}
-            </span>
+            <span className={`af-authority af-authority-${authorityClass(state)}`}>{marketStateLabel(state)}</span>
           </div>
           <div className="af-markets-chart-quote">
             <strong>{formatNumber(quote.price)}</strong>
@@ -110,16 +94,10 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
         <div className="af-markets-chart-controls">
           <div className="af-markets-segment" role="tablist" aria-label="Market timeframe">
             {TIMEFRAMES.map((item) => (
-              <button key={item} type="button" className={timeframe === item ? "active" : ""} onClick={() => setTimeframe(item)}>
-                {item}
-              </button>
+              <button key={item} type="button" className={timeframe === item ? "active" : ""} onClick={() => setTimeframe(item)}>{item}</button>
             ))}
           </div>
-          <button
-            type="button"
-            className="af-markets-mode-button"
-            onClick={() => setMode((current) => current === "LIVE" ? "FROZEN_HISTORICAL" : "LIVE")}
-          >
+          <button type="button" className="af-markets-mode-button" onClick={() => setMode((current) => current === "LIVE" ? "FROZEN_HISTORICAL" : "LIVE")}>
             {mode === "LIVE" ? "Live read" : "Frozen history"}
           </button>
         </div>
