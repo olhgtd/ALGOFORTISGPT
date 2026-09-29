@@ -29,6 +29,16 @@ describe("professionalChartTruth", () => {
     expect(quote.changePct).toBeCloseTo((40 / 22020) * 100, 8);
   });
 
+  it("keeps canonical stale candles visible without promoting them to fresh", () => {
+    const quote = deriveProfessionalChartQuote("STALE", [
+      candle("09:20", 22000, 22020),
+      candle("09:25", 22020, 22060),
+    ]);
+    expect(quote.price).toBe(22060);
+    expect(quote.change).toBe(40);
+    expect(quote.changePct).toBeCloseTo((40 / 22020) * 100, 8);
+  });
+
   it("does not fabricate a zero change with only one candle", () => {
     const quote = deriveProfessionalChartQuote("AVAILABLE", [candle("09:20", 22000, 22020)]);
     expect(quote.price).toBe(22020);
