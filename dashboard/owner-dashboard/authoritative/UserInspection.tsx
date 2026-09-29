@@ -18,6 +18,8 @@ const TABS: InspectionTabName[] = [
   "Security State",
 ];
 
+const SENSITIVE_KEY = /(password|secret|token|credential_data|hash)$/i;
+
 const asState = (value: unknown): AuthorityState => (
   value === "AVAILABLE" || value === "STALE" || value === "UNKNOWN" || value === "UNAVAILABLE"
     ? value
@@ -30,7 +32,7 @@ const safeColumns = (rows: Array<Record<string, unknown>>) => {
   const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
   return keys
     .filter((key) => rows.some((row) => isScalar(row[key])))
-    .filter((key) => !/(password|secret|token|credential_data|hash)$/i.test(key))
+    .filter((key) => !SENSITIVE_KEY.test(key))
     .slice(0, 8)
     .map((key) => ({ key, label: key.replaceAll("_", " ") }));
 };
@@ -52,8 +54,8 @@ const InspectionData: React.FC<{ surface: InspectionSurface }> = ({ surface }) =
   if (!value || typeof value !== "object") return <div className="v3-region-note">No structured authoritative payload.</div>;
 
   const entries = Object.entries(value as Record<string, unknown>);
-  const scalarEntries = entries.filter(([, item]) => isScalar(item) && !/(password|secret|token|credential_data|hash)$/i.test(String(item)));
-  const arrayEntries = entries.filter(([, item]) => Array.isArray(item));
+  const scalarEntries = entries.filter(([key, item]) => isScalar(item) && !SENSITIVE_KEY.test(key));
+  const arrayEntries = entries.filter(([key, item]) => Array.isArray(item) && !SENSITIVE_KEY.test(key));
   return <div style={{ display: "grid", gap: 14 }}>
     {scalarEntries.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
       {scalarEntries.map(([key, item]) => <div key={key} className="v3-kv-row">
