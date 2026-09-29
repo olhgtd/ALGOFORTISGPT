@@ -26,6 +26,16 @@ describe("shared user shell authority", () => {
     expect(result.automationState).toBe("HALTED");
   });
 
+  it("does not infer a current trading mode only from stopped historical deployments", () => {
+    const result = deriveDeploymentShell([
+      { deploymentId: "d1", strategyId: "s1", executionMode: "PAPER", status: "STOPPED" },
+      { deploymentId: "d2", strategyId: "s2", executionMode: "PAPER", status: "COMPLETED" },
+    ] as any);
+
+    expect(result.mode).toBe("UNKNOWN");
+    expect(result.automationState).toBe("STOPPED");
+  });
+
   it("maps broker evidence without treating configuration as connectivity", () => {
     expect(deriveBrokerState("AVAILABLE", [] as any)).toBe("DISCONNECTED");
     expect(deriveBrokerState("UNAVAILABLE", [] as any)).toBe("UNAVAILABLE");
