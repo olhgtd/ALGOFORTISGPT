@@ -21,6 +21,7 @@ CANONICAL_FILES = (
     USER_ROOT / "home" / "homeModel.ts",
     USER_ROOT / "data" / "userSurfaceData.ts",
     USER_ROOT / "data" / "userShellData.ts",
+    USER_ROOT / "data" / "userMarketAuthority.ts",
 )
 
 LEGACY_SAMPLE_MODULES = (
@@ -87,6 +88,7 @@ def test_user_surface_keeps_live_read_only_disarmed_and_fail_closed_copy() -> No
 def test_shared_shell_is_authoritative_for_all_routes_and_notifications_are_not_hard_coded_empty() -> None:
     app = _text(USER_ROOT / "UserDashboardApp.tsx")
     shell_data = _text(USER_ROOT / "data" / "userShellData.ts")
+    market_data = _text(USER_ROOT / "data" / "userMarketAuthority.ts")
 
     assert "loadUserShellAuthority" in app
     assert "notifications={notifications}" in app
@@ -94,8 +96,10 @@ def test_shared_shell_is_authoritative_for_all_routes_and_notifications_are_not_
     assert "listUserConnections" in shell_data
     assert "listUserDeployments" in shell_data
     assert "queryPersistenceHealth" in shell_data
-    assert "queryMarketChart" in shell_data
+    assert "queryUserMarketChart" in shell_data
     assert "/api/v1/user/live-readiness" in shell_data
+    assert "/api/v1/market/chart" in market_data
+    assert 'rawState === "STALE"' in market_data
 
 
 def test_home_strategy_testing_and_risk_are_no_longer_hard_coded_placeholders() -> None:
