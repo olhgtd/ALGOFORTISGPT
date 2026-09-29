@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { loadTestingSurface, type TestingSurfaceData } from "../data/userSurfaceData";
+import { loadTestingSurface, type TestingSurfaceData, type UserSurfaceAuthorityState } from "../data/userSurfaceData";
 import {
   AuthorityMessage,
   MetricCell,
@@ -14,7 +14,7 @@ export interface UserTestingProps {
   loadData?: () => Promise<TestingSurfaceData>;
 }
 
-const countValue = <T,>(block: { state: "AVAILABLE" | "UNAVAILABLE"; data: T[] } | undefined) =>
+const countValue = <T,>(block: { state: UserSurfaceAuthorityState; data: T[] } | undefined) =>
   block?.state === "AVAILABLE" ? block.data.length : "—";
 
 export const UserTesting: React.FC<UserTestingProps> = ({ loadData = loadTestingSurface }) => {
@@ -33,16 +33,16 @@ export const UserTesting: React.FC<UserTestingProps> = ({ loadData = loadTesting
     return () => { active = false; };
   }, [loadData]);
 
-  const recentBacktests = useMemo(() => data?.backtests.data.slice(0, 12) ?? [], [data]);
-  const recentWalkForward = useMemo(() => data?.walkForward.data.slice(0, 10) ?? [], [data]);
-  const reports = useMemo(() => data?.reports.data.slice(0, 12) ?? [], [data]);
+  const recentBacktests = useMemo(() => data?.backtests.state === "AVAILABLE" ? data.backtests.data.slice(0, 12) : [], [data]);
+  const recentWalkForward = useMemo(() => data?.walkForward.state === "AVAILABLE" ? data.walkForward.data.slice(0, 10) : [], [data]);
+  const reports = useMemo(() => data?.reports.state === "AVAILABLE" ? data.reports.data.slice(0, 12) : [], [data]);
 
   return (
     <div className="af-user-surface" data-testid="testing-surface">
       <UserSurfaceHeader
         eyebrow="Research Qualification"
         title="Testing & Validation"
-        description="Backend-authoritative backtests, walk-forward/OOS jobs, and validation reports. Missing evidence remains unavailable; completion does not automatically imply promotion."
+        description="Backend-authoritative backtests, walk-forward/OOS jobs, and validation reports. Missing or stale evidence is never promoted to fresh qualification."
         aside={<div className="af-surface-lock"><span>Promotion</span><strong>FAIL CLOSED</strong></div>}
       />
 
@@ -58,7 +58,13 @@ export const UserTesting: React.FC<UserTestingProps> = ({ loadData = loadTesting
           {!data ? (
             <AuthorityMessage state="LOADING" title="Backtest runs" unavailable="" />
           ) : data.backtests.state !== "AVAILABLE" ? (
-            <AuthorityMessage state="UNAVAILABLE" title="Backtest runs" unavailable="Backtest authority is unavailable. No sample run or numeric result is shown." />
+            <AuthorityMessage
+              state={data.backtests.state}
+              title="Backtest runs"
+              unavailable="Backtest authority is unavailable. No sample run or numeric result is shown."
+              stale="Backtest evidence is stale. Stale run rows and metrics are withheld until fresh backend evidence is available."
+              unknown="Backtest authority trust is unknown. No run, metric, or validation outcome is inferred."
+            />
           ) : recentBacktests.length === 0 ? (
             <AuthorityMessage state="AVAILABLE" isEmpty title="Backtest runs" unavailable="" empty="No authoritative backtest runs are recorded." />
           ) : (
@@ -86,7 +92,13 @@ export const UserTesting: React.FC<UserTestingProps> = ({ loadData = loadTesting
           {!data ? (
             <AuthorityMessage state="LOADING" title="Walk-forward jobs" unavailable="" />
           ) : data.walkForward.state !== "AVAILABLE" ? (
-            <AuthorityMessage state="UNAVAILABLE" title="Walk-forward jobs" unavailable="Walk-forward/OOS authority is unavailable. No completion or success state is inferred." />
+            <AuthorityMessage
+              state={data.walkForward.state}
+              title="Walk-forward jobs"
+              unavailable="Walk-forward/OOS authority is unavailable. No completion or success state is inferred."
+              stale="Walk-forward/OOS evidence is stale. Job progress and completion states are withheld until fresh evidence is available."
+              unknown="Walk-forward/OOS trust is unknown. No completion, success, or promotion state is inferred."
+            />
           ) : recentWalkForward.length === 0 ? (
             <AuthorityMessage state="AVAILABLE" isEmpty title="Walk-forward jobs" unavailable="" empty="No authoritative walk-forward jobs are recorded." />
           ) : (
@@ -116,7 +128,13 @@ export const UserTesting: React.FC<UserTestingProps> = ({ loadData = loadTesting
         {!data ? (
           <AuthorityMessage state="LOADING" title="Validation reports" unavailable="" />
         ) : data.reports.state !== "AVAILABLE" ? (
-          <AuthorityMessage state="UNAVAILABLE" title="Validation reports" unavailable="Report authority is unavailable. No validation, robustness, OOS, or readiness verdict is fabricated." />
+          <AuthorityMessage
+            state={data.reports.state}
+            title="Validation reports"
+            unavailable="Report authority is unavailable. No validation, robustness, OOS, or readiness verdict is fabricated."
+            stale="Validation report evidence is stale. Stale verdicts are withheld and are not treated as current qualification."
+            unknown="Validation report trust is unknown. No robustness, OOS, or readiness verdict is inferred."
+          />
         ) : reports.length === 0 ? (
           <AuthorityMessage state="AVAILABLE" isEmpty title="Validation reports" unavailable="" empty="No authoritative validation reports are recorded." />
         ) : (
