@@ -22,7 +22,7 @@ const candle = (time: string, close: number) => ({
   volume: 1200,
 });
 
-const query = async (params: { instrument: string; timeframe: string; mode: "LIVE" | "FROZEN_HISTORICAL" | "BACKTEST"; limit?: number }) => ({
+const availableQuery = async (params: { instrument: string; timeframe: string; mode: "LIVE" | "FROZEN_HISTORICAL" | "BACKTEST"; limit?: number }) => ({
   state: "AVAILABLE" as const,
   instrument: params.instrument,
   timeframe: params.timeframe,
@@ -37,7 +37,7 @@ describe("UserMarkets", () => {
     root = createRoot(container);
 
     await act(async () => {
-      root?.render(<UserMarkets theme="dark" queryMarket={query} />);
+      root?.render(<UserMarkets theme="dark" queryMarket={availableQuery} />);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -49,8 +49,28 @@ describe("UserMarkets", () => {
     expect(container.textContent).toContain("Option Chain");
     expect(container.textContent).toContain("UNAVAILABLE");
     expect(container.textContent).toContain("Generated or sample strikes are intentionally hidden");
-    expect(container.textContent).not.toContain("BUY");
-    expect(container.textContent).not.toContain("SELL");
+    expect(container.textContent).toContain("BUY-only constraint preserved");
+    expect(container.textContent).toContain("Order executionNone");
     expect(container.textContent).not.toContain("DEV SAMPLE");
+  });
+
+  it("shows stale canonical values as STALE rather than fresh or unavailable", async () => {
+    const staleQuery = async (params: Parameters<typeof availableQuery>[0]) => ({
+      ...(await availableQuery(params)),
+      state: "STALE" as const,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMarkets theme="dark" queryMarket={staleQuery} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("STALE");
+    expect(container.textContent).toContain("22,040.00");
+    expect(container.textContent).toContain("context only");
   });
 });
