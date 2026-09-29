@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { marketResultToInput, persistenceResultToEngineState } from "./homeData";
+import {
+  marketResultToInput,
+  persistenceResultToEngineState,
+  strategiesToHomeSummary,
+  testingToHomeSummary,
+} from "./homeData";
 
 describe("Home data fail-closed mappings", () => {
   it("does not invent a market price when canonical market data is missing", () => {
@@ -53,5 +58,33 @@ describe("Home data fail-closed mappings", () => {
     expect(persistenceResultToEngineState({ source: "SAMPLE_FALLBACK", trust: "UNKNOWN" } as never)).toBe("UNAVAILABLE");
     expect(persistenceResultToEngineState({ source: "BACKEND", trust: "STALE" } as never)).toBe("STALE");
     expect(persistenceResultToEngineState({ source: "BACKEND", trust: "FRESH" } as never)).toBe("AVAILABLE");
+  });
+
+  it("summarizes strategy readiness only when every strategy has authoritative readiness", () => {
+    expect(strategiesToHomeSummary({
+      state: "AVAILABLE",
+      deploymentsState: "AVAILABLE",
+      asOf: "2026-09-29T06:00:00Z",
+      strategies: [
+        {
+          entry: { strategy_id: "s1" } as never,
+          readiness: { paper: { ready: true }, live: { ready: false } } as never,
+          deployments: [{ deploymentId: "d1" } as never],
+        },
+        {
+          entry: { strategy_id: "s2" } as never,
+          readiness: null,
+          deployments: [],
+        },
+      ],
+    })).toEqual({ state: "AVAILABLE", total: 2, deployments: 1, paperReady: null, liveReady: null });
+  });
+
+  it("keeps partially unavailable testing authority UNKNOWN instead of inventing PASS", () => {
+    expect(testingToHomeSummary({
+      backtests: { state: "AVAILABLE", data: [{ run_id: "r1" } as never], asOf: null },
+      walkForward: { state: "UNAVAILABLE", data: [], asOf: null },
+      reports: { state: "AVAILABLE", data: [{ id: "report1" } as never], asOf: null },
+    })).toEqual({ state: "UNKNOWN", backtests: 1, walkForward: null, reports: 1, activeJobs: null });
   });
 });
