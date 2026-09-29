@@ -34,7 +34,7 @@ describe("Home data fail-closed mappings", () => {
       candles: [
         { time: "09:20", open: 22000, high: 22100, low: 21950, close: 22080 },
       ],
-    })).toMatchObject({ state: "STALE", price: 22080, asOf: "09:20", source: "CANONICAL_MARKET_SERVICE" });
+    } as never)).toMatchObject({ state: "STALE", price: 22080, asOf: "09:20", source: "CANONICAL_MARKET_SERVICE" });
   });
 
   it("fails closed when an AVAILABLE chart payload has an invalid last close", () => {
