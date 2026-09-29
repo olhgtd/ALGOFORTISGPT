@@ -31,7 +31,7 @@ FORBIDDEN_OWNER_TRUTH_TOKENS = (
     "localStorage",
 )
 
-Lाया_ROUTING_TOKENS = (
+LAYA_ROUTING_TOKENS = (
     "LayaRouter",
     "select_provider",
     "choose_provider",
@@ -111,7 +111,7 @@ def check_source_text(path: str, source: str) -> list[str]:
                 failures.append(f"{path}: sample/prototype authority token {token!r}")
 
     if path.endswith("/laya.py") or PurePosixPath(path).name.lower().startswith("laya"):
-        for token in Lाया_ROUTING_TOKENS:
+        for token in LAYA_ROUTING_TOKENS:
             if token in source:
                 failures.append(f"{path}: Laya-owned routing token {token!r}")
 
