@@ -1,9 +1,9 @@
 import {
   queryCurrentUserProfile,
-  queryMarketChart,
   queryOrdersPortfolio,
   queryPersistenceHealth,
 } from "../../shared/services/integrationClient";
+import { queryUserMarketChart } from "../data/userMarketAuthority";
 import { loadStrategiesSurface, loadTestingSurface, type StrategiesSurfaceData, type TestingSurfaceData } from "../data/userSurfaceData";
 import { loadUserShellAuthority, type UserShellAuthorityData } from "../data/userShellData";
 import type { AuthorityState } from "../shellState";
@@ -16,21 +16,20 @@ import {
   type HomeTestingSummaryInput,
 } from "./homeModel";
 
-type MarketChartResult = Awaited<ReturnType<typeof queryMarketChart>>;
+type MarketChartResult = Awaited<ReturnType<typeof queryUserMarketChart>>;
 type PersistenceResult = Awaited<ReturnType<typeof queryPersistenceHealth>>;
 
 export const marketResultToInput = (result: MarketChartResult): HomeMarketInput => {
-  const authorityState = String(result.state);
-  const carriesCanonicalCandles = authorityState === "AVAILABLE" || authorityState === "STALE";
+  const carriesCanonicalCandles = result.state === "AVAILABLE" || result.state === "STALE";
   if (!carriesCanonicalCandles || result.candles.length === 0) {
-    return { state: "UNAVAILABLE", price: null, asOf: null, source: authorityState };
+    return { state: "UNAVAILABLE", price: null, asOf: null, source: result.state };
   }
   const last = result.candles[result.candles.length - 1];
   if (typeof last.close !== "number" || !Number.isFinite(last.close)) {
     return { state: "UNAVAILABLE", price: null, asOf: null, source: "INVALID_AVAILABLE_PAYLOAD" };
   }
   return {
-    state: authorityState === "STALE" ? "STALE" : "AVAILABLE",
+    state: result.state,
     price: last.close,
     asOf: last.time ?? null,
     source: "CANONICAL_MARKET_SERVICE",
@@ -101,8 +100,8 @@ export const loadHomeCommandCenterModel = async (): Promise<HomeCommandCenterMod
   const [profileResult, portfolioResult, niftyResult, bankNiftyResult, strategiesResult, testingResult, shellResult] = await Promise.allSettled([
     queryCurrentUserProfile(),
     queryOrdersPortfolio(false, "PAPER"),
-    queryMarketChart({ instrument: "NIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
-    queryMarketChart({ instrument: "BANKNIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
+    queryUserMarketChart({ instrument: "NIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
+    queryUserMarketChart({ instrument: "BANKNIFTY", timeframe: "5m", mode: "LIVE", limit: 2 }),
     loadStrategiesSurface(),
     loadTestingSurface(),
     loadUserShellAuthority(),
