@@ -1,6 +1,7 @@
 export type MarketsAuthorityState =
   | "LOADING"
   | "AVAILABLE"
+  | "STALE"
   | "NO_DATA"
   | "DATA_PROVIDER_NOT_CONFIGURED"
   | "BACKEND_UNAVAILABLE"
@@ -45,7 +46,7 @@ export function deriveMarketSnapshot(
   state: MarketsAuthorityState,
   candles: readonly MarketCandleLike[],
 ): MarketSnapshotModel {
-  if (state !== "AVAILABLE" || candles.length === 0) return emptySnapshot(state);
+  if ((state !== "AVAILABLE" && state !== "STALE") || candles.length === 0) return emptySnapshot(state);
 
   const latest = candles[candles.length - 1];
   if (![latest.open, latest.high, latest.low, latest.close].every(finite)) {
@@ -60,7 +61,7 @@ export function deriveMarketSnapshot(
     : (change! / previousClose) * 100;
 
   return {
-    state: "AVAILABLE",
+    state,
     price: latest.close,
     change,
     changePct,
@@ -89,6 +90,7 @@ export const optionChainAuthority = {
 export function marketStateLabel(state: MarketsAuthorityState): string {
   switch (state) {
     case "AVAILABLE": return "AVAILABLE";
+    case "STALE": return "STALE";
     case "LOADING": return "LOADING";
     case "NO_DATA": return "NO DATA";
     case "DATA_PROVIDER_NOT_CONFIGURED": return "PROVIDER NOT CONFIGURED";
