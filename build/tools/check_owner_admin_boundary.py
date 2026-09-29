@@ -1,9 +1,9 @@
 """Static fail-closed boundary guard for canonical Owner/Admin and AI code.
 
-This guard is intentionally dependency-free and does not import application code.
-It prevents governance/research presentation code from acquiring broker mutation,
-Live-arm/recovery-resume authority, legacy order-approval authority, or hidden
-sample/prototype production truth.
+Legacy V1 Owner screens remain in the repository as UI donors, but production
+navigation must resolve only through OwnerDashboardApp + authoritative/**.  The
+guard therefore checks the canonical surface, backend Owner control plane and
+AI research/shadow packages while leaving disconnected donor screens untouched.
 """
 from __future__ import annotations
 
@@ -29,6 +29,10 @@ FORBIDDEN_AUTHORITY_TOKENS = (
 FORBIDDEN_OWNER_TRUTH_TOKENS = (
     "sampleData",
     "localStorage",
+    "SAMPLE_FALLBACK",
+    "simulateFirstActivation",
+    "generatePrototypeActivationCode",
+    "generatePrototypeSentinelxId",
 )
 
 LAYA_ROUTING_TOKENS = (
@@ -39,27 +43,9 @@ LAYA_ROUTING_TOKENS = (
     "dispatch_agent",
 )
 
-# Existing canonical Owner files are being migrated in the same implementation
-# plan. The allowlist is deliberately narrow and MUST be emptied before final
-# qualification; unit-level check_source_text still rejects these capabilities.
-TRANSITIONAL_OWNER_ALLOWLIST = frozenset(
-    {
-        "dashboard/owner-dashboard/OwnerDashboardApp.tsx",
-        "dashboard/owner-dashboard/screens/AdminHome.tsx",
-        "dashboard/owner-dashboard/screens/AdminScreens.tsx",
-        "dashboard/owner-dashboard/screens/AccessRegistryScreen.tsx",
-    }
-)
-
 
 def _norm(path: str | Path) -> str:
     return PurePosixPath(str(path).replace("\\", "/")).as_posix()
-
-
-def _is_preview_path(path: str) -> bool:
-    parts = {part.lower() for part in PurePosixPath(path).parts}
-    stem = PurePosixPath(path).stem.lower()
-    return bool(parts & {"preview", "previews", "dev", "fixtures", "sample", "samples"}) or stem.endswith("preview")
 
 
 def _python_imports(source: str, *, path: str) -> Iterable[str]:
@@ -71,24 +57,21 @@ def _python_imports(source: str, *, path: str) -> Iterable[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imports.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            if node.level == 0 and node.module:
-                imports.append(node.module)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            imports.append(node.module)
     return tuple(imports)
 
 
 def check_source_text(path: str, source: str) -> list[str]:
-    """Return boundary violations for one canonical Owner/Admin or AI source."""
     path = _norm(path)
-    if _is_preview_path(path):
-        return []
-
     failures: list[str] = []
-    is_owner_frontend = path.startswith("dashboard/owner-dashboard/") and path.endswith((".ts", ".tsx"))
+
+    is_owner_shell = path == "dashboard/owner-dashboard/OwnerDashboardApp.tsx"
+    is_owner_frontend = path.startswith("dashboard/owner-dashboard/authoritative/") and path.endswith((".ts", ".tsx"))
     is_owner_backend = path.startswith("dashboard/backend/owner_admin/") and path.endswith(".py")
     is_ai_engine = path.startswith("engine/ai/") and path.endswith(".py")
     is_ai_backend = path == "dashboard/backend/ai_control.py"
-    governed = is_owner_frontend or is_owner_backend or is_ai_engine or is_ai_backend
+    governed = is_owner_shell or is_owner_frontend or is_owner_backend or is_ai_engine or is_ai_backend
     if not governed:
         return failures
 
@@ -96,7 +79,6 @@ def check_source_text(path: str, source: str) -> list[str]:
         if any(module == prefix or module.startswith(prefix + ".") for prefix in FORBIDDEN_MODULE_PREFIXES):
             failures.append(f"{path}: forbidden module {module}")
 
-    # Text check also catches TypeScript imports and dynamic references.
     for module in FORBIDDEN_MODULE_PREFIXES:
         if module in source:
             failures.append(f"{path}: forbidden module {module}")
@@ -105,7 +87,7 @@ def check_source_text(path: str, source: str) -> list[str]:
         if token in source:
             failures.append(f"{path}: forbidden authority token {token!r}")
 
-    if is_owner_frontend:
+    if is_owner_shell or is_owner_frontend:
         for token in FORBIDDEN_OWNER_TRUTH_TOKENS:
             if token in source:
                 failures.append(f"{path}: sample/prototype authority token {token!r}")
@@ -115,14 +97,21 @@ def check_source_text(path: str, source: str) -> list[str]:
             if token in source:
                 failures.append(f"{path}: Laya-owned routing token {token!r}")
 
+    if is_owner_shell and "/screens/" in source:
+        failures.append(f"{path}: canonical Owner shell must not import legacy donor screens")
+
     return failures
 
 
 def _candidate_files(root: Path) -> list[Path]:
     files: list[Path] = []
-    owner_root = root / "dashboard" / "owner-dashboard"
-    if owner_root.is_dir():
-        files.extend(path for path in owner_root.rglob("*") if path.suffix in {".ts", ".tsx"})
+    shell = root / "dashboard" / "owner-dashboard" / "OwnerDashboardApp.tsx"
+    if shell.is_file():
+        files.append(shell)
+
+    authoritative = root / "dashboard" / "owner-dashboard" / "authoritative"
+    if authoritative.is_dir():
+        files.extend(path for path in authoritative.rglob("*") if path.suffix in {".ts", ".tsx"})
 
     owner_backend = root / "dashboard" / "backend" / "owner_admin"
     if owner_backend.is_dir():
@@ -144,8 +133,6 @@ def check_repository(root: Path | None = None) -> list[str]:
     failures: list[str] = []
     for path in _candidate_files(root):
         relative = _norm(path.relative_to(root))
-        if relative in TRANSITIONAL_OWNER_ALLOWLIST:
-            continue
         failures.extend(check_source_text(relative, path.read_text(encoding="utf-8")))
     return failures
 
