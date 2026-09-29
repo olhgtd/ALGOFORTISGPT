@@ -28,6 +28,13 @@ from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verif
 from .paths import RuntimeMode, CurrentUserAcl
 
 
+_OWNER_BOOTSTRAP_MUTATIONS = frozenset({
+    "/api/v1/auth/local/setup",
+    "/api/v1/auth/webauthn/bootstrap-registration/options",
+    "/api/v1/auth/webauthn/bootstrap-registration/complete",
+})
+
+
 def create_runtime_app(paths, origin: str, instance_id: str):
     if not (paths.frontend / "index.html").is_file():
         raise RuntimeError("Built AlgoFortis frontend resources are unavailable")
@@ -104,10 +111,9 @@ def create_runtime_app(paths, origin: str, instance_id: str):
 
     @app.middleware("http")
     async def owner_bootstrap_firewall(request: Request, call_next):
-        # The legacy local setup route must never become a duplicate-Owner path
-        # on a fresh PC. Only an explicit trusted non-production bootstrap may
-        # reach the local setup handler; production requires central authority.
-        if request.method.upper() == "POST" and request.url.path == "/api/v1/auth/local/setup":
+        # Every Owner-provisioning mutation is denied unless an explicit trusted
+        # authority allows setup. Empty local state alone is never sufficient.
+        if request.method.upper() == "POST" and request.url.path in _OWNER_BOOTSTRAP_MUTATIONS:
             decision = owner_bootstrap_decision()
             if not decision.setup_allowed:
                 return JSONResponse(
