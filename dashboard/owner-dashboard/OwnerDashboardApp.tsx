@@ -15,8 +15,8 @@ import {
   OwnerSettingsScreen,
   OwnerStrategiesScreen,
   OwnerSystemScreen,
-  OwnerUsersScreen,
 } from "./authoritative/screens";
+import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -168,7 +168,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
   const renderScreen = () => {
     switch (screen) {
       case "control": return <OwnerOverviewScreen go={go} />;
-      case "users": return <OwnerUsersScreen />;
+      case "users": return <OwnerUsersInspectionScreen />;
       case "access-registry": return <OwnerAccessRegistryScreen />;
       case "strategies": return <OwnerStrategiesScreen />;
       case "plugins": return <OwnerConnectionsScreen />;
@@ -223,7 +223,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
         </nav>
       )}
 
-      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control"].includes(screen) ? "wide" : ""}`}>
+      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users"].includes(screen) ? "wide" : ""}`}>
         <div className="v3-screen" key={screen}>{renderScreen()}</div>
       </main>
 
