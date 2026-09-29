@@ -122,6 +122,17 @@ class AlgoFortisBackupService:
                     )
 
                 checksums = manifest.get("checksums", {})
+                if not isinstance(checksums, dict):
+                    raise BackupSecurityError("Invalid archive manifest: checksums must be an object")
+
+                # Manifest-closed restore: every payload member must be explicitly
+                # declared in the checksum map. Allowed-but-undeclared JSON files
+                # are rejected rather than silently ignored.
+                declared_members = {"manifest.json", *checksums.keys()}
+                for member in namelist:
+                    if member not in declared_members:
+                        raise BackupSecurityError(f"Undeclared archive member: {member}")
+
                 restored_data = {}
 
                 # Verify all declared file checksums before accepting any file
