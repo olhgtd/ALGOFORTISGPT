@@ -2,8 +2,9 @@
 
 The service owns registry/configuration and research/shadow job evidence only.
 It never invokes broker mutation, Live arm, RiskGate approval, or account/billing
-mutation.  Actual model execution is an injected adapter and is unavailable by
-default.
+mutation. Actual model execution is an injected adapter and is unavailable by
+default. Provider/model availability can only be asserted by that backend
+adapter; Owner input cannot self-certify AVAILABLE truth.
 """
 from __future__ import annotations
 
@@ -17,10 +18,18 @@ from .owner_admin.repository import OwnerAdminRepository
 
 
 class AIExecutionAdapter(Protocol):
+    def health(self, *, provider: Mapping[str, Any], model: Mapping[str, Any] | None = None) -> Mapping[str, Any]: ...
     def submit(self, *, job: Mapping[str, Any], provider: Mapping[str, Any], model: Mapping[str, Any]) -> Mapping[str, Any]: ...
 
 
 class UnavailableAIExecutionAdapter:
+    def health(self, *, provider: Mapping[str, Any], model: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        return {
+            "provider_state": AIAvailability.UNAVAILABLE.value,
+            "model_state": AIAvailability.UNAVAILABLE.value if model is not None else None,
+            "reason": "qualified AI model execution adapter is unavailable",
+        }
+
     def submit(self, *, job: Mapping[str, Any], provider: Mapping[str, Any], model: Mapping[str, Any]) -> Mapping[str, Any]:
         raise AIUnavailable("qualified AI model execution adapter is unavailable")
 
@@ -48,6 +57,13 @@ class AIControlService:
         return state
 
     @staticmethod
+    def _public_provider(row: Mapping[str, Any]) -> dict[str, Any]:
+        result = dict(row)
+        credential_ref = result.pop("credential_ref", None)
+        result["credential_configured"] = bool(credential_ref)
+        return result
+
+    @staticmethod
     def _public_job(row: Mapping[str, Any]) -> dict[str, Any]:
         result = dict(row)
         for field in ("request_json", "output_json"):
@@ -61,12 +77,12 @@ class AIControlService:
 
     def snapshot(self) -> dict[str, Any]:
         agents = self._repository.list_agents()
-        providers = self._repository.list_providers()
+        raw_providers = self._repository.list_providers()
         models = self._repository.list_models()
         bindings = self._repository.list_bindings()
         jobs = [self._public_job(row) for row in self._repository.list_jobs(limit=50)]
 
-        provider_map = {row["provider_id"]: row for row in providers}
+        provider_map = {row["provider_id"]: row for row in raw_providers}
         model_map = {row["model_id"]: row for row in models}
         binding_map = {row["agent_id"]: row for row in bindings}
         projected_agents: list[dict[str, Any]] = []
@@ -87,7 +103,7 @@ class AIControlService:
                 **agent,
                 "authority_state": state,
                 "binding": binding,
-                "provider": provider,
+                "provider": self._public_provider(provider) if provider else None,
                 "model": model,
             })
 
@@ -102,7 +118,7 @@ class AIControlService:
             "broker_mutation": "ABSENT",
             "routing_owner": "PRIME",
             "agents": projected_agents,
-            "providers": providers,
+            "providers": [self._public_provider(row) for row in raw_providers],
             "models": models,
             "bindings": bindings,
             "jobs": jobs,
@@ -120,14 +136,20 @@ class AIControlService:
     ) -> dict[str, Any]:
         if credential_ref and any(marker in credential_ref.lower() for marker in ("bearer ", "sk-", "api_key=", "password=")):
             raise ValueError("plaintext provider credentials are forbidden; use opaque credential_ref")
-        return self._repository.upsert_provider(
+        # Owner configuration cannot self-certify health. A newly configured or
+        # changed provider is UNKNOWN until verify_provider asks the backend adapter.
+        requested_state = self._state(authority_state)
+        if requested_state == AIAvailability.AVAILABLE.value:
+            requested_state = AIAvailability.UNKNOWN.value
+        row = self._repository.upsert_provider(
             provider_id=provider_id,
             display_name=display_name,
             provider_type=provider_type,
             credential_ref=credential_ref,
             enabled=enabled,
-            authority_state=self._state(authority_state),
+            authority_state=requested_state,
         )
+        return self._public_provider(row)
 
     def configure_model(
         self,
@@ -139,14 +161,56 @@ class AIControlService:
         enabled: bool,
         authority_state: str,
     ) -> dict[str, Any]:
+        requested_state = self._state(authority_state)
+        if requested_state == AIAvailability.AVAILABLE.value:
+            requested_state = AIAvailability.UNKNOWN.value
         return self._repository.upsert_model(
             model_id=model_id,
             provider_id=provider_id,
             display_name=display_name,
             capability=capability,
             enabled=enabled,
-            authority_state=self._state(authority_state),
+            authority_state=requested_state,
         )
+
+    def verify_provider(self, *, provider_id: str, model_id: str | None = None) -> dict[str, Any]:
+        providers = {row["provider_id"]: row for row in self._repository.list_providers()}
+        models = {row["model_id"]: row for row in self._repository.list_models()}
+        provider = providers.get(provider_id)
+        if provider is None:
+            raise ValueError("AI provider unavailable")
+        model = models.get(model_id) if model_id else None
+        if model_id and (model is None or model.get("provider_id") != provider_id):
+            raise ValueError("AI model/provider binding mismatch")
+
+        result = dict(self._execution.health(provider=provider, model=model))
+        provider_state = self._state(str(result.get("provider_state") or "UNKNOWN"))
+        updated_provider = self._repository.upsert_provider(
+            provider_id=provider_id,
+            display_name=str(provider["display_name"]),
+            provider_type=str(provider["provider_type"]),
+            credential_ref=provider.get("credential_ref"),
+            enabled=bool(provider.get("enabled")),
+            authority_state=provider_state,
+        )
+        updated_model = None
+        if model is not None:
+            model_state = self._state(str(result.get("model_state") or "UNKNOWN"))
+            updated_model = self._repository.upsert_model(
+                model_id=str(model["model_id"]),
+                provider_id=provider_id,
+                display_name=str(model["display_name"]),
+                capability=str(model["capability"]),
+                enabled=bool(model.get("enabled")),
+                authority_state=model_state,
+            )
+        return {
+            "source": "BACKEND",
+            "trust": "FRESH",
+            "provider": self._public_provider(updated_provider),
+            "model": updated_model,
+            "reason": str(result.get("reason") or "BACKEND_ADAPTER_HEALTH_CHECK"),
+        }
 
     def bind_agent(
         self,
