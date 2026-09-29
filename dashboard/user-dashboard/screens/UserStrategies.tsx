@@ -60,7 +60,13 @@ export const UserStrategies: React.FC<UserStrategiesProps> = ({ loadData = loadS
       {!data ? (
         <AuthorityMessage state="LOADING" title="Strategy registry" unavailable="" />
       ) : data.state !== "AVAILABLE" ? (
-        <AuthorityMessage state="UNAVAILABLE" title="Strategy registry" unavailable="Authoritative strategy registry is unavailable. No sample strategies are shown." />
+        <AuthorityMessage
+          state={data.state}
+          title="Strategy registry"
+          unavailable="Authoritative strategy registry is unavailable. No sample strategies are shown."
+          stale="Strategy registry evidence is stale. Strategy rows and readiness are withheld until fresh backend evidence is available."
+          unknown="Strategy registry trust is unknown. No lifecycle or eligibility state is inferred."
+        />
       ) : data.strategies.length === 0 ? (
         <AuthorityMessage state="AVAILABLE" isEmpty title="Strategy registry" unavailable="" empty="No authoritative strategies are registered for this user." />
       ) : (
@@ -99,7 +105,7 @@ export const UserStrategies: React.FC<UserStrategiesProps> = ({ loadData = loadS
                     <AuthorityBadge state={data.deploymentsState} />
                   </div>
                   {data.deploymentsState !== "AVAILABLE" ? (
-                    <p className="af-surface-inline-note">Deployment authority is unavailable; no deployment state is inferred.</p>
+                    <p className="af-surface-inline-note">Deployment authority is {data.deploymentsState}; deployment rows are withheld and no state is inferred.</p>
                   ) : deployments.length === 0 ? (
                     <p className="af-surface-inline-note">No authoritative deployments for this strategy.</p>
                   ) : (
