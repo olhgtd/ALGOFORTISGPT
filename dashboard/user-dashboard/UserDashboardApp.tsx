@@ -10,6 +10,7 @@ import { UserAccount } from "./screens/UserAccount";
 import { UserDashboardShell } from "./components/UserDashboardShell";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
 import { deriveUserShellStatus, type UserShellStatus } from "./shellState";
+import { loadHomeCommandCenterModel } from "./home/homeData";
 import "./user-dashboard.css";
 import "./user-dashboard-finish.css";
 import "./user-pages.css";
@@ -67,6 +68,26 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // Home already loads the authoritative command-center model and reports its
+  // shell status. Direct routes must do the same instead of remaining at the
+  // bootstrap UNKNOWN state for the entire session.
+  useEffect(() => {
+    if (screen === "home") return;
+    let active = true;
+
+    void loadHomeCommandCenterModel()
+      .then((model) => {
+        if (active) setShellStatus(model.shell);
+      })
+      .catch(() => {
+        if (active) setShellStatus(initialShellStatus());
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [screen]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
