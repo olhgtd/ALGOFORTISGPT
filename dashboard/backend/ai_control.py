@@ -200,6 +200,7 @@ class AIControlService:
             )
             return self._public_job(blocked)
 
+        route_ref = str(decision.evidence.get("evidence_ref") or "")
         queued = self._repository.create_job(
             agent_id=decision.agent_id,
             job_type=kind,
@@ -208,7 +209,7 @@ class AIControlService:
             status=AIJobStatus.QUEUED.value,
             provider_id=decision.provider_id,
             model_id=decision.model_id,
-            evidence_ref=f"route:{decision.agent_id}:{decision.provider_id}:{decision.model_id}",
+            evidence_ref=route_ref,
         )
         if not auto_submit:
             return self._public_job(queued)
