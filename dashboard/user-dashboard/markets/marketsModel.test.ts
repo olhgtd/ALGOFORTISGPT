@@ -36,6 +36,17 @@ describe("marketsModel", () => {
     expect(snapshot.asOf).toBe("09:25");
   });
 
+  it("keeps stale canonical values visible and explicitly stale", () => {
+    const snapshot = deriveMarketSnapshot("STALE", [
+      candle("09:20", 22000, 22030, 21990, 22020, 1200),
+      candle("09:25", 22020, 22070, 22010, 22060, 1800),
+    ]);
+
+    expect(snapshot.state).toBe("STALE");
+    expect(snapshot.price).toBe(22060);
+    expect(snapshot.asOf).toBe("09:25");
+  });
+
   it("does not fabricate change when only one authoritative candle exists", () => {
     const snapshot = deriveMarketSnapshot("AVAILABLE", [candle("09:20", 22000, 22030, 21990, 22020)]);
     expect(snapshot.price).toBe(22020);
