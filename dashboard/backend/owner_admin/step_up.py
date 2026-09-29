@@ -23,6 +23,7 @@ class DestructiveRoute:
 
 
 ROUTES: tuple[DestructiveRoute, ...] = (
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/access/users$"), "ACCOUNT_CREATE", None),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/access/users/(?P<resource>[^/]+)/suspend$"), "ACCOUNT_SUSPEND"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/access/users/(?P<resource>[^/]+)/restore$"), "ACCOUNT_RESTORE"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/access/users/(?P<resource>[^/]+)/revoke$"), "ACCOUNT_REVOKE"),
@@ -40,6 +41,7 @@ ROUTES: tuple[DestructiveRoute, ...] = (
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/providers/(?P<resource>[^/]+)$"), "AI_PROVIDER_CONFIG"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/models/(?P<resource>[^/]+)$"), "AI_MODEL_CONFIG"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/agents/(?P<resource>[^/]+)/(?:binding|policy)$"), "AI_AGENT_POLICY"),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/jobs$"), "AI_JOB_START", None),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/jobs/(?P<resource>[^/]+)/(?:cancel|resume|pause)$"), "AI_JOB_CONTROL"),
 )
 
