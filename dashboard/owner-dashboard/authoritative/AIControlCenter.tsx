@@ -3,7 +3,6 @@ import {
   bindAIAgent,
   cancelAIJob,
   configureAIModel,
-  configureAIProvider,
   createAIJob,
   ownerMutationWithStepUp,
   queryOwnerAI,
@@ -20,6 +19,24 @@ const asState = (value: unknown): AuthorityState => (
 );
 const asRows = (value: unknown): any[] => Array.isArray(value) ? value : [];
 
+async function saveAIProviderMetadata(providerId: string, displayName: string, providerType: string) {
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "AI_PROVIDER_CONFIG",
+    resourceRef: providerId,
+    path: `/api/v1/owner/admin/ai/providers/${encodeURIComponent(providerId)}/metadata`,
+    body: { display_name: displayName, provider_type: providerType, enabled: true },
+  });
+}
+
+async function storeAIProviderCredential(providerId: string, token: string) {
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "AI_PROVIDER_CREDENTIAL",
+    resourceRef: providerId,
+    path: `/api/v1/owner/admin/ai/providers/${encodeURIComponent(providerId)}/credential`,
+    body: { token },
+  });
+}
+
 async function verifyAIProvider(providerId: string, modelId?: string) {
   return ownerMutationWithStepUp<any>({
     actionFamily: "AI_PROVIDER_VERIFY",
@@ -34,7 +51,7 @@ export const OwnerAIControlScreen: React.FC = () => {
   const [providerId, setProviderId] = useState("");
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState("OPENAI_COMPATIBLE");
-  const [credentialRef, setCredentialRef] = useState("");
+  const [providerSecret, setProviderSecret] = useState("");
   const [modelId, setModelId] = useState("");
   const [modelName, setModelName] = useState("");
   const [agentId, setAgentId] = useState("laya");
@@ -77,7 +94,7 @@ export const OwnerAIControlScreen: React.FC = () => {
 
       <section className="v3-region v3-sp6">
         <div className="v3-region-head"><span className="v3-region-title">Provider Registry</span></div>
-        <p className="v3-region-note">Configuration never self-certifies AVAILABLE. Use Verify after saving; only the backend adapter can set health.</p>
+        <p className="v3-region-note">Save metadata first. Provider keys/tokens are sent only to the backend DPAPI vault, never stored in UI/localStorage and never returned. Verification remains backend-owned.</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <input className="v3-input" value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="Provider ID" />
           <input className="v3-input" value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="Display name" />
@@ -86,16 +103,22 @@ export const OwnerAIControlScreen: React.FC = () => {
             <option value="LOCAL">Local</option>
             <option value="NATIVE">Native adapter</option>
           </select>
-          <input className="v3-input" value={credentialRef} onChange={(e) => setCredentialRef(e.target.value)} placeholder="Opaque credential reference (never paste API key)" />
-          <AsyncActionButton label="Save provider" onRun={async () => {
+          <AsyncActionButton label="Save provider metadata" onRun={async () => {
             if (!providerId || !providerName) throw new Error("Provider ID and name required");
-            await configureAIProvider(providerId, {
-              display_name: providerName,
-              provider_type: providerType,
-              credential_ref: credentialRef.trim() || null,
-              enabled: true,
-              authority_state: "UNKNOWN",
-            });
+            await saveAIProviderMetadata(providerId, providerName, providerType);
+            await ai.refresh();
+          }} />
+          <input
+            className="v3-input"
+            type="password"
+            autoComplete="off"
+            value={providerSecret}
+            onChange={(e) => setProviderSecret(e.target.value)}
+            placeholder="API key / token — stored encrypted, never displayed again"
+          />
+          <AsyncActionButton label="Store credential securely" tone="warn" disabled={!selectedProvider || !providerSecret} onRun={async () => {
+            await storeAIProviderCredential(selectedProvider, providerSecret);
+            setProviderSecret("");
             await ai.refresh();
           }} />
           <AsyncActionButton label="Verify provider/model" tone="warn" disabled={!selectedProvider} onRun={async () => {
@@ -108,7 +131,7 @@ export const OwnerAIControlScreen: React.FC = () => {
           { key: "display_name", label: "Provider" },
           { key: "provider_type", label: "Type" },
           { key: "authority_state", label: "State" },
-          { key: "credential_configured", label: "Credential ref", render: (row) => row.credential_configured ? "CONFIGURED" : "NONE" },
+          { key: "credential_configured", label: "Credential", render: (row) => row.credential_configured ? "CONFIGURED" : "NONE" },
         ]} />
       </section>
 
