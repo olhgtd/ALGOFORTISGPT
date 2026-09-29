@@ -61,6 +61,7 @@ jobs:
           tests_v1/test_owner_admin_contracts.py
           tests_v1/test_owner_admin_step_up_policy.py
           tests_v1/test_owner_admin_ai_control_plane.py
+          tests_v1/test_owner_admin_ai_credentials.py
           -q
       - name: S2 focused regression
         shell: pwsh
@@ -124,6 +125,7 @@ jobs:
           tests_v1/test_owner_admin_contracts.py
           tests_v1/test_owner_admin_step_up_policy.py
           tests_v1/test_owner_admin_ai_control_plane.py
+          tests_v1/test_owner_admin_ai_credentials.py
           -q
       - name: Record cross-check SHA
         shell: pwsh
