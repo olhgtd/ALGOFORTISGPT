@@ -44,4 +44,20 @@ describe("HomeCommandCenter", () => {
     expect(node.textContent).not.toContain("Laya Confirm");
     expect(node.textContent).not.toContain("Laya Auto");
   });
+
+  it("renders backend-backed strategy, testing and risk summaries without a synthetic verdict", async () => {
+    const model = buildHomeCommandCenterModel({
+      strategies: { state: "AVAILABLE", total: 3, deployments: 2, paperReady: 2, liveReady: 0 },
+      testing: { state: "AVAILABLE", backtests: 7, walkForward: 2, reports: 4, activeJobs: 1 },
+      risk: { state: "AVAILABLE", level: "BLOCKED", reasons: ["Global execution hold is active."] },
+    });
+    const node = await renderModel(model);
+    expect(node.textContent).toContain("Registered");
+    expect(node.textContent).toContain("Deployments");
+    expect(node.textContent).toContain("Backtests");
+    expect(node.textContent).toContain("Active Jobs");
+    expect(node.textContent).toContain("BLOCKED");
+    expect(node.textContent).not.toContain("not wired into Home yet");
+    expect(node.textContent).not.toMatch(/\bPASS\b/);
+  });
 });
