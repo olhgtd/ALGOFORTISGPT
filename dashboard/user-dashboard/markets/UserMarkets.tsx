@@ -9,6 +9,7 @@ import {
   optionChainAuthority,
   type MarketInstrumentId,
   type MarketSnapshotModel,
+  type MarketsAuthorityState,
 } from "./marketsModel";
 import "./markets.css";
 
@@ -35,6 +36,8 @@ const formatSigned = (value: number | null, digits = 2) => {
 };
 
 const tone = (value: number | null) => value === null ? "neutral" : value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
+const authorityClass = (state: MarketsAuthorityState): string =>
+  state === "AVAILABLE" ? "available" : state === "STALE" ? "stale" : state === "LOADING" ? "unknown" : "unavailable";
 
 const OverviewCard: React.FC<{
   id: MarketInstrumentId;
@@ -50,7 +53,7 @@ const OverviewCard: React.FC<{
           <span>{meta.exchange}</span>
           <strong>{meta.label}</strong>
         </div>
-        <span className={`af-authority af-authority-${snapshot.state === "AVAILABLE" ? "available" : snapshot.state === "LOADING" ? "unknown" : "unavailable"}`}>
+        <span className={`af-authority af-authority-${authorityClass(snapshot.state)}`}>
           {marketStateLabel(snapshot.state)}
         </span>
       </div>
@@ -59,6 +62,7 @@ const OverviewCard: React.FC<{
         {formatSigned(snapshot.change)} {snapshot.changePct === null ? "" : `(${formatSigned(snapshot.changePct)}%)`}
       </div>
       <div className="af-market-overview-foot">Last bar · {snapshot.asOf ?? "time unavailable"}</div>
+      {snapshot.state === "STALE" && <div className="af-markets-note">STALE — context only</div>}
     </button>
   );
 };
@@ -118,7 +122,7 @@ export const UserMarkets: React.FC<UserMarketsProps> = ({ theme, queryMarket = q
                 <span className="af-eyebrow">Selected Market</span>
                 <h2>{selectedMeta.label}</h2>
               </div>
-              <span className={`af-authority af-authority-${selectedSnapshot.state === "AVAILABLE" ? "available" : "unavailable"}`}>
+              <span className={`af-authority af-authority-${authorityClass(selectedSnapshot.state)}`}>
                 {marketStateLabel(selectedSnapshot.state)}
               </span>
             </div>
@@ -130,7 +134,7 @@ export const UserMarkets: React.FC<UserMarketsProps> = ({ theme, queryMarket = q
               <div><dt>Volume</dt><dd>{selectedSnapshot.volume === null ? "—" : selectedSnapshot.volume.toLocaleString("en-IN")}</dd></div>
               <div><dt>As of</dt><dd>{selectedSnapshot.asOf ?? "—"}</dd></div>
             </dl>
-            <p className="af-markets-note">Values are derived only from the latest canonical 5-minute candles. Missing authority stays unavailable rather than falling back to sample market values.</p>
+            <p className="af-markets-note">Values are derived only from canonical 5-minute candles. STALE values remain labelled STALE; missing authority never falls back to sample market values.</p>
           </section>
 
           <section className="af-markets-panel af-markets-authority-panel">
