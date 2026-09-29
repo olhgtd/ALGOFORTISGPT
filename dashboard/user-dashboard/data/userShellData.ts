@@ -68,8 +68,7 @@ export function deriveDeploymentShell(deployments: readonly UserDeployment[]): {
   automationState: AutomationState;
 } {
   const nonStopped = deployments.filter((deployment) => !["STOPPED", "COMPLETED", "CANCELLED", "ARCHIVED"].includes(upper(deployment.status)));
-  const modeRows = nonStopped.length > 0 ? nonStopped : deployments;
-  const modes = new Set(modeRows.map(deploymentMode).filter((mode): mode is TradingMode => mode !== null));
+  const modes = new Set(nonStopped.map(deploymentMode).filter((mode): mode is TradingMode => mode !== null));
   return {
     mode: modes.size === 1 ? [...modes][0] : "UNKNOWN",
     automationState: automationState(deployments),
