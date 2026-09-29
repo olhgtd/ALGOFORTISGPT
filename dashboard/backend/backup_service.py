@@ -124,6 +124,24 @@ class AlgoFortisBackupService:
                 checksums = manifest.get("checksums", {})
                 if not isinstance(checksums, dict):
                     raise BackupSecurityError("Invalid archive manifest: checksums must be an object")
+                if not all(isinstance(filename, str) for filename in checksums):
+                    raise BackupSecurityError("Invalid archive manifest: checksum filenames must be strings")
+
+                included_categories = manifest.get("included_categories")
+                if not isinstance(included_categories, list) or not all(
+                    isinstance(filename, str) for filename in included_categories
+                ):
+                    raise BackupSecurityError(
+                        "Invalid archive manifest: included_categories must be a list of strings"
+                    )
+                if len(included_categories) != len(set(included_categories)):
+                    raise BackupSecurityError(
+                        "Invalid archive manifest: duplicate included_categories entry"
+                    )
+                if set(included_categories) != set(checksums.keys()):
+                    raise BackupSecurityError(
+                        "Invalid archive manifest: included_categories mismatch checksums"
+                    )
 
                 # Manifest-closed restore: every payload member must be explicitly
                 # declared in the checksum map. Allowed-but-undeclared JSON files
