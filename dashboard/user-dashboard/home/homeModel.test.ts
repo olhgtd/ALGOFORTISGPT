@@ -9,7 +9,8 @@ describe("HomeCommandCenterModel truthfulness", () => {
     expect(model.positions.items).toBeNull();
     expect(model.markets.map((market) => market.price)).toEqual([null, null]);
     expect(model.risk).toEqual({ state: "UNKNOWN", level: null, reasons: [] });
-    expect(model.testing).toEqual({ state: "UNAVAILABLE", items: null });
+    expect(model.strategies).toEqual({ state: "UNAVAILABLE", total: null, deployments: null, paperReady: null, liveReady: null });
+    expect(model.testing).toEqual({ state: "UNAVAILABLE", backtests: null, walkForward: null, reports: null, activeJobs: null });
   });
 
   it("keeps separate account rows separate and never invents cross-pool aggregate capital", () => {
@@ -39,5 +40,26 @@ describe("HomeCommandCenterModel truthfulness", () => {
     expect(model.shell.brokerState).toBe("CONNECTED");
     expect(model.shell.liveStateLabel).toBe("READ_ONLY / DISARMED");
     expect(model.shell.manualResumeRequired).toBe(true);
+  });
+
+  it("preserves stale canonical market values as stale rather than hiding or promoting them", () => {
+    const model = buildHomeCommandCenterModel({
+      markets: {
+        NIFTY: { state: "STALE", price: 22080, asOf: "09:20", source: "CANONICAL_MARKET_SERVICE" },
+      },
+    });
+    expect(model.markets[0]).toMatchObject({ state: "STALE", price: 22080, asOf: "09:20" });
+  });
+
+  it("carries authoritative strategy, testing, and risk summaries without deriving a PASS verdict", () => {
+    const model = buildHomeCommandCenterModel({
+      strategies: { state: "AVAILABLE", total: 3, deployments: 2, paperReady: 2, liveReady: 0 },
+      testing: { state: "AVAILABLE", backtests: 7, walkForward: 2, reports: 4, activeJobs: 1 },
+      risk: { state: "AVAILABLE", level: "BLOCKED", reasons: ["Global execution hold is active."] },
+    });
+
+    expect(model.strategies).toEqual({ state: "AVAILABLE", total: 3, deployments: 2, paperReady: 2, liveReady: 0 });
+    expect(model.testing).toEqual({ state: "AVAILABLE", backtests: 7, walkForward: 2, reports: 4, activeJobs: 1 });
+    expect(model.risk.level).toBe("BLOCKED");
   });
 });
