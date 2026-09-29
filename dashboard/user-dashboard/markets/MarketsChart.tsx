@@ -5,7 +5,7 @@ import {
   type MarketChartResult,
 } from "../../shared/services/integrationClient";
 import { deriveProfessionalChartQuote } from "../../shared/components/professionalChartTruth";
-import { MARKET_INSTRUMENTS, marketStateLabel, type MarketInstrumentId } from "./marketsModel";
+import { MARKET_INSTRUMENTS, marketStateLabel, type MarketInstrumentId, type MarketsAuthorityState } from "./marketsModel";
 
 type MarketQuery = typeof queryMarketChart;
 type ChartTimeframe = "1m" | "5m" | "15m" | "1H" | "1d";
@@ -36,6 +36,14 @@ const formatSigned = (value: number | null, digits = 2) => {
   return `${sign}${value.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 };
 
+const visualState = (state: string): MarketsAuthorityState =>
+  (["LOADING", "AVAILABLE", "STALE", "NO_DATA", "DATA_PROVIDER_NOT_CONFIGURED", "BACKEND_UNAVAILABLE", "ERROR"] as const).includes(state as MarketsAuthorityState)
+    ? state as MarketsAuthorityState
+    : "ERROR";
+
+const authorityClass = (state: MarketsAuthorityState): string =>
+  state === "AVAILABLE" ? "available" : state === "STALE" ? "stale" : state === "LOADING" ? "unknown" : "unavailable";
+
 export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, queryMarket = queryMarketChart }) => {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5m");
   const [mode, setMode] = useState<MarketChartMode>("LIVE");
@@ -59,12 +67,13 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
   }, [instrument, timeframe, mode, queryMarket]);
 
   const meta = MARKET_INSTRUMENTS.find((item) => item.id === instrument) ?? MARKET_INSTRUMENTS[0];
-  const quote = deriveProfessionalChartQuote(result.state, result.candles);
+  const state = visualState(String(result.state));
+  const quote = deriveProfessionalChartQuote(state, result.candles);
   const candles = useMemo(() => result.candles.slice(-90), [result.candles]);
   const latest = candles[candles.length - 1] ?? null;
 
   const geometry = useMemo(() => {
-    if (result.state !== "AVAILABLE" || candles.length === 0) return null;
+    if ((state !== "AVAILABLE" && state !== "STALE") || candles.length === 0) return null;
     const highs = candles.map((c) => c.high).filter(Number.isFinite);
     const lows = candles.map((c) => c.low).filter(Number.isFinite);
     if (highs.length !== candles.length || lows.length !== candles.length) return null;
@@ -73,7 +82,7 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
     const range = Math.max(max - min, 1);
     const maxVolume = Math.max(...candles.map((c) => Number.isFinite(c.volume) ? Number(c.volume) : 0), 1);
     return { max, min, range, maxVolume };
-  }, [candles, result.state]);
+  }, [candles, state]);
 
   const changeTone = quote.change === null ? "neutral" : quote.change > 0 ? "positive" : quote.change < 0 ? "negative" : "neutral";
 
@@ -85,8 +94,8 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
           <div className="af-markets-chart-title-row">
             <h2>{meta.label}</h2>
             <span className="af-markets-exchange">{meta.exchange}</span>
-            <span className={`af-authority af-authority-${result.state === "AVAILABLE" ? "available" : result.state === "LOADING" ? "unknown" : "unavailable"}`}>
-              {marketStateLabel(result.state)}
+            <span className={`af-authority af-authority-${authorityClass(state)}`}>
+              {marketStateLabel(state)}
             </span>
           </div>
           <div className="af-markets-chart-quote">
@@ -95,6 +104,7 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
               {formatSigned(quote.change)} {quote.changePct === null ? "" : `(${formatSigned(quote.changePct)}%)`}
             </span>
           </div>
+          {state === "STALE" && <p className="af-markets-note">STALE — canonical values are shown for context only and are not promoted to fresh market truth.</p>}
         </div>
 
         <div className="af-markets-chart-controls">
@@ -155,8 +165,8 @@ export const MarketsChart: React.FC<MarketsChartProps> = ({ instrument, theme, q
           </svg>
         ) : (
           <div className="af-markets-chart-empty" role="status">
-            <strong>{marketStateLabel(result.state)}</strong>
-            <span>{result.detail || (result.state === "LOADING" ? "Loading authoritative candles…" : "No synthetic or sample candles are shown when canonical data is unavailable.")}</span>
+            <strong>{marketStateLabel(state)}</strong>
+            <span>{result.detail || (state === "LOADING" ? "Loading authoritative candles…" : "No synthetic or sample candles are shown when canonical data is unavailable.")}</span>
           </div>
         )}
       </div>
