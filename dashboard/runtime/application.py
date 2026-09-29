@@ -22,6 +22,7 @@ from dashboard.backend.governance_store import SQLiteGovernanceStore
 from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
+from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
 from .paths import RuntimeMode, CurrentUserAcl
 
 
@@ -77,6 +78,7 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     # Owner routes with fresh WebAuthn step-up and exposes backend-only Owner/AI
     # read models. It has no broker mutation or Live-arm authority.
     attach_owner_admin_control_plane(app)
+    attach_owner_user_inspection(app)
     app.state.roaming_identity = UnavailableRoamingIdentity()
 
     backtest_lifespan = app.router.lifespan_context
