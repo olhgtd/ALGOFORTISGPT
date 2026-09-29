@@ -28,11 +28,30 @@ export const AuthorityMessage: React.FC<{
   title: string;
   unavailable: string;
   loading?: string;
+  stale?: string;
+  unknown?: string;
   empty?: string;
   isEmpty?: boolean;
-}> = ({ state, title, unavailable, loading = "Loading authoritative data…", empty = "No authoritative records.", isEmpty = false }) => {
+}> = ({
+  state,
+  title,
+  unavailable,
+  loading = "Loading authoritative data…",
+  stale = "Authoritative evidence is stale. Stale records are withheld until fresh evidence is available.",
+  unknown = "Authority trust is unknown. UNKNOWN is not treated as available.",
+  empty = "No authoritative records.",
+  isEmpty = false,
+}) => {
   if (state === "AVAILABLE" && !isEmpty) return null;
-  const body = state === "LOADING" ? loading : state === "AVAILABLE" ? empty : unavailable;
+  const body = state === "LOADING"
+    ? loading
+    : state === "AVAILABLE"
+      ? empty
+      : state === "STALE"
+        ? stale
+        : state === "UNKNOWN"
+          ? unknown
+          : unavailable;
   return (
     <div className="af-surface-message" role="status">
       <AuthorityBadge state={state} />
