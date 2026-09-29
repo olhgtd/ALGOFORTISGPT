@@ -35,7 +35,7 @@ _OWNER_BOOTSTRAP_MUTATIONS = frozenset({
 })
 
 
-def create_runtime_app(paths, origin: str, instance_id: str):
+def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=None):
     if not (paths.frontend / "index.html").is_file():
         raise RuntimeError("Built AlgoFortis frontend resources are unavailable")
     profile = paths.mode.value.lower()
@@ -81,7 +81,7 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     attach_owner_admin_control_plane(app)
     attach_owner_user_inspection(app)
     attach_ai_verification_routes(app)
-    app.state.roaming_identity = UnavailableRoamingIdentity()
+    app.state.roaming_identity = roaming_identity or UnavailableRoamingIdentity()
 
     def owner_bootstrap_decision():
         """Never infer global Owner absence from an empty local database."""
