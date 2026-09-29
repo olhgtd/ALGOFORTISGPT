@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { queryMarketChart } from "../../shared/services/integrationClient";
+import { queryUserMarketChart } from "../data/userMarketAuthority";
 import { MarketsChart } from "./MarketsChart";
 import { loadMarketsOverview, type MarketsOverview } from "./marketsData";
 import {
@@ -13,7 +13,7 @@ import {
 } from "./marketsModel";
 import "./markets.css";
 
-type MarketQuery = typeof queryMarketChart;
+type MarketQuery = typeof queryUserMarketChart;
 
 export interface UserMarketsProps {
   theme: "dark" | "light";
@@ -28,13 +28,11 @@ const initialOverview = (): MarketsOverview => ({
 const formatNumber = (value: number | null, digits = 2) => value === null
   ? "—"
   : value.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-
 const formatSigned = (value: number | null, digits = 2) => {
   if (value === null) return "—";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 };
-
 const tone = (value: number | null) => value === null ? "neutral" : value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
 const authorityClass = (state: MarketsAuthorityState): string =>
   state === "AVAILABLE" ? "available" : state === "STALE" ? "stale" : state === "LOADING" ? "unknown" : "unavailable";
@@ -49,13 +47,8 @@ const OverviewCard: React.FC<{
   return (
     <button type="button" className={`af-market-overview-card ${active ? "active" : ""}`} onClick={onSelect}>
       <div className="af-market-overview-head">
-        <div>
-          <span>{meta.exchange}</span>
-          <strong>{meta.label}</strong>
-        </div>
-        <span className={`af-authority af-authority-${authorityClass(snapshot.state)}`}>
-          {marketStateLabel(snapshot.state)}
-        </span>
+        <div><span>{meta.exchange}</span><strong>{meta.label}</strong></div>
+        <span className={`af-authority af-authority-${authorityClass(snapshot.state)}`}>{marketStateLabel(snapshot.state)}</span>
       </div>
       <div className="af-market-overview-value">{formatNumber(snapshot.price)}</div>
       <div className={`af-market-overview-change af-market-tone-${tone(snapshot.change)}`}>
@@ -67,64 +60,43 @@ const OverviewCard: React.FC<{
   );
 };
 
-export const UserMarkets: React.FC<UserMarketsProps> = ({ theme, queryMarket = queryMarketChart }) => {
+export const UserMarkets: React.FC<UserMarketsProps> = ({ theme, queryMarket = queryUserMarketChart }) => {
   const [selected, setSelected] = useState<MarketInstrumentId>("NIFTY");
   const [overview, setOverview] = useState<MarketsOverview>(initialOverview);
 
   useEffect(() => {
     let active = true;
     setOverview(initialOverview());
-    loadMarketsOverview(queryMarket).then((result) => {
-      if (active) setOverview(result);
-    });
+    loadMarketsOverview(queryMarket).then((result) => { if (active) setOverview(result); });
     return () => { active = false; };
   }, [queryMarket]);
 
   const selectedSnapshot = overview[selected];
-  const selectedMeta = useMemo(
-    () => MARKET_INSTRUMENTS.find((item) => item.id === selected) ?? MARKET_INSTRUMENTS[0],
-    [selected],
-  );
+  const selectedMeta = useMemo(() => MARKET_INSTRUMENTS.find((item) => item.id === selected) ?? MARKET_INSTRUMENTS[0], [selected]);
 
   return (
     <div className="af-markets" data-testid="markets-surface">
       <header className="af-markets-header">
         <div>
-          <span className="af-eyebrow">Market Intelligence</span>
-          <h1>Markets</h1>
+          <span className="af-eyebrow">Market Intelligence</span><h1>Markets</h1>
           <p>Canonical index data, read-only charting, and explicit authority states. No execution authority is granted from this surface.</p>
         </div>
-        <div className="af-markets-readonly-badge">
-          <span>Surface</span>
-          <strong>READ ONLY</strong>
-        </div>
+        <div className="af-markets-readonly-badge"><span>Surface</span><strong>READ ONLY</strong></div>
       </header>
 
       <section className="af-market-overview-grid" aria-label="Index market overview">
         {MARKET_INSTRUMENTS.map((item) => (
-          <OverviewCard
-            key={item.id}
-            id={item.id}
-            snapshot={overview[item.id]}
-            active={selected === item.id}
-            onSelect={() => setSelected(item.id)}
-          />
+          <OverviewCard key={item.id} id={item.id} snapshot={overview[item.id]} active={selected === item.id} onSelect={() => setSelected(item.id)} />
         ))}
       </section>
 
       <div className="af-markets-primary-grid">
         <MarketsChart instrument={selected} theme={theme} queryMarket={queryMarket} />
-
         <aside className="af-markets-side-stack">
           <section className="af-markets-panel">
             <div className="af-markets-panel-head">
-              <div>
-                <span className="af-eyebrow">Selected Market</span>
-                <h2>{selectedMeta.label}</h2>
-              </div>
-              <span className={`af-authority af-authority-${authorityClass(selectedSnapshot.state)}`}>
-                {marketStateLabel(selectedSnapshot.state)}
-              </span>
+              <div><span className="af-eyebrow">Selected Market</span><h2>{selectedMeta.label}</h2></div>
+              <span className={`af-authority af-authority-${authorityClass(selectedSnapshot.state)}`}>{marketStateLabel(selectedSnapshot.state)}</span>
             </div>
             <dl className="af-markets-stat-grid">
               <div><dt>Open</dt><dd>{formatNumber(selectedSnapshot.open)}</dd></div>
@@ -138,30 +110,18 @@ export const UserMarkets: React.FC<UserMarketsProps> = ({ theme, queryMarket = q
           </section>
 
           <section className="af-markets-panel af-markets-authority-panel">
-            <span className="af-eyebrow">Authority Map</span>
-            <h2>What this page can do</h2>
-            <div className="af-market-authority-row">
-              <span>Index candles</span><strong>Canonical backend read</strong>
-            </div>
-            <div className="af-market-authority-row">
-              <span>Option-chain quotes</span><strong>Unavailable</strong>
-            </div>
-            <div className="af-market-authority-row">
-              <span>Order execution</span><strong>None</strong>
-            </div>
-            <div className="af-market-authority-row">
-              <span>Options policy</span><strong>BUY-only constraint preserved</strong>
-            </div>
+            <span className="af-eyebrow">Authority Map</span><h2>What this page can do</h2>
+            <div className="af-market-authority-row"><span>Index candles</span><strong>Canonical backend read</strong></div>
+            <div className="af-market-authority-row"><span>Option-chain quotes</span><strong>Unavailable</strong></div>
+            <div className="af-market-authority-row"><span>Order execution</span><strong>None</strong></div>
+            <div className="af-market-authority-row"><span>Options policy</span><strong>BUY-only constraint preserved</strong></div>
           </section>
         </aside>
       </div>
 
       <section className="af-option-chain-panel" aria-label="Option Chain">
         <div className="af-option-chain-head">
-          <div>
-            <span className="af-eyebrow">Derivatives</span>
-            <h2>Option Chain</h2>
-          </div>
+          <div><span className="af-eyebrow">Derivatives</span><h2>Option Chain</h2></div>
           <span className="af-authority af-authority-unavailable">{optionChainAuthority.state}</span>
         </div>
         <div className="af-option-chain-unavailable">
