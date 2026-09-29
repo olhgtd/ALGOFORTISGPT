@@ -15,11 +15,36 @@ export interface HomePortfolioInput {
   events: Record<string, unknown>[] | null;
 }
 
+export interface HomeStrategySummaryInput {
+  state: AuthorityState;
+  total: number | null;
+  deployments: number | null;
+  paperReady: number | null;
+  liveReady: number | null;
+}
+
+export interface HomeTestingSummaryInput {
+  state: AuthorityState;
+  backtests: number | null;
+  walkForward: number | null;
+  reports: number | null;
+  activeJobs: number | null;
+}
+
+export interface HomeRiskInput {
+  state: AuthorityState;
+  level: string | null;
+  reasons: string[];
+}
+
 export interface HomeModelSources {
   profile?: { state: AuthorityState; displayName?: string | null; sxId?: string | null };
   shell?: { mode?: TradingMode; automationState?: AutomationState; brokerState?: BrokerState; engineState?: AuthorityState; dataFreshness?: AuthorityState };
   portfolio?: HomePortfolioInput;
   markets?: Partial<Record<"NIFTY" | "BANKNIFTY", HomeMarketInput>>;
+  strategies?: HomeStrategySummaryInput;
+  testing?: HomeTestingSummaryInput;
+  risk?: HomeRiskInput;
 }
 
 export interface CapitalPoolSummary {
@@ -51,9 +76,9 @@ export interface HomeCommandCenterModel {
   markets: Array<{ symbol: "NIFTY" | "BANKNIFTY"; state: AuthorityState; price: number | null; asOf: string | null; source: string | null }>;
   capital: { state: AuthorityState; pools: CapitalPoolSummary[] | null; aggregate: null };
   positions: { state: AuthorityState; items: PositionSummaryRow[] | null };
-  strategies: { state: "UNAVAILABLE"; items: null };
-  risk: { state: "UNKNOWN"; level: null; reasons: string[] };
-  testing: { state: "UNAVAILABLE"; items: null };
+  strategies: HomeStrategySummaryInput;
+  risk: HomeRiskInput;
+  testing: HomeTestingSummaryInput;
   recentActivity: { state: AuthorityState; items: Record<string, unknown>[] | null };
 }
 
@@ -85,16 +110,33 @@ const mapPosition = (row: Record<string, unknown>, index: number): PositionSumma
   status: stringOrNull(row.status),
 });
 
+const defaultStrategies = (): HomeStrategySummaryInput => ({
+  state: "UNAVAILABLE",
+  total: null,
+  deployments: null,
+  paperReady: null,
+  liveReady: null,
+});
+
+const defaultTesting = (): HomeTestingSummaryInput => ({
+  state: "UNAVAILABLE",
+  backtests: null,
+  walkForward: null,
+  reports: null,
+  activeJobs: null,
+});
+
 export const buildHomeCommandCenterModel = (sources: HomeModelSources): HomeCommandCenterModel => {
   const portfolio = sources.portfolio;
   const portfolioAvailable = portfolio?.state === "AVAILABLE";
   const markets = (["NIFTY", "BANKNIFTY"] as const).map((symbol) => {
     const input = sources.markets?.[symbol];
     if (!input) return { symbol, state: "UNAVAILABLE" as const, price: null, asOf: null, source: null };
+    const carriesCanonicalValue = input.state === "AVAILABLE" || input.state === "STALE";
     return {
       symbol,
       state: input.state,
-      price: input.state === "AVAILABLE" ? input.price : null,
+      price: carriesCanonicalValue ? input.price : null,
       asOf: input.asOf ?? null,
       source: input.source ?? null,
     };
@@ -123,9 +165,9 @@ export const buildHomeCommandCenterModel = (sources: HomeModelSources): HomeComm
       state: portfolio?.state ?? "UNAVAILABLE",
       items: portfolioAvailable && portfolio.positions ? portfolio.positions.map(mapPosition) : null,
     },
-    strategies: { state: "UNAVAILABLE", items: null },
-    risk: { state: "UNKNOWN", level: null, reasons: [] },
-    testing: { state: "UNAVAILABLE", items: null },
+    strategies: sources.strategies ?? defaultStrategies(),
+    risk: sources.risk ?? { state: "UNKNOWN", level: null, reasons: [] },
+    testing: sources.testing ?? defaultTesting(),
     recentActivity: {
       state: portfolio?.state ?? "UNAVAILABLE",
       items: portfolioAvailable && portfolio.events ? portfolio.events : null,
