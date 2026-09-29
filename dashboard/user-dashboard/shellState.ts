@@ -4,6 +4,7 @@ export type AutomationState =
   | "PAUSED"
   | "STOPPED"
   | "HALT_ENTRIES"
+  | "HALTED"
   | "RECOVERY"
   | "READY_FOR_RESUME"
   | "UNKNOWN";
@@ -41,7 +42,7 @@ export const deriveUserShellStatus = (input: UserShellStatusInput): UserShellSta
   modeLabel: input.mode === "BACKTEST" ? "Backtest" : input.mode === "PAPER" ? "Paper" : input.mode === "LIVE" ? "Live" : "Unavailable",
   liveStateLabel: input.mode === "LIVE" ? "READ_ONLY / DISARMED" : null,
   automationState: input.automationState,
-  manualResumeRequired: ["HALT_ENTRIES", "RECOVERY", "READY_FOR_RESUME"].includes(input.automationState),
+  manualResumeRequired: ["HALT_ENTRIES", "HALTED", "RECOVERY", "READY_FOR_RESUME"].includes(input.automationState),
   brokerState: input.brokerState ?? "UNKNOWN",
   engineState: input.engineState ?? "UNKNOWN",
   dataFreshness: input.dataFreshness ?? "UNKNOWN",
