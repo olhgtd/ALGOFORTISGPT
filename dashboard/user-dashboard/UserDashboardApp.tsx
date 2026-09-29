@@ -57,6 +57,12 @@ const initialShellStatus = (): UserShellStatus => deriveUserShellStatus({
   notifications: {},
 });
 
+const initialRiskAuthority = (): UserShellAuthorityData["risk"] => ({
+  state: "UNKNOWN",
+  level: null,
+  reasons: [],
+});
+
 export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
   theme,
   toggleTheme,
@@ -68,6 +74,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shellStatus, setShellStatus] = useState<UserShellStatus>(initialShellStatus);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [riskAuthority, setRiskAuthority] = useState<UserShellAuthorityData["risk"]>(initialRiskAuthority);
 
   useEffect(() => {
     const onHash = () => setScreen(locationScreen());
@@ -89,10 +96,12 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
         if (!active) return;
         setShellStatus(next.status);
         setNotifications(next.notifications);
+        setRiskAuthority(next.risk);
       } catch {
         if (!active) return;
         setShellStatus(initialShellStatus());
         setNotifications([]);
+        setRiskAuthority(initialRiskAuthority());
       } finally {
         inFlight = false;
       }
@@ -151,7 +160,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
 
   const content = (() => {
     switch (screen) {
-      case "home": return <UserHome go={go} />;
+      case "home": return <UserHome go={go} shellStatus={shellStatus} riskAuthority={riskAuthority} />;
       case "markets": return <UserMarkets theme={theme} />;
       case "strategies": return <UserStrategies />;
       case "testing": return <UserTesting />;
