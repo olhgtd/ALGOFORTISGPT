@@ -27,8 +27,8 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
     return () => { active = false; };
   }, [loadData]);
 
-  const profile = data?.profile.data ?? null;
-  const connections = data?.connections.data ?? [];
+  const profile = data?.profile.state === "AVAILABLE" ? data.profile.data : null;
+  const connections = data?.connections.state === "AVAILABLE" ? data.connections.data : [];
 
   return (
     <div className="af-user-surface" data-testid="account-surface">
@@ -44,7 +44,13 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
           {!data ? (
             <AuthorityMessage state="LOADING" title="User profile" unavailable="" />
           ) : data.profile.state !== "AVAILABLE" || !profile ? (
-            <AuthorityMessage state="UNAVAILABLE" title="User profile" unavailable="Authoritative profile is unavailable. No sample identity is shown." />
+            <AuthorityMessage
+              state={data.profile.state}
+              title="User profile"
+              unavailable="Authoritative profile is unavailable. No sample identity is shown."
+              stale="User profile evidence is stale. Stale identity and entitlement values are withheld until fresh evidence is available."
+              unknown="User profile authority trust is unknown. Identity and entitlement values are withheld."
+            />
           ) : (
             <>
               <div className="af-account-identity">
@@ -69,7 +75,13 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
 
         <SurfacePanel eyebrow="Entitlement" title="Service & Workspace" authority={data?.profile.state ?? "LOADING"}>
           {!data || data.profile.state !== "AVAILABLE" || !profile ? (
-            <AuthorityMessage state={data ? "UNAVAILABLE" : "LOADING"} title="Service entitlement" unavailable="Service entitlement authority is unavailable." />
+            <AuthorityMessage
+              state={data ? data.profile.state : "LOADING"}
+              title="Service entitlement"
+              unavailable="Service entitlement authority is unavailable."
+              stale="Service entitlement evidence is stale. Expiry and workspace access are withheld until fresh evidence is available."
+              unknown="Service entitlement authority trust is unknown. Access is not inferred from unknown evidence."
+            />
           ) : (
             <div className="af-account-entitlement-list">
               <div><span>Service started</span><strong>{displayScalar(profile.service_started_at)}</strong></div>
@@ -87,7 +99,13 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
         {!data ? (
           <AuthorityMessage state="LOADING" title="Connections" unavailable="" />
         ) : data.connections.state !== "AVAILABLE" ? (
-          <AuthorityMessage state="UNAVAILABLE" title="Connections" unavailable="Connection authority is unavailable. No broker connection is assumed." />
+          <AuthorityMessage
+            state={data.connections.state}
+            title="Connections"
+            unavailable="Connection authority is unavailable. No broker connection is assumed."
+            stale="Broker connection metadata is stale. Stale connectivity and capability records are withheld until fresh evidence is available."
+            unknown="Broker connection authority trust is unknown. Connectivity and execution capability are not inferred."
+          />
         ) : connections.length === 0 ? (
           <AuthorityMessage state="AVAILABLE" isEmpty title="Connections" unavailable="" empty="No authoritative broker connections are configured for this user." />
         ) : (
