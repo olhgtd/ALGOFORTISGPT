@@ -54,6 +54,17 @@ describe("finished normal-user surfaces", () => {
     expect(node.textContent).not.toContain("pending-user-surface");
   });
 
+  it("surfaces stale strategy authority instead of relabeling it unavailable or fresh", async () => {
+    const node = await mount(<UserStrategies loadData={async () => ({
+      state: "STALE" as const,
+      strategies: [],
+      deploymentsState: "UNKNOWN" as const,
+      asOf: "2026-09-29T07:00:00Z",
+    })} />);
+    expect(node.textContent).toContain("STALE");
+    expect(node.textContent).not.toContain("Registered Strategy");
+  });
+
   it("does not turn missing Testing authority into PASS or zero metrics", async () => {
     const node = await mount(<UserTesting loadData={unavailableTesting} />);
     expect(node.querySelector("[data-testid='testing-surface']")).not.toBeNull();
@@ -61,6 +72,17 @@ describe("finished normal-user surfaces", () => {
     expect(node.textContent).toContain("UNAVAILABLE");
     expect(node.textContent).not.toContain("PASS");
     expect(node.textContent).not.toContain("0 runs");
+  });
+
+  it("surfaces stale validation authority without showing stale run rows", async () => {
+    const node = await mount(<UserTesting loadData={async () => ({
+      backtests: { state: "STALE" as const, data: [], asOf: "2026-09-29T07:00:00Z" },
+      walkForward: { state: "UNKNOWN" as const, data: [], asOf: "2026-09-29T07:00:00Z" },
+      reports: { state: "AVAILABLE" as const, data: [], asOf: "2026-09-29T07:00:00Z" },
+    }) as any} />);
+    expect(node.textContent).toContain("STALE");
+    expect(node.textContent).toContain("UNKNOWN");
+    expect(node.textContent).not.toContain("PASS");
   });
 
   it("keeps Trades unavailable rather than fabricating orders or positions", async () => {
@@ -86,5 +108,23 @@ describe("finished normal-user surfaces", () => {
     expect(node.textContent).toContain("UNAVAILABLE");
     expect(node.textContent).not.toContain("Alexander Vance");
     expect(node.textContent).not.toContain("credentialRef");
+  });
+
+  it("does not render stale account identity or stale broker records as fresh", async () => {
+    const node = await mount(<UserAccount loadData={async () => ({
+      profile: {
+        state: "STALE" as const,
+        data: { user_id: "u1", role: "USER" as const, lifecycle: "ACTIVE", display_name: "Old Identity", namespace: "user" },
+        asOf: "2026-09-29T07:00:00Z",
+      },
+      connections: {
+        state: "STALE" as const,
+        data: [{ connectionId: "c1", userId: "u1", provider: "BROKER", accountRef: "OLD-ACCOUNT", hasCredentialRef: false, status: "CONNECTED", marketDataCapability: "READY", executionCapability: "READ_ONLY", healthState: "HEALTHY", suspended: false, suspendReason: null }],
+        asOf: "2026-09-29T07:00:00Z",
+      },
+    })} />);
+    expect(node.textContent).toContain("STALE");
+    expect(node.textContent).not.toContain("Old Identity");
+    expect(node.textContent).not.toContain("OLD-ACCOUNT");
   });
 });
