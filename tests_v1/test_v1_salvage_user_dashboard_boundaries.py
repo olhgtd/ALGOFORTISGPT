@@ -109,6 +109,27 @@ def test_shared_shell_is_authoritative_for_all_routes_and_notifications_are_not_
     assert 'rawState === "STALE"' in market_data
 
 
+def test_user_authority_states_preserve_stale_and_unknown_without_exposing_stale_rows() -> None:
+    surface_data = _text(USER_ROOT / "data" / "userSurfaceData.ts")
+    primitives = _text(USER_ROOT / "components" / "UserSurfacePrimitives.tsx")
+    strategies = _text(USER_ROOT / "screens" / "UserStrategies.tsx")
+    testing = _text(USER_ROOT / "screens" / "UserTesting.tsx")
+    account = _text(USER_ROOT / "screens" / "UserAccount.tsx")
+    home_data = _text(USER_ROOT / "home" / "homeData.ts")
+
+    assert '"AVAILABLE" | "STALE" | "UNKNOWN" | "UNAVAILABLE"' in surface_data
+    assert 'result.trust === "STALE"' in surface_data
+    assert 'state === "STALE"' in primitives
+    assert 'state={data.state}' in strategies
+    assert 'state={data.backtests.state}' in testing
+    assert 'state={data.walkForward.state}' in testing
+    assert 'state={data.reports.state}' in testing
+    assert 'state={data.profile.state}' in account
+    assert 'state={data.connections.state}' in account
+    assert 'state: surface.state' in home_data
+    assert 'value === "STALE"' in home_data
+
+
 def test_home_strategy_testing_and_risk_are_no_longer_hard_coded_placeholders() -> None:
     home_data = _text(USER_ROOT / "home" / "homeData.ts")
     home_model = _text(USER_ROOT / "home" / "homeModel.ts")
