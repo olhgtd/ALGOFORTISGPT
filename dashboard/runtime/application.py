@@ -21,6 +21,7 @@ from dashboard.backend.security_store import SQLiteSecurityStore
 from dashboard.backend.governance_store import SQLiteGovernanceStore
 from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
+from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from .paths import RuntimeMode, CurrentUserAcl
 
 
@@ -72,6 +73,10 @@ def create_runtime_app(paths, origin: str, instance_id: str):
                          feed=market_data, source_identity="algofortis-canonical-cache"),
                      historical_data_service=market_data,
                      artifact_root=paths.artifacts)
+    # Additive Owner/Admin + AI authority layer. It hardens legacy destructive
+    # Owner routes with fresh WebAuthn step-up and exposes backend-only Owner/AI
+    # read models. It has no broker mutation or Live-arm authority.
+    attach_owner_admin_control_plane(app)
     app.state.roaming_identity = UnavailableRoamingIdentity()
 
     backtest_lifespan = app.router.lifespan_context
