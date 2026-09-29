@@ -1,357 +1,319 @@
-# Owner/Admin Authoritative Reunion Design
+# Owner/Admin + AI Authoritative Reunion Design
 
-Date: 2026-09-29
-Branch: `owner-admin-authoritative-reunion-20260929`
+Date: 2026-09-29  
+Branch: `owner-admin-authoritative-reunion-20260929`  
 Base checkpoint: `f7e05888d67562bccffd7e9734a03431fa2a0c67`
 
 ## Purpose
 
-Preserve the mature manually-built V1 Owner/Admin UX and workflows while replacing prototype/sample/localStorage authority with current AlgoFortis V2 backend authority. The Owner surface remains a governance/oversight client. It must never become a second trading, RiskGate, broker-mutation, Paper, recovery-resume, or promotion authority.
+Preserve the mature manually-built V1 Owner/Admin UX while replacing prototype/sample/localStorage authority with current AlgoFortis V2 backend authority. The Normal User Dashboard checkpoint remains frozen. This design also brings the AI/agent control plane into the Owner/Admin scope as a real production-authority subsystem rather than the current sample-only visual prototype.
 
-The Normal User Dashboard checkpoint is frozen and out of scope except for shared read-only primitives that are explicitly reusable without changing user behavior.
+The Owner surface and AI subsystem remain governance/research clients. Neither may become a second trading, RiskGate, broker-mutation, Paper, recovery-resume, or order authority.
 
-## Selected approach
+## Selected architecture
 
-**Option A: V1 Owner UX + V2 authoritative backend reunion.**
+**Option A: preserve V1 Owner UX + current V2 authority + fresh authoritative AI control plane.**
 
-- Keep useful Owner/Admin screens and interaction patterns.
-- Replace production-path sample/prototype state with explicit backend read models/services.
-- Preserve fail-closed behavior: missing evidence is `UNAVAILABLE`, `UNKNOWN`, or `STALE`, never zero/healthy/safe by inference.
-- Keep Live `READ_ONLY / DISARMED`.
+- Keep useful Owner/Admin screens and workflows.
+- Replace canonical sample/prototype/localStorage truth with explicit backend contracts/read models.
+- Reuse the existing S2 account/device/session security design rather than inventing another authentication system.
+- Reuse the existing audit/evidence/FailureIncident pattern rather than creating an Admin-only log system.
+- Build AI authority fresh behind backend contracts; the old `Agents.tsx` is UI/reference material only because it currently uses `sampleData` and explicitly has no authoritative agent backend.
+- Preserve ADR-017: Prime owns orchestration/provider routing; Laya is Market Intelligence only.
+- Missing evidence remains `UNAVAILABLE`, `UNKNOWN`, or `STALE`; never inferred zero/healthy/safe.
+- Live remains `READ_ONLY / DISARMED`.
 - Broker connected does not imply Live armed.
 - RiskGateV2 remains the sole executable-order authority.
 
 ## Mandatory implementation order
 
-The following order is fixed and must be completed before broader Owner/Admin surface wiring:
+The order is fixed:
 
-1. **Permanent Admin boundary guard**
+1. **Permanent Admin + AI boundary guard**
 2. **Step-up authentication for destructive/security-sensitive Owner actions**
-3. **Existing audit ledger / FailureIncident reuse for security-relevant Owner actions**
-4. **Clear visual truth for `UNAVAILABLE / STALE / UNKNOWN / AVAILABLE`**
-5. **Owner/Admin authoritative wiring by surface**
-6. **Qualification record and frozen checkpoint**
+3. **Existing audit ledger / FailureIncident reuse**
+4. **Clear visual `AVAILABLE / STALE / UNKNOWN / UNAVAILABLE` truth**
+5. **Owner/Admin authoritative wiring**
+6. **Authoritative AI Control Center**
+7. **Qualification record + frozen checkpoint**
 
 No later stage may weaken an earlier stage.
 
 ---
 
-## 1. Permanent Admin boundary guard
+## 1. Permanent Admin + AI boundary guard
 
-Create an executable static safety check, expected path:
+Create an executable static safety check following repository check conventions, expected name:
 
-`checks/check_owner_admin_boundary.py`
+`check_owner_admin_boundary.py`
 
-The exact path may follow existing repository check conventions, but the check must be runnable in CI and locally.
+It must be runnable locally and in CI/qualification.
 
-### The guard must fail if canonical Owner/Admin production code introduces any direct or indirect obvious reference to:
+### The guard must fail if canonical Owner/Admin or AI production code introduces
 
-- broker `place_order`, `modify_order`, `cancel_order` paths;
-- direct Live broker mutation endpoints;
-- `_mint_approved_order()`;
+- broker `place_order`, `modify_order`, `cancel_order` authority;
+- direct Live broker-mutation endpoints;
+- `_mint_approved_order()` usage from Owner/Admin/AI;
 - legacy `engine.broker_adapters` mutation authority;
 - a second/legacy RiskGate approval path;
-- direct recovery resume/arming authority;
-- sample/prototype/localStorage modules as canonical production truth;
-- silent fake-success mutation helpers.
+- direct Live arm or recovery-resume authority;
+- canonical `sampleData`, prototype localStorage, fixture authority, or silent fake-success helpers;
+- Laya-owned agent routing/provider selection (`LayaRouter` or equivalent);
+- AI output converted directly into executable broker commands;
+- AI-owned account/security/billing mutation;
+- AI-owned database/trading-state mutation outside explicitly approved evidence/job stores.
 
-### The guard must pin these invariants
+### Pinned invariants
 
-- Owner/Admin UI is governance/oversight only.
-- Live remains `READ_ONLY / DISARMED`.
-- Broker connection does not arm Live.
-- RiskGateV2 remains the sole executable-order authority.
+- Owner/Admin = governance/oversight.
+- AI = advisory/research/shadow.
+- Prime = orchestration/router.
+- Laya = Market Intelligence only.
+- Research Agent = research/data specialist.
+- Risk Challenger = critique/challenge specialist, not RiskGate.
+- RiskGateV2 is the sole executable-order authority.
+- Live = `READ_ONLY / DISARMED`.
 - Paper and Live remain isolated.
-- Sample/demo modules may exist only behind explicit preview/dev-only paths and must not be imported by canonical production Owner routes.
-
-This is not documentation-only. It must be an executable regression boundary.
+- Sample/demo material may exist only behind explicit preview/dev-only boundaries.
 
 ---
 
 ## 2. Step-up authentication for destructive Owner actions
 
-Destructive or security-sensitive Owner actions affect another user's access or system trust and therefore require fresh step-up authentication.
+Reuse S2 WebAuthn/account/device/session semantics. Do not create a new Admin password/confirmation authority.
 
-### Step-up-required action families
+Step-up is required for trust-changing/risk-increasing Owner operations, including at minimum:
 
-At minimum:
-
-- suspend account;
-- restore/re-enable account where policy classifies it as risk-increasing;
-- revoke account/access;
-- revoke activation/access token;
-- reissue activation where it changes trust/access state;
-- entitlement extend/renew/lifetime conversion where it changes service authority;
-- session revoke / revoke-all sessions;
-- device revoke / revoke-all devices;
+- suspend/revoke account/access;
+- restore/re-enable when policy classifies it as risk-increasing;
+- activation revoke/reissue when trust changes;
+- entitlement extend/renew/lifetime conversion;
+- session revoke/revoke-all;
+- device revoke/revoke-all;
 - security posture changes;
-- strategy suspension/restoration/administrative allowance changes when they alter deployability;
+- strategy suspension/restoration/administrative allowance changes affecting deployability;
 - connection/capability administrative allowance changes;
-- any future Owner action classified by policy as risk-increasing or trust-changing.
+- AI provider credential/binding changes where they change trust or external data access;
+- enabling/disabling an AI agent or job class when policy marks it security-sensitive;
+- future operations classified by backend policy as trust-changing/risk-increasing.
 
-### Step-up behavior
-
-- The UI may request the action, but the backend is the authority deciding whether step-up is required and whether the proof is fresh/valid.
-- No localStorage-only or UI-only confirmation may satisfy step-up.
-- A stale/expired/missing step-up proof fails closed with no mutation.
-- The Owner receives a clear reason and may retry after completing step-up.
-- Step-up state must not silently persist beyond the server-defined freshness window.
-- Existing S2 account/device/session gating semantics are reused rather than inventing a new authentication system.
+Backend authority decides whether proof is required and whether it is fresh. Missing/stale/expired proof fails closed with zero mutation. UI/localStorage confirmation never satisfies step-up.
 
 ---
 
 ## 3. Existing audit ledger / FailureIncident reuse
 
-Do not create a separate hidden Admin-only logging subsystem.
+No separate hidden Admin or AI logging database.
 
-Security-relevant and destructive Owner actions must flow through the existing audit/evidence model. Where an action represents a failure, policy breach, rejected trust transition, or security incident, reuse/extend the existing `FailureIncident` pattern rather than creating a parallel incident table.
+Security-relevant Owner operations and AI governance actions flow through the existing audit/evidence model. Rejected trust transitions, policy breaches, security failures, provider failures requiring incident treatment, and equivalent conditions reuse/extend the existing FailureIncident pattern where applicable.
 
-### Audit requirements
+Audit/evidence should preserve, where safe:
 
-Each relevant action must preserve, where available and policy-safe:
-
-- actor / Owner identity;
-- target user/account/strategy/connection identifier;
+- actor/Owner identity;
+- target user/account/strategy/connection/agent/provider/job id;
 - action family;
-- request time;
+- request/evaluation time;
 - authoritative result (`APPLIED`, `REJECTED`, `FAILED`, etc.);
-- reason / policy code;
-- step-up requirement and verification result without logging secret proof material;
-- correlation/request id;
-- before/after high-level state where safe and necessary;
-- immutable audit linkage/evidence reference.
+- policy/reason code;
+- step-up required/result without proof secrets;
+- correlation/request/job id;
+- safe before/after high-level state;
+- immutable evidence/audit reference.
 
-### Failures
-
-- Audit write failure must never be converted into fake action success.
-- If policy requires audit persistence before mutation, mutation fails closed when audit persistence cannot be guaranteed.
-- No plaintext credentials, passwords, activation secrets, recovery secrets, or step-up proof material may be logged.
+No password, activation secret, recovery secret, API secret, model-provider secret, broker credential, or step-up proof material may be logged. Audit-required mutations fail closed if required evidence cannot be persisted.
 
 ---
 
 ## 4. Visual authority truth
 
-Owner/Admin screens must use the same four-state authority model:
+Owner/Admin and AI Control Center use the same authority states:
 
 - `AVAILABLE`
 - `STALE`
 - `UNKNOWN`
 - `UNAVAILABLE`
 
-### UI rules
+Rules:
 
-- `UNAVAILABLE` must be visually unmistakable from `0`, empty-but-valid, healthy, or safe.
-- `STALE` must remain visible as stale and must not be promoted to available.
-- `UNKNOWN` must never be converted to a guessed status.
-- An authoritative empty dataset may render `0` only when the source itself is `AVAILABLE` and explicitly returned an empty valid set.
-- Missing authority must not render `0 users`, `0 risks`, `0 incidents`, `healthy`, `safe`, `PASS`, or equivalent positive inference.
-- Owner Overview summary cards must show warning/error/disabled presentation for unavailable authority rather than neutral empty values.
-- Shared badges/messages should be reusable across Owner screens so state meaning stays consistent.
+- `UNAVAILABLE` must be visibly different from valid `0`, healthy, safe, PASS, or empty.
+- `STALE` stays stale; it is never promoted to available.
+- `UNKNOWN` is never guessed.
+- `0` is shown only when an `AVAILABLE` source explicitly returns an empty set/count.
+- Missing user/strategy/risk/incident/agent/provider/job authority never renders as `0` or healthy.
+- Owner Overview and AI cards use shared visible warning/error/disabled states.
 
 ---
 
-## 5. Owner/Admin surfaces to reunite
+## 5. Owner/Admin authoritative wiring
 
-### 5.1 Owner Overview
+### Owner Overview
 
-Preserve the current overview UX, but remove canonical `sampleData`/prototype fallbacks.
+Preserve UX; remove canonical sample fallbacks. Show authoritative Users/Access, strategy governance, connections/data, system/persistence health, security posture, AI status and attention items. Hard-coded claims such as `AUTHORITATIVE RUNTIME · RELEASE CANDIDATE` must be derived from evidence or replaced with neutral product identity.
 
-Authoritative summaries:
+### Users Oversight + User Inspection
 
-- Users/Access Registry
-- Strategy governance
-- Connections/data providers
-- System/persistence health
-- Security posture
-- attention items
+Preserve the V1 inspection flow and its conceptual tabs:
 
-Hard-coded claims such as `AUTHORITATIVE RUNTIME · RELEASE CANDIDATE` must be derived from actual authority or replaced with neutral product identity text.
+`Profile | Strategies | Backtests | Paper | Portfolio | Orders | Connections | Reports | Sessions | Security State`
 
-### 5.2 Users Oversight + User Inspection
+Every tab reads current authority. Missing per-user authority = unavailable/unknown, never sample rows. Administrative mutations remain separate, step-up gated and audited.
 
-Preserve the mature inspection workflow, including the existing conceptual tabs:
+### Access Registry
 
-- Profile
-- Strategies
-- Backtests
-- Paper
-- Portfolio
-- Orders
-- Connections
-- Reports
-- Sessions
-- Security State
+Backend authority owns access creation, activation/reissue/revoke, account suspend/restore/revoke, entitlement lifecycle and service-term changes. Prototype-generated identifiers/codes remain preview-only.
 
-Each tab must read from current backend authority. Missing per-user authority renders unavailable/unknown, never sample rows.
+### Strategy Governance
 
-Owner inspection remains read-only except for separately authorized administrative actions subject to step-up and audit requirements.
+Use current registry/readiness/promotion contracts. Owner may add restrictions/holds, but cannot override failed system readiness, deterministic validation or RiskGateV2. Promotion success is shown only after authoritative persisted confirmation/re-read.
 
-### 5.3 Access Registry
+### Connections / Datasets / Plugins
 
-Use backend authority for:
+Use authoritative connection, capability, historical-data and dataset status. Remove simulated verification/gap repair/sample fallback from canonical production mode. Missing backend capability means unavailable, not simulated success.
 
-- create access;
-- activation/reissue/revoke;
-- account suspend/restore/revoke;
-- entitlement lifecycle;
-- service term changes.
+### Backtest + Paper
 
-Prototype-generated identifiers/codes may remain only in explicit preview/dev fixtures and cannot become production truth.
+Use current deterministic V2 backtest/research authority and current Paper engine only. No duplicate V1 engine/ledger.
 
-### 5.4 Strategy Governance
+### Portfolio + Orders
 
-Preserve the Owner strategy UX but use current registry/readiness/promotion APIs.
+Preserve canonical runtime view where already authoritative. Owner view is oversight/read-side; no direct place/modify/cancel broker authority.
 
-Owner administrative allowance may further restrict a strategy but cannot override a failed system/readiness gate.
+### Reports + Audit
 
-Promotion success may be shown only after authoritative persisted confirmation/re-read as required by current contracts.
+Use current report/evidence and immutable audit authorities. Remove simulated report success from production mode.
 
-No Owner action bypasses RiskGateV2 or creates executable orders.
+### Security + System + Settings
 
-### 5.5 Connections / Datasets / Plugins
+Preserve current backend sessions/devices/security/persistence/settings wiring. Retain `PROPOSE -> CONFIRM -> APPLY -> VERIFY`. Destructive operations are step-up gated and audited.
 
-Use authoritative connection, capability, historical-data, and dataset status.
+---
 
-Remove simulated verification, simulated gap repair, and sample fallback from canonical production mode.
+## 6. Authoritative AI Control Center
 
-Missing backend action endpoint means the action is unavailable, not simulated.
+The current visual Agent screen is not production authority. Production AI is built fresh behind explicit backend contracts while reusing useful V1/visual interaction ideas.
 
-Legacy broker mutation adapters are not imported into Owner UI.
+### 6.1 Agent roles
 
-### 5.6 Backtest + Paper Oversight
+```text
+Prime Agent / Agent Orchestrator
+    ├── Laya — Market Intelligence only
+    ├── Research Agent — research/data specialist
+    └── Risk Challenger — independent risk critique
+```
 
-Backtest uses current deterministic V2 backtest/research authority.
+Prime owns task routing, orchestration and provider/model routing. Laya never dispatches agents or chooses models for other agents.
 
-Paper uses current Paper engine only.
+### 6.2 Backend authority to build
 
-No duplicate V1 Paper engine or local prototype ledger may become runtime authority.
+The AI control plane should expose explicit durable/readable contracts for:
 
-Administrative holds are allowed only through current backend governance contracts.
+- agent registry and immutable role/type;
+- agent status/health and authority freshness;
+- provider registry;
+- model registry/model availability;
+- per-agent provider/model binding;
+- deterministic fallback policy owned by Prime/orchestration;
+- research/shadow job queue and lifecycle;
+- run/job history;
+- structured outputs/artifacts;
+- provenance/evidence refs;
+- failures/incidents;
+- Owner administrative holds/enablement policy where allowed;
+- configuration versioning and audit linkage.
 
-### 5.7 Portfolio & Orders
+Secrets/API keys are stored only through approved secret-provider abstractions, never Git or rendered in UI.
 
-Preserve the existing canonical runtime view where already authoritative.
+### 6.3 Laya
 
-Preview/sample version remains explicitly preview-only.
+Implement according to ADR-017. Laya may consume approved authoritative market/options context and produce structured market observations, regime/context, hypotheses, `TradeCandidate`/`NO-TRADE` research outputs and evidence. It cannot route agents, select providers globally, mutate brokers, arm Live, bypass validation or become RiskGate.
 
-Owner view is oversight/read-side and cannot place/modify/cancel real broker orders.
+The existing `laya-native-workspace` and frozen Laya source/model decisions may be integrated later through an adapter; model availability must be reported truthfully (`AVAILABLE/STALE/UNKNOWN/UNAVAILABLE`). Synthetic training data is pipeline/pretraining/shadow material only and is never labeled real NSE evidence.
 
-### 5.8 Reports & Audit
+### 6.4 Prime
 
-Use current backend report and immutable audit authorities.
+Prime coordinates AI tasks and specialist delegation, owns provider/model selection via the registry, records routing decisions/evidence, and fails closed when required agents/providers/data are unavailable. Prime output remains advisory/research; it cannot produce broker mutations.
 
-Simulated report-generation success is removed from production mode.
+### 6.5 Research Agent
 
-Report generation, if supported, must be backend-authoritative and may show success only after persisted evidence is available.
+Research/data specialist for strategy research, evidence gathering, experiment/research artifacts and supporting analysis. It must use approved data/read ports and preserve provenance; it cannot silently promote strategies or trade.
 
-### 5.9 Security + System + Settings
+### 6.6 Risk Challenger
 
-Preserve current strong backend wiring for sessions, devices, security state, system/persistence health, and server settings.
+Produces independent critique/challenge of candidate assumptions and risk. It is not RiskGateV2 and cannot approve executable orders. Its output is evidence/advice only.
 
-Retain the safe setting transition:
+### 6.7 Owner AI UI
 
-`PROPOSE -> CONFIRM -> APPLY -> VERIFY`
+Owner Control Center should show, from backend authority only:
 
-Security/session/device destructive actions are step-up gated and audited.
+- Prime/Laya/Research/Risk Challenger cards;
+- status + health + current authoritative task;
+- provider/model binding;
+- provider/model health;
+- current and recent research/shadow jobs;
+- run history/detail;
+- artifact/evidence refs;
+- failures/incidents;
+- four-state authority badges;
+- clearly protected safety boundaries.
+
+Pause/resume/start/stop controls are exposed only for backend-supported research/shadow jobs and follow policy/step-up/audit requirements. No UI-only sample toggle becomes production control.
+
+### 6.8 AI acceptance guards
+
+Tests must prove:
+
+- no `LayaRouter`/Laya-owned provider routing;
+- no AI broker/order mutation imports/calls;
+- no AI Live arm/recovery-resume authority;
+- no RiskGateV2 bypass;
+- unavailable/stale providers or market data fail closed;
+- provider/model routing belongs to Prime/orchestrator;
+- job/output provenance is retained;
+- sample Agent data is not canonical production truth.
 
 ---
 
 ## Shared Owner authority layer
 
-Introduce or consolidate a thin read-only Owner authority layer analogous to the finished user-side pattern.
+Create/consolidate a thin presentation/read-model layer for Owner shell/system/security/recovery/broker-data/audit/AI attention state. It does not become a trading or AI execution authority.
 
-It may expose:
+## Data/provenance rules
 
-- owner shell/system status;
-- security posture;
-- recovery/manual-resume status;
-- broker/data health;
-- audit/report health;
-- attention-center notifications;
-- per-surface authority state.
+Canonical production screens consume backend/source-tagged results. `SAMPLE_FALLBACK`, fixture storage, prototype localStorage and simulation helpers are preview/dev-only. Secrets remain sealed/redacted. Current V2 contracts win on conflicts with V1.
 
-This layer is a presentation/read-model adapter only. It does not become trading authority.
+## Qualification
 
----
-
-## Data and provenance rules
-
-- Production Owner screens consume backend/source-tagged results.
-- `SAMPLE_FALLBACK`, fixture storage, prototype localStorage, and simulation helpers are not authoritative production sources.
-- Explicit preview/dev-only modes may retain fixtures, visually labeled `SAMPLE`/`PREVIEW`, isolated from canonical production routes.
-- Secrets remain sealed and never rendered.
-- Secret references may be shown only in redacted/opaque form.
-
----
-
-## Compatibility and preservation
-
-Preserve valuable V1 Owner UX and workflows rather than rewriting them.
-
-Do not transplant:
-
-- legacy RiskGate authority;
-- old broker mutation paths;
-- duplicate Paper engine;
-- old local-only identity authority as current roaming identity;
-- fake/sample success paths;
-- duplicate stores;
-- generated build artifacts/caches.
-
-Current V2 contracts win on conflicts.
-
----
-
-## Testing and qualification
-
-Implementation must add tests while work proceeds, but until an executable runner successfully performs the commands, status remains:
+Tests are written during implementation, but until an executable runner successfully performs them the status remains:
 
 `IMPLEMENTED / EXECUTION VERIFICATION PENDING`
 
-Never claim GREEN from source inspection alone.
+Required families include:
 
-### Required verification families
-
-- `check_owner_admin_boundary.py` static guard;
-- Owner authority-state tests (`AVAILABLE/STALE/UNKNOWN/UNAVAILABLE`);
-- step-up-required destructive-action tests;
-- step-up expiry/missing/rejected tests;
-- audit/FailureIncident linkage tests;
-- no-secret-in-audit tests;
-- Owner overview no-fake-zero tests;
+- Admin+AI static boundary guard;
+- step-up positive/negative/expired tests;
+- audit/incident linkage + no-secret tests;
+- four-state visual truth/no-fake-zero tests;
 - sample/prototype isolation tests;
-- user-side regression tests to prove frozen user behavior remains intact;
-- TypeScript typecheck;
-- frontend unit tests;
-- production build;
-- relevant Python regression suite;
-- existing Live READ_ONLY/DISARMED and RiskGate authority checks;
-- existing Paper/recovery and broker read-only qualification where available.
-
-When hosted quota/runner availability returns, execute the combined qualification rather than treating deferred execution as success.
-
----
+- Owner surface authority tests;
+- Prime/Laya/Research/Risk Challenger role-boundary tests;
+- provider/model registry and routing tests;
+- AI provenance/fail-closed tests;
+- frozen User-side regressions;
+- TypeScript tests/typecheck/build;
+- relevant Python regression;
+- existing Live READ_ONLY/DISARMED, RiskGateV2, Paper/recovery and broker read-only safety checks.
 
 ## Completion criteria
 
-Owner/Admin reunion is implementation-complete only when:
+Implementation-complete requires all seven ordered stages implemented, canonical Owner/Admin/AI production paths free of sample authority, step-up/audit/four-state truth enforced, AI roles/backend authority present, User checkpoint unchanged, and a frozen exact-SHA checkpoint/qualification record.
 
-1. Boundary guard exists and covers canonical Owner routes.
-2. Canonical production Owner screens no longer rely on sample/prototype/localStorage truth.
-3. Destructive/security-sensitive actions require backend-authoritative step-up.
-4. Relevant actions write to the existing audit/evidence model and FailureIncident where applicable.
-5. All Owner surfaces preserve four-state authority truth without fake zero/healthy inference.
-6. User-side frozen behavior remains unchanged.
-7. Live remains `READ_ONLY / DISARMED` and no Owner UI direct broker mutation authority exists.
-8. Qualification record documents exact executed evidence and pending items.
-9. A dedicated frozen Owner/Admin checkpoint branch is created at the exact final SHA.
-
-Full `100% VERIFIED COMPLETE` status additionally requires fresh executable test/typecheck/build/qualification evidence with zero unexplained failures.
+`100% VERIFIED COMPLETE` additionally requires fresh executable test/typecheck/build/qualification evidence with no unexplained failures.
 
 ## Out of scope
 
-- Real-money Live broker execution enablement.
-- Laya/AI authority changes.
-- New Owner visual redesign unrelated to authority/wiring.
-- Cloud/commercial account platform expansion beyond existing contracts.
-- Rewriting the mature V1 Owner UX from scratch.
+- enabling real-money Live broker execution;
+- giving AI autonomous broker/order authority;
+- making Laya the router/orchestrator;
+- rewriting the mature Owner UX merely for aesthetics;
+- treating synthetic data as real market evidence;
+- unrelated cloud/commercial expansion.
