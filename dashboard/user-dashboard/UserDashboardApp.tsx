@@ -8,9 +8,10 @@ import { UserTrades } from "./screens/UserTrades";
 import { UserPortfolio } from "./screens/UserPortfolio";
 import { UserAccount } from "./screens/UserAccount";
 import { UserDashboardShell } from "./components/UserDashboardShell";
+import type { UserNotification } from "./components/NotificationCenter";
 import { USER_NAV_ITEMS, isUserScreenId, type UserScreenId } from "./navigation";
 import { deriveUserShellStatus, type UserShellStatus } from "./shellState";
-import { loadHomeCommandCenterModel } from "./home/homeData";
+import { loadUserShellAuthority, type UserShellAuthorityData } from "./data/userShellData";
 import "./user-dashboard.css";
 import "./user-dashboard-finish.css";
 import "./user-pages.css";
@@ -23,6 +24,8 @@ export interface UserDashboardAppProps {
   forceMode?: "desktop" | "mobile";
   onSwitchWorkspace?: (ws: "user" | "owner") => void;
   onExit?: () => void;
+  loadShell?: () => Promise<UserShellAuthorityData>;
+  shellRefreshMs?: number;
 }
 
 const LEGACY_ROUTE_MAP: Record<string, UserScreenId> = {
@@ -58,10 +61,13 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
   theme,
   toggleTheme,
   onExit,
+  loadShell = loadUserShellAuthority,
+  shellRefreshMs = 5000,
 }) => {
   const [screen, setScreen] = useState<UserScreenId>(locationScreen);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shellStatus, setShellStatus] = useState<UserShellStatus>(initialShellStatus);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
 
   useEffect(() => {
     const onHash = () => setScreen(locationScreen());
@@ -69,25 +75,36 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  // Home already loads the authoritative command-center model and reports its
-  // shell status. Direct routes must do the same instead of remaining at the
-  // bootstrap UNKNOWN state for the entire session.
+  // One read-only shell authority serves every route. Home is not a special
+  // prerequisite and no route owns a competing mode/broker/health truth.
   useEffect(() => {
-    if (screen === "home") return;
     let active = true;
+    let inFlight = false;
 
-    void loadHomeCommandCenterModel()
-      .then((model) => {
-        if (active) setShellStatus(model.shell);
-      })
-      .catch(() => {
-        if (active) setShellStatus(initialShellStatus());
-      });
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await loadShell();
+        if (!active) return;
+        setShellStatus(next.status);
+        setNotifications(next.notifications);
+      } catch {
+        if (!active) return;
+        setShellStatus(initialShellStatus());
+        setNotifications([]);
+      } finally {
+        inFlight = false;
+      }
+    };
 
+    void refresh();
+    const timer = shellRefreshMs > 0 ? window.setInterval(() => { void refresh(); }, shellRefreshMs) : null;
     return () => {
       active = false;
+      if (timer !== null) window.clearInterval(timer);
     };
-  }, [screen]);
+  }, [loadShell, shellRefreshMs]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -134,7 +151,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
 
   const content = (() => {
     switch (screen) {
-      case "home": return <UserHome go={go} onShellStatus={setShellStatus} />;
+      case "home": return <UserHome go={go} />;
       case "markets": return <UserMarkets theme={theme} />;
       case "strategies": return <UserStrategies />;
       case "testing": return <UserTesting />;
@@ -153,7 +170,7 @@ export const UserDashboardApp: React.FC<UserDashboardAppProps> = ({
         onNavigate={go}
         onOpenPalette={() => setPaletteOpen(true)}
         status={shellStatus}
-        notifications={[]}
+        notifications={notifications}
         onExit={onExit}
       >
         {content}
