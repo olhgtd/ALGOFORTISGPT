@@ -23,6 +23,7 @@ from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonySe
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
+from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verification_routes
 from .paths import RuntimeMode, CurrentUserAcl
 
 
@@ -36,9 +37,6 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="sentinelx-local",
                                 starting_capital=Decimal("0.00"), audit_source_identity="sentinelx-local")
     owner = local_owner(security, paths.config / "identity.json")
-    # Configurable WebAuthn RP and Origin:
-    # Read from deployment environment configuration with safe production defaults.
-    # In production, a loopback product transport cannot impersonate approved HTTPS identity origins.
     normal_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RP_ID", "algofortis.com")).strip()
     normal_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_ORIGIN", f"https://app.{normal_rp_id}")).strip()
     recovery_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_RP_ID", "algofortis-recovery.com")).strip()
@@ -50,16 +48,11 @@ def create_runtime_app(paths, origin: str, instance_id: str):
         else WebAuthnRelyingParty("localhost", origin, development_only=True),
         recovery_rp=WebAuthnRelyingParty(recovery_rp_id, recovery_origin) if paths.mode is RuntimeMode.PRODUCTION else None,
     )
-    # F-21: ONE product-owned historical-data lifecycle rooted in the product
-    # runtime storage authority (never the repository path). Backtesting,
-    # historical paper replay and charting all resolve through this service.
     market_data = HistoricalDataService(
         paths.cache / "market-data",
         imports_root=paths.imports,
         security_store=security,
     )
-    # Configuration-driven provider: an owner-configured local import source
-    # may provision missing ranges; default remains fail-closed UNCONFIGURED.
     local_import_path = os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", os.environ.get("SENTINELX_LOCAL_IMPORT_PATH", "")).strip()
     if local_import_path:
         candidate = Path(local_import_path)
@@ -79,6 +72,7 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     # read models. It has no broker mutation or Live-arm authority.
     attach_owner_admin_control_plane(app)
     attach_owner_user_inspection(app)
+    attach_ai_verification_routes(app)
     app.state.roaming_identity = UnavailableRoamingIdentity()
 
     backtest_lifespan = app.router.lifespan_context
