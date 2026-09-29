@@ -72,12 +72,21 @@ export interface AuthoritativeUserResponse {
   effective_access?: boolean;
 }
 
+export interface OwnerBootstrapStatus {
+  owner_presence: "LOCAL_EXISTS" | "REMOTE_EXISTS" | "ABSENT_CONFIRMED" | "UNKNOWN";
+  owner_setup_allowed: boolean;
+  recommended_flow: "LOCAL_LOGIN" | "RETURNING_USER" | "LOCAL_OWNER_SETUP" | "UNAVAILABLE";
+  authority: string;
+  reason: string;
+}
+
 export const api = {
   health: () => request<HealthPayload>("/health".replace("/api/v1", "")),
   currentUser: () => request<AuthoritativeUserResponse>("/users/current"),
   accessRecords: () => request<{ source: string; trust: string; as_of_utc: string; total_count: number; records: any[] }>("/integration/access/records"),
   overview: () => request<OverviewPayload>("/overview"),
   securityStatus: () => request<SecurityStatusPayload>("/security/status"),
+  ownerBootstrapStatus: () => request<OwnerBootstrapStatus>("/identity/bootstrap-status"),
   webauthnAuthenticationOptions: (identifier?: string) =>
     request<{ challenge_id: string; publicKey: PublicKeyCredentialRequestOptions }>(
       "/auth/webauthn/authentication/options",
