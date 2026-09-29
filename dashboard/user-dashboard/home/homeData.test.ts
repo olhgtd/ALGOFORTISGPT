@@ -80,11 +80,28 @@ describe("Home data fail-closed mappings", () => {
     })).toEqual({ state: "AVAILABLE", total: 2, deployments: 1, paperReady: null, liveReady: null });
   });
 
+  it("preserves stale strategy authority on Home without exposing stale counts", () => {
+    expect(strategiesToHomeSummary({
+      state: "STALE",
+      deploymentsState: "UNKNOWN",
+      asOf: "2026-09-29T06:00:00Z",
+      strategies: [],
+    })).toEqual({ state: "STALE", total: null, deployments: null, paperReady: null, liveReady: null });
+  });
+
   it("keeps partially unavailable testing authority UNKNOWN instead of inventing PASS", () => {
     expect(testingToHomeSummary({
       backtests: { state: "AVAILABLE", data: [{ run_id: "r1" } as never], asOf: null },
       walkForward: { state: "UNAVAILABLE", data: [], asOf: null },
       reports: { state: "AVAILABLE", data: [{ id: "report1" } as never], asOf: null },
     })).toEqual({ state: "UNKNOWN", backtests: 1, walkForward: null, reports: 1, activeJobs: null });
+  });
+
+  it("preserves STALE testing authority instead of collapsing it to unavailable", () => {
+    expect(testingToHomeSummary({
+      backtests: { state: "STALE", data: [], asOf: null },
+      walkForward: { state: "AVAILABLE", data: [], asOf: null },
+      reports: { state: "AVAILABLE", data: [], asOf: null },
+    })).toEqual({ state: "STALE", backtests: null, walkForward: 0, reports: 0, activeJobs: 0 });
   });
 });
