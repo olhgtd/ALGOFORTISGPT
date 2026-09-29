@@ -15,7 +15,7 @@ describe("user shell safety-state presentation", () => {
     expect(status.liveStateLabel).toBe("READ_ONLY / DISARMED");
   });
 
-  it.each(["RECOVERY", "READY_FOR_RESUME"] as const)("requires manual resume for %s", (automationState) => {
+  it.each(["HALTED", "RECOVERY", "READY_FOR_RESUME"] as const)("requires manual resume for %s", (automationState) => {
     const status = deriveUserShellStatus({
       mode: "PAPER",
       automationState,
