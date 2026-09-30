@@ -12,7 +12,7 @@ vi.mock("../../../api", () => ({
   },
 }));
 vi.mock("../SentinelXCore", () => ({ SentinelXCore: () => <div id="mock-core" /> }));
-vi.mock("../../../../shared/utilities/V3Chrome", () => ({ GlobalRealTimeClock: () => <div id="mock-clock" /> }));
+vi.mock("../../../../../shared/utilities/V3Chrome", () => ({ GlobalRealTimeClock: () => <div id="mock-clock" /> }));
 vi.mock("../ReturningUserFlow", () => ({
   ReturningUserFlow: (props: { onSwitchToAccessGate: () => void; onSwitchToRecovery: () => void }) => (
     <div id="mock-returning">
@@ -24,7 +24,6 @@ vi.mock("../ReturningUserFlow", () => ({
 vi.mock("../FirstTimeCustomerFlow", () => ({ FirstTimeCustomerFlow: () => <div id="mock-activation" /> }));
 vi.mock("../LocalOwnerSetupCard", () => ({ LocalOwnerSetupCard: () => <div id="mock-owner-setup" /> }));
 vi.mock("../HelpRecoveryFlow", () => ({ HelpRecoveryFlow: () => <div id="mock-recovery" /> }));
-vi.mock("../OwnerSetupFlow", () => ({ OwnerSetupFlow: () => <div id="legacy-owner-setup" /> }));
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -86,7 +85,6 @@ describe("SecureEntryApp canonical routing", () => {
     const node = await mount();
     expect(node.textContent).toContain("Account authority unavailable");
     expect(node.querySelector("#mock-owner-setup")).toBeNull();
-    expect(node.querySelector("#legacy-owner-setup")).toBeNull();
   });
 
   it("renders Owner Setup only when explicitly authorized", async () => {
