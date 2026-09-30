@@ -81,13 +81,25 @@ def test_benchmark_evidence_rejects_runtime_or_hardware_mismatch() -> None:
         )
 
 
-def test_only_approved_policy_with_matching_evidence_can_be_production_eligible() -> None:
+def test_only_approved_policy_with_matching_evidence_and_zero_breaches_can_be_production_eligible() -> None:
     approved = _policy(LatencyPolicyStatus.APPROVED)
     evidence = build_benchmark_evidence(
         code_sha="b" * 40, policy=approved, hardware_profile_ref="hw:test",
         runtime_profile_ref="runtime:test", warm=True,
         approved_samples=(1,), rejected_samples=(1,),
         candidate_to_handoff_samples=(1,), audit_samples=(1,),
-        breach_counts={}, sample_method_ref="method:test",
+        breach_counts={"riskgate_total": 0}, sample_method_ref="method:test",
     )
     assert evidence.production_eligible is True
+
+
+def test_observed_latency_breach_prevents_production_eligible_evidence() -> None:
+    approved = _policy(LatencyPolicyStatus.APPROVED)
+    evidence = build_benchmark_evidence(
+        code_sha="c" * 40, policy=approved, hardware_profile_ref="hw:test",
+        runtime_profile_ref="runtime:test", warm=True,
+        approved_samples=(101,), rejected_samples=(1,),
+        candidate_to_handoff_samples=(1,), audit_samples=(1,),
+        breach_counts={"riskgate_total": 1}, sample_method_ref="method:test",
+    )
+    assert evidence.production_eligible is False
