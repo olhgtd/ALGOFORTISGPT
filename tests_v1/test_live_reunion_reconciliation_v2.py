@@ -18,6 +18,11 @@ from engine.reconciliation.live_reconciler import (
     OrderReconciliationAction,
 )
 
+try:
+    from engine.reconciliation.live_uncertain_reconciliation_v2 import LiveUncertainOrderReconcilerV2
+except ModuleNotFoundError as exc:  # RED until Task-4 implementation exists
+    pytest.fail(f"focused Live uncertain reconciliation wrapper is not implemented: {exc}", pytrace=False)
+
 
 class _Adapter:
     broker_name = "FAKE"
@@ -99,6 +104,12 @@ def _snapshot(status: BrokerAdapterOrderStatus, *, filled: str = "0") -> BrokerA
     )
 
 
+def _service(adapter: _Adapter) -> LiveUncertainOrderReconcilerV2:
+    return LiveUncertainOrderReconcilerV2(
+        LiveBrokerReconciler(adapter, user_id="user-1", broker_id="FAKE")
+    )
+
+
 @pytest.mark.parametrize(
     ("status", "filled", "action"),
     [
@@ -110,9 +121,8 @@ def _snapshot(status: BrokerAdapterOrderStatus, *, filled: str = "0") -> BrokerA
 )
 def test_uncertain_order_resolves_only_from_explicit_client_identity_broker_truth(status, filled, action) -> None:
     adapter = _Adapter(_snapshot(status, filled=filled))
-    reconciler = LiveBrokerReconciler(adapter, user_id="user-1", broker_id="FAKE")
 
-    result = reconciler.reconcile_uncertain_orders((_record(),), fail_closed=True)
+    result = _service(adapter).reconcile((_record(),), fail_closed=True)
 
     assert len(result) == 1
     assert result[0].order_id == "af2_co_uncertain"
@@ -125,19 +135,17 @@ def test_uncertain_order_resolves_only_from_explicit_client_identity_broker_trut
 
 def test_missing_client_identity_lookup_does_not_assume_not_found() -> None:
     adapter = _Adapter(None, client_lookup=False)
-    reconciler = LiveBrokerReconciler(adapter, user_id="user-1", broker_id="FAKE")
 
     with pytest.raises(BrokerTruthUnavailable, match="client-order identity"):
-        reconciler.reconcile_uncertain_orders((_record(),), fail_closed=True)
+        _service(adapter).reconcile((_record(),), fail_closed=True)
     assert adapter.place_calls == 0
     assert adapter.submit_calls == 0
 
 
 def test_broker_query_failure_keeps_uncertain_order_fail_closed() -> None:
     adapter = _Adapter(None, fail=True)
-    reconciler = LiveBrokerReconciler(adapter, user_id="user-1", broker_id="FAKE")
 
     with pytest.raises(BrokerTruthUnavailable):
-        reconciler.reconcile_uncertain_orders((_record(),), fail_closed=True)
+        _service(adapter).reconcile((_record(),), fail_closed=True)
     assert adapter.place_calls == 0
     assert adapter.submit_calls == 0
