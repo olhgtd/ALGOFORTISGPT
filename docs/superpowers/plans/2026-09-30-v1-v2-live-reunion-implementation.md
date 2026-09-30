@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-30-v1-v2-live-reunion-design.md` + `docs/superpowers/specs/2026-09-30-v1-v2-live-reunion-design-approval.md`
 
+**Normative amendment:** `docs/superpowers/plans/2026-10-01-v1-v2-live-reunion-concurrency-ai-amendment.md` — binding account-domain isolation, deterministic same-account candidate arbitration, and AI provider quota/rate-limit queue rules.
+
 ## Global Constraints
 
 - Live remains `READ_ONLY / DISARMED` for this entire plan.
@@ -26,6 +28,11 @@
 - Restart/reconnect/recovery never auto-arm.
 - Missing/corrupt safety, journal, broker truth, protection, exclusivity, audit, or policy evidence fails closed.
 - No real broker credentials/orders/mutation and no invented production thresholds.
+- Account capital/exposure authority is scoped by exact `(broker_id, broker_account_ref)`; different broker-account domains never consume each other's capital pool.
+- Candidates sharing one broker-account domain must be deterministically arbitrated before atomic reservation; OS/thread arrival order and AI/provider timing may not decide the winner.
+- Pending/unfilled orders continue consuming reserved capital/exposure until explicit terminal/reconciliation release.
+- AlgoFortis monitoring policy/scheduler, never Laya/provider output, owns AI instrument scope, frequency, trigger, task TTL, provider/model assignment, and concurrency.
+- AI provider rate/quota exhaustion uses a bounded deterministic queue; stale queued jobs are not executed later as fresh work, and no silent provider fallback is allowed.
 
 ## Review Focus
 
@@ -34,6 +41,9 @@
 3. Second local device/session owner → conflict/uncertainty fails closed; cloud is not trading authority.
 4. Protection capability disappears/changes → Live eligibility blocks.
 5. Dormant write seam becomes reachable → closed gate + unchanged `BoundBrokerPort` + unavailable Angel mutation methods must prevent it.
+6. Same-account simultaneous candidates → deterministic arbiter + correlated exposure + atomic reservation; no stale-balance oversubscription.
+7. Different broker accounts → independent capital domains may progress independently; provider/DB implementation details must not logically couple their budgets.
+8. AI monitoring/provider pressure → scheduler owns scope; bounded provider queue preserves deterministic order/TTL and cannot self-expand or bypass quota.
 
 ---
 
@@ -48,7 +58,10 @@
 - `engine/live/mutation_release_gate_v2.py`
 - `engine/live/execution_coordinator_v2.py`
 - `engine/live/account_exclusivity_v2.py`
+- `engine/live/account_candidate_arbiter_v2.py`
 - `engine/live/live_eligibility_v2.py`
+- `engine/ai/monitoring_scheduler_v2.py`
+- `engine/ai/provider_queue_v2.py`
 - `engine/broker_adapters/angelone_v2/mutation_seam_v2.py`
 - focused tests listed below
 - `.github/workflows/live-v1-v2-reunion-qualification.yml`
@@ -59,7 +72,9 @@
 - `engine/persistence/migrations.py`
 - `engine/orders/lifecycle_v2.py`
 - `engine/reconciliation/live_reconciler.py`
+- `engine/live/execution_capacity_v2.py`
 - `engine/live/phase6_readonly_coordinator.py` only if the existing foreign-activity result needs exposure
+- `engine/ai/contracts.py`, `engine/ai/orchestrator.py`, `engine/ai/provider_registry.py` only as required to express deterministic scheduling/queue evidence without expanding AI authority
 - `engine/broker_adapters/angelone_v2/protection_capability.py` / `order_policy.py` only if current models cannot express Task 6
 
 **Do not grow/promote**
@@ -100,6 +115,29 @@
 - [ ] GREEN focused + migration + Phase-5 recovery-store regressions.
 - [ ] Commit `feat: add V2 Live execution journal`.
 
+### Task 2A: Deterministic Account Candidate Arbiter + Capital-Domain Isolation
+
+**Files:** Create `engine/live/account_candidate_arbiter_v2.py`, `tests_v1/test_live_account_candidate_arbiter_v2.py`; modify `engine/live/execution_capacity_v2.py`, `engine/persistence/live_execution_store_v2.py`, `engine/persistence/live_execution_schema_v9.py`; extend capacity tests.
+
+**Interfaces / authority:**
+- immutable `AccountCapitalDomainKey(broker_id: str, broker_account_ref: str)` is the sole shared-capital domain identity.
+- capacity evidence/reservations must carry both `broker_id` and `broker_account_ref`.
+- `LiveAccountCandidateArbiterV2` may rank/restrict genuine trade candidates for one account domain but cannot mint `ApprovedOrder`, alter RiskGate evidence, or call broker mutation.
+- Same-domain deterministic ordering is: (1) hard/pre-eligibility, (2) current portfolio/correlated-exposure interaction, (3) owner-configured strategy priority, (4) deterministic pre-AI edge/quality evidence, (5) deterministic capital-efficiency evidence, (6) signal/event timestamp, (7) stable candidate identity.
+- No guessed correlated-exposure or capital thresholds: all limits come from versioned owner/risk policy evidence.
+- Different `AccountCapitalDomainKey` values may be processed by separate arbiter instances in parallel. A shared SQLite backend may briefly serialize writes for integrity, but budget calculations/aggregates must remain domain-scoped and independent.
+- Pending/unfilled reservations remain active until explicit terminal/reconciliation release.
+
+- [ ] RED: two same-domain concurrent candidates cannot both consume stale full cash; ordering is independent of thread arrival.
+- [ ] RED: correlated-exposure policy can block a candidate even when cash is sufficient.
+- [ ] RED: pending/unfilled order remains in account exposure/capital calculations.
+- [ ] RED: two different `(broker_id, broker_account_ref)` domains reserve independently and never cross-count.
+- [ ] RED: same-looking `broker_account_ref` on different `broker_id` values does not collide.
+- [ ] RED: stable inputs always produce the same tie-break result; AI response time/content cannot reorder the batch.
+- [ ] Harden V9 capacity identity and queries from `broker_account_ref` to `(broker_id, broker_account_ref)` before Package-1 qualification; global `client_order_id` uniqueness remains unchanged.
+- [ ] GREEN focused arbiter/capacity/store tests + Task-2 persistence regressions.
+- [ ] Commit `feat: isolate broker-account capital domains and arbitrate concurrent candidates`.
+
 ### Task 3: Production-Closed Gate + Dormant `LiveExecutionCoordinatorV2`
 
 **Files:** Create `engine/live/mutation_release_gate_v2.py`, `engine/live/execution_coordinator_v2.py`, `tests_v1/test_live_execution_coordinator_v2.py`; extend reunion guard test.
@@ -112,14 +150,15 @@
 - `LiveExecutionCoordinatorV2.__init__(*, broker_port: _LiveBrokerMutationPort, journal: LiveExecutionStoreV2, release_gate: LiveMutationReleaseGate, state_machine: LiveStateMachine, audit_sink: object, clock: object) -> None`.
 - `submit(order: ApprovedOrder) -> object`.
 
-**Sequence:** genuine unexpired `RunMode.LIVE` approval → require `LiveState.ACTIVE` → release-gate authorization → reserve unique journal record → `OrderExecutionLifecycle` starts `RISK_APPROVED` → persist `SUBMITTING` → persist `SENT_UNACKED` **before** broker call → call `place` → acknowledgement maps to `ACKED` + broker identity; exception after call boundary maps to `IN_DOUBT`; never auto-resubmit.
+**Sequence:** genuine unexpired `RunMode.LIVE` approval → require `LiveState.ACTIVE` → release-gate authorization → account-domain arbiter/capacity authorization → reserve unique journal record → `OrderExecutionLifecycle` starts `RISK_APPROVED` → persist `SUBMITTING` → persist `SENT_UNACKED` **before** broker call → call `place` → acknowledgement maps to `ACKED` + broker identity; exception after call boundary maps to `IN_DOUBT`; never auto-resubmit.
 
 - [ ] RED: wrong type/mode, expired approval, duplicate ID, non-ACTIVE state, closed-gate port call count zero, test-local fake-gate/fake-port success, ack mapping once, exception→`IN_DOUBT`, second submit rejected, audit failure blocks call.
+- [ ] RED: same-account arbitration/capacity denial blocks broker call; different account domain does not consume this account's budget.
 - [ ] Run focused RED.
 - [ ] Implement closed gate with no env/config/CLI opener.
 - [ ] Implement coordinator using existing lifecycle/client ID/store; no approval minting/reconciliation ownership.
 - [ ] Guard rejects production open gate/direct broker bypass.
-- [ ] GREEN coordinator + Phase-2 RiskGate authority/mode isolation + both static guards.
+- [ ] GREEN coordinator + Task-2A account-domain tests + Phase-2 RiskGate authority/mode isolation + both static guards.
 - [ ] Commit `feat: add dormant V2 Live execution coordinator`.
 
 ### Task 4: Broker-Truth Lifecycle Convergence + `IN_DOUBT` Reconciliation
@@ -173,6 +212,30 @@
 - [ ] GREEN eligibility + protection + Phase-6 policy/state-machine + S2 gate regressions.
 - [ ] Commit `feat: enforce Live protection eligibility`.
 
+### Task 6A: AI Monitoring Scheduler + Provider Quota/Rate Queue
+
+**Files:** Create `engine/ai/monitoring_scheduler_v2.py`, `engine/ai/provider_queue_v2.py`, `tests_v1/test_ai_monitoring_scheduler_v2.py`, `tests_v1/test_ai_provider_queue_v2.py`; modify `engine/ai/contracts.py`, `engine/ai/orchestrator.py`, `engine/ai/provider_registry.py` only as needed.
+
+**Authority:** current AI stays `RESEARCH` / `SHADOW` and advisory-only. This task adds deterministic scheduling/queue boundaries; it does not grant AI trading, RiskGate, account-capital, Live-state, or broker authority.
+
+**Required contracts:**
+- scheduler-created immutable AI task includes stable task identity, exact instrument/scope, reason/trigger, data-window/evidence refs, created-at, `valid_until`, and deterministic priority evidence.
+- Laya/provider may consume only that task; it cannot create follow-up scope/schedule changes or mutate task fields.
+- provider queue is bounded by versioned provider policy/evidence for concurrency/rate/quota/queue behavior; no guessed production limits are hardcoded.
+- quota/rate exhaustion queues a valid task; no direct bypass call is allowed.
+- queued task TTL expiry => stale/blocked/cancelled without later execution.
+- different providers may operate independent bounded queues only when `PrimeOrchestrator`/owner routing policy explicitly assigns them; no automatic fallback.
+- queue ordering uses the same deterministic seven-stage candidate-priority policy only from fields already available before the AI call: hard/pre-eligibility, portfolio/exposure interaction, strategy priority, pre-AI deterministic edge/quality, precomputed capital efficiency, signal/event timestamp, stable task/candidate identity. Missing fields use deterministic neutral/default ordering; AI cannot invent them or use its own output to move itself forward.
+
+- [ ] RED: AI cannot self-schedule, add a symbol, change frequency, extend TTL, or spawn follow-up monitoring outside scheduler authority.
+- [ ] RED: provider quota exhaustion queues rather than exceeding configured capacity.
+- [ ] RED: same jobs/policy always produce same queue order independent of thread/provider response timing.
+- [ ] RED: expired queued task never executes.
+- [ ] RED: AI output cannot mint `ApprovedOrder`, reserve account capital, alter Account Arbiter priority, arm Live, or call mutation.
+- [ ] RED: no silent provider fallback on quota/failure.
+- [ ] GREEN scheduler/queue + existing AI contracts/provider registry/orchestrator/authority boundary regressions.
+- [ ] Commit `feat: bound AI monitoring by scheduler and provider quota queue`.
+
 ### Task 7: Angel One V2 Mutation Translation Seam — Mutation Unavailable
 
 **Files:** Create `engine/broker_adapters/angelone_v2/mutation_seam_v2.py`, `tests_v1/test_angelone_v2_mutation_seam.py`; extend reunion guard.
@@ -195,12 +258,15 @@
 
 **Files:** Create `tests_v1/test_v2_live_reunion_end_to_end.py`; update manifest implementation/test columns.
 
-**Test harness:** test-local release gate + fake mutation port compose a genuine RiskGate Live `ApprovedOrder`, lifecycle, V9 journal, reconciliation, exclusivity, eligibility, audit, and `LiveStateMachine`. Production remains closed because there is no production open gate, `BoundBrokerPort` still hard-blocks Live, and Angel place/cancel remain unavailable.
+**Test harness:** test-local release gate + fake mutation port compose a genuine RiskGate Live `ApprovedOrder`, lifecycle, V9 journal, deterministic account arbiter/capacity domain, reconciliation, exclusivity, eligibility, audit, AI-scheduler/provider-queue authority checks, and `LiveStateMachine`. Production remains closed because there is no production open gate, `BoundBrokerPort` still hard-blocks Live, and Angel place/cancel remain unavailable.
 
 - [ ] E2E tests: ApprovedOrder test path, duplicate replay, pre-call `SENT_UNACKED`, timeout→IN_DOUBT→broker truth, fresh reapproval after NOT_FOUND only, restart no-auto-arm, foreign halt, exclusivity conflict, protection block, audit failure, Emergency Stop vs explicit FLATTEN_ALL.
+- [ ] E2E same-account concurrency: BANKNIFTY/NIFTY/SENSEX-style simultaneous candidates share one deterministic arbiter/capital pool, respect correlated exposure and pending reservations, and cannot double-count cash/exposure.
+- [ ] E2E different-account concurrency: different `(broker_id, broker_account_ref)` domains remain budget-independent and can progress independently.
+- [ ] E2E AI monitoring: scheduler fixes scope/TTL; provider quota queues deterministically; stale jobs do not execute; AI timing/output cannot alter capital arbitration.
 - [ ] Negative authority tests: AI/Laya/dashboard/Paper/Backtest cannot reach mutation directly.
-- [ ] Run focused Tasks 1–8.
-- [ ] Run preservation: Phase-2 RiskGate/hard-limits/intent/kill-switch/mode isolation/order lifecycle; Phase-3 feed; Phase-5 recovery/safety; Phase-6 read-only/transport/protection; S2 device/session/cloud-outage; RiskGate fast-path focused suite.
+- [ ] Run focused Tasks 1–8 including 2A and 6A.
+- [ ] Run preservation: Phase-2 RiskGate/hard-limits/intent/kill-switch/mode isolation/order lifecycle; Phase-3 feed; Phase-5 recovery/safety; Phase-6 read-only/transport/protection; S2 device/session/cloud-outage; existing AI authority/provider registry/orchestrator; RiskGate fast-path focused suite.
 - [ ] Run `python -m pytest tests_v1 -q`; any executable failure → systematic debugging before fixes.
 - [ ] Commit `test: lock V1-to-V2 Live reunion invariants`.
 
@@ -208,13 +274,13 @@
 
 **Files:** Create `.github/workflows/live-v1-v2-reunion-qualification.yml`, `docs/qualification/LIVE_V1_V2_REUNION_2026-09-30.md`.
 
-**Workflow:** `workflow_dispatch`; Python 3.13.14; Windows latest + Windows 2022; same exact SHA. Both run compile, module boundaries, Phase-6 readonly guard, reunion guard, focused reunion and preservation suites; primary leg also runs full `tests_v1`. No frontend work unless UI is actually changed.
+**Workflow:** `workflow_dispatch`; Python 3.13.14; Windows latest + Windows 2022; same exact SHA. Both run compile, module boundaries, Phase-6 readonly guard, reunion guard, focused reunion/account-domain/AI-queue and preservation suites; primary leg also runs full `tests_v1`. No frontend work unless UI is actually changed.
 
 - [ ] Static workflow test/inspection proves same SHA on both legs and prevents GREEN if a leg never executes.
 - [ ] Commit workflow/evidence skeleton without product changes.
 - [ ] Dispatch on frozen final Package-1 SHA when runners are available. Zero-step/no-runner = `EXECUTION BLOCKED`, neither RED nor GREEN.
 - [ ] Executable failure → systematic debugging, new fix commit, rerun exact head; never rewrite checkpoints/evidence.
-- [ ] Record run/job IDs, exact SHA, test counts, artifacts/fingerprints, limitations, remaining Package-2 gates.
+- [ ] Record run/job IDs, exact SHA, test counts, artifacts/fingerprints, limitations, account-domain isolation evidence, AI scheduler/provider-queue evidence, and remaining Package-2 gates.
 - [ ] Create final verified Package-1 checkpoint only after both Windows legs + required regression execute cleanly. Live stays READ_ONLY/DISARMED.
 - [ ] Commit `test: qualify V1-to-V2 Live reunion`.
 
@@ -222,7 +288,7 @@
 
 ## Package-1 Completion Boundary
 
-Package 1 is complete only when the manifest is final, one canonical authority path is structurally enforced, focused/full regression evidence is current-head clean, both Windows qualification legs actually execute successfully, and exact-SHA evidence is archived. This does **not** authorize production mutation or a real-money pilot.
+Package 1 is complete only when the manifest is final, one canonical authority path is structurally enforced, same-account arbitration/account-domain isolation and AI scheduling/provider-queue authority are verified, focused/full regression evidence is current-head clean, both Windows qualification legs actually execute successfully, and exact-SHA evidence is archived. This does **not** authorize production mutation or a real-money pilot.
 
 ## Package-2 Handoff — Separate Future Design/Approval
 
