@@ -107,6 +107,10 @@ class StormEvaluator:
         self._last_observed_ms: int | None = None
         self._threshold_crossed_at_ms: int | None = None
 
+    @property
+    def policy_ref(self) -> str:
+        return self._policy.reference
+
     def observe(self, failure_class: str, occurred_at_ms: int) -> StormDecision:
         failure_class = _text(failure_class, "failure_class").upper()
         if failure_class != self._policy.failure_class:
