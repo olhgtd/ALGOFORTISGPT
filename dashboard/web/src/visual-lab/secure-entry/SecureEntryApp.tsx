@@ -2,9 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { SentinelXCore } from "./SentinelXCore";
 import { ReturningUserFlow } from "./ReturningUserFlow";
 import { FirstTimeCustomerFlow } from "./FirstTimeCustomerFlow";
-import { OwnerSetupFlow } from "./OwnerSetupFlow";
 import { LocalOwnerSetupCard } from "./LocalOwnerSetupCard";
-import { LocalLoginCard } from "./LocalLoginCard";
 import { api } from "../../api";
 import { HelpRecoveryFlow } from "./HelpRecoveryFlow";
 import { GlobalRealTimeClock } from "../../../../shared/utilities/V3Chrome";
@@ -30,8 +28,9 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
   // Query parameters cannot enable preview controls or choose the startup flow.
   const isDevMode = false;
 
-  // Flow and Viewport states — entry flow comes from the authoritative
-  // Owner singleton/bootstrap decision, never from local DB emptiness alone.
+  // One canonical gate serves Owner and User. The backend bootstrap authority
+  // decides only whether one-time Owner setup is permitted; it never chooses a
+  // caller-supplied role or grants dashboard access.
   const [viewportMode, setViewportMode] = useState<ViewportMode>("DESKTOP");
   const [flow, setFlow] = useState<EntryFlow | "LOADING" | "UNAVAILABLE">("LOADING");
   const [gateStep, setGateStep] = useState<AccessGateStep>("ENTER_ACCESS_ID");
@@ -46,13 +45,12 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
         setOwnerSetupAllowed(bootstrap.owner_setup_allowed === true);
         switch (bootstrap.recommended_flow) {
           case "LOCAL_LOGIN":
-            setFlow("LOCAL_LOGIN");
-            return;
           case "RETURNING_USER":
+            // Existing Owner and returning Users use the exact same canonical
+            // password gate. Backend identity determines the workspace.
             setFlow("RETURNING_USER");
             return;
           case "LOCAL_OWNER_SETUP":
-            // Setup is rendered only when the backend explicitly authorizes it.
             setFlow(bootstrap.owner_setup_allowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
             return;
           default:
@@ -68,18 +66,16 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
     return () => { active = false; };
   }, []);
 
-  // User input states
   const [sentinelxId, setSentinelxId] = useState("");
   const [accessId, setAccessId] = useState("");
 
-  // 0.0s - 5.0s Intro Sequence Timing — defaults to settled for instant stability
+  // 0.0s - 5.0s Intro Sequence Timing — defaults to settled for instant stability.
   const [introElapsed, setIntroElapsed] = useState(5.0);
   const [introPhase, setIntroPhase] = useState(3);
   const [isIntroComplete, setIsIntroComplete] = useState(true);
   const introTimerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(performance.now());
 
-  // Function to run / reset opening intro
   const startIntroSequence = useCallback(() => {
     startTimeRef.current = performance.now();
     setIntroElapsed(0);
@@ -92,15 +88,10 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
       const elapsed = (performance.now() - startTimeRef.current) / 1000;
       setIntroElapsed(elapsed);
 
-      if (elapsed < 0.5) {
-        setIntroPhase(0);
-      } else if (elapsed < 1.5) {
-        setIntroPhase(1);
-      } else if (elapsed < 3.0) {
-        setIntroPhase(2);
-      } else {
-        setIntroPhase(3);
-      }
+      if (elapsed < 0.5) setIntroPhase(0);
+      else if (elapsed < 1.5) setIntroPhase(1);
+      else if (elapsed < 3.0) setIntroPhase(2);
+      else setIntroPhase(3);
 
       if (elapsed >= 4.8) {
         setIsIntroComplete(true);
@@ -115,33 +106,28 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
 
   const handleWorkspaceTransition = (authenticatedSession = true, workspace: "user" | "owner" = "user") => {
     setVerificationState("WORKSPACE_TRANSITION");
-    if (onEnterWorkspace) {
-      onEnterWorkspace(authenticatedSession, workspace);
-    } else if (onOpenDashboard) {
-      onOpenDashboard();
-    }
+    if (onEnterWorkspace) onEnterWorkspace(authenticatedSession, workspace);
+    else if (onOpenDashboard) onOpenDashboard();
   };
 
   const isMobile = viewportMode === "MOBILE";
   const coreSize = isMobile ? 200 : 280;
-
-  // Identity and access area visibility
   const isCardVisible = introElapsed >= 1.5 || isIntroComplete;
 
+  // This is intentionally unreachable from production navigation. It exists
+  // only for the disabled developer preview controls and still obeys backend
+  // ownerSetupAllowed authority.
   const requestOwnerSetup = () => {
     setFlow(ownerSetupAllowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
   };
 
   return (
     <div className={`secure-entry-root ${introPhase >= 0 ? "intro-anim-fadein" : ""}`} id="secure-entry-root">
-      {/* Developer-only preview controls when ?dev=1 */}
       {isDevMode && (
         <header className="secure-entry-prototype-bar" id="prototype-toolbar">
           <div className="prototype-bar-left">
             <span className="prototype-badge">PROTOTYPE</span>
-            <span style={{ fontWeight: 600, color: "var(--sx-ink-primary)", fontSize: "11px" }}>
-              AlgoFortis Access Gate
-            </span>
+            <span style={{ fontWeight: 600, color: "var(--sx-ink-primary)", fontSize: "11px" }}>AlgoFortis Access Gate</span>
             <span style={{ color: "var(--sx-ink-dim)" }}>|</span>
             <span style={{ color: "var(--sx-ink-muted)", fontSize: "11px" }}>
               {introElapsed < 4.8 ? `Intro: ${introElapsed.toFixed(1)}s / 5.0s` : "Interface Stable (5.0s)"}
@@ -149,22 +135,19 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
           </div>
 
           <div className="prototype-bar-controls">
-            {/* Surface / Viewport Mode Selector */}
             <div className="mode-pill-group">
               <button type="button" className={`mode-pill-btn ${viewportMode === "DESKTOP" ? "active" : ""}`} onClick={() => setViewportMode("DESKTOP")} id="mode-btn-desktop" title="Desktop Presentation">🖥 Desktop</button>
               <button type="button" className={`mode-pill-btn ${viewportMode === "WEB_APP" ? "active" : ""}`} onClick={() => setViewportMode("WEB_APP")} id="mode-btn-webapp" title="Web App Full Screen">🌐 Web App</button>
               <button type="button" className={`mode-pill-btn ${viewportMode === "MOBILE" ? "active" : ""}`} onClick={() => setViewportMode("MOBILE")} id="mode-btn-mobile" title="Mobile Responsive Simulation">📱 Mobile</button>
             </div>
 
-            {/* Flow Switcher */}
             <div className="mode-pill-group">
-              <button type="button" className={`mode-pill-btn ${flow === "ACCESS_GATE" ? "active" : ""}`} onClick={() => { setFlow("ACCESS_GATE"); setGateStep("ENTER_ACCESS_ID"); }} id="flow-btn-gate">Access Gate</button>
-              <button type="button" className={`mode-pill-btn ${flow === "RETURNING_USER" ? "active" : ""}`} onClick={() => { setFlow("RETURNING_USER"); setVerificationState("ID_ENTRY"); }} id="flow-btn-returning">Returning</button>
+              <button type="button" className={`mode-pill-btn ${flow === "ACCESS_GATE" ? "active" : ""}`} onClick={() => { setFlow("ACCESS_GATE"); setGateStep("ENTER_ACCESS_ID"); }} id="flow-btn-gate">Activate User</button>
+              <button type="button" className={`mode-pill-btn ${flow === "RETURNING_USER" ? "active" : ""}`} onClick={() => { setFlow("RETURNING_USER"); setVerificationState("ID_ENTRY"); }} id="flow-btn-returning">Sign In</button>
               <button type="button" className={`mode-pill-btn ${flow === "LOCAL_OWNER_SETUP" ? "active" : ""}`} onClick={requestOwnerSetup} id="flow-btn-owner">Owner Setup</button>
             </div>
 
             <button type="button" className="replay-intro-btn" onClick={startIntroSequence} id="replay-intro-btn" title="Replay opening sequence"><span>↺</span> Replay</button>
-
             {onBackToWebsite && <button type="button" className="exit-prototype-btn" onClick={onBackToWebsite} id="nav-to-website-btn">Website</button>}
             {onOpenDashboard && <button type="button" className="exit-prototype-btn" onClick={onOpenDashboard} id="nav-to-dashboard-btn">Workstation</button>}
           </div>
@@ -191,13 +174,13 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
             {(flow === "LOADING" || flow === "UNAVAILABLE") && (
               <div className="secure-access-card" id="security-status-card" role={flow === "UNAVAILABLE" ? "alert" : "status"}>
                 <h2 className="card-title">{flow === "LOADING" ? "Checking security status..." : "Account authority unavailable"}</h2>
-                <p className="card-subtitle">{flow === "LOADING" ? "Waiting for AlgoFortis account and security authority." : "This installation cannot prove that a new Owner may be created. Connect the central account authority or restore the existing Owner identity; Owner Setup stays blocked."}</p>
+                <p className="card-subtitle">{flow === "LOADING" ? "Waiting for AlgoFortis account and security authority." : "This installation cannot prove the account authority required for entry. Connect the central account authority or restore the existing identity; Owner Setup stays blocked."}</p>
               </div>
             )}
 
-            {flow === "LOCAL_OWNER_SETUP" && ownerSetupAllowed && <LocalOwnerSetupCard onSetupSuccess={() => handleWorkspaceTransition(true, "owner")} />}
-
-            {flow === "LOCAL_LOGIN" && <LocalLoginCard onLoginSuccess={() => handleWorkspaceTransition(true, "owner")} />}
+            {flow === "LOCAL_OWNER_SETUP" && ownerSetupAllowed && (
+              <LocalOwnerSetupCard onSetupSuccess={() => handleWorkspaceTransition(true, "owner")} />
+            )}
 
             {flow === "ACCESS_GATE" && (
               <FirstTimeCustomerFlow
@@ -206,7 +189,6 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
                 gateStep={gateStep}
                 onGateStepChange={setGateStep}
                 onSwitchToReturningUser={() => { setFlow("RETURNING_USER"); setVerificationState("ID_ENTRY"); }}
-                onSwitchToOwnerSetup={requestOwnerSetup}
                 onSwitchToRecovery={() => setFlow("HELP_RECOVERY")}
                 isDevMode={isDevMode}
               />
@@ -226,10 +208,6 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
                 onEnterWorkspace={(role) => handleWorkspaceTransition(true, role === "OWNER" ? "owner" : "user")}
                 isMobileLayout={isMobile}
               />
-            )}
-
-            {flow === "OWNER_SETUP" && ownerSetupAllowed && (
-              <OwnerSetupFlow onBackToGate={() => { setFlow("ACCESS_GATE"); setGateStep("ENTER_ACCESS_ID"); }} onLaunchOwnerWorkspace={() => handleWorkspaceTransition(true, "owner")} />
             )}
 
             {flow === "HELP_RECOVERY" && (
