@@ -1,7 +1,7 @@
 """Shared Owner/User password activation and login HTTP authority.
 
 The router is additive: it composes the existing security store, session
-service, auth policy, mTLS authority and Core Audit.  It never accepts a role
+service, auth policy, mTLS authority and Core Audit. It never accepts a role
 or workspace claim from the caller.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from dashboard.backend.domain import AccessRoute, Role
 from dashboard.backend.security import SecurityError
 from dashboard.backend.security_store import SecurityStoreError
 
-from .password_accounts import PasswordAccountAuthority
+from .password_accounts import PasswordAccountAuthority, normalize_legacy_owner_activation
 
 
 class PasswordActivationRequest(BaseModel):
@@ -48,8 +48,6 @@ class PasswordOwnerBootstrapRequest(BaseModel):
 
 
 def _client_key(request: Request) -> str:
-    # Do not trust caller-controlled forwarding headers at the private runtime
-    # boundary. A trusted-edge deployment can supply its own adapter later.
     host = request.client.host if request.client is not None else "unknown"
     return f"ip:{host}"
 
@@ -136,13 +134,6 @@ def attach_password_account_routes(app: Any) -> Any:
             raise HTTPException(status_code=503, detail="AUTHORITATIVE_AUDIT_UNAVAILABLE") from exc
 
     def _normal_route_assurance(request: Request) -> bool:
-        """Return the normal-route assurance input expected by SessionService.
-
-        If mTLS is policy-required, only the process-wired mTLS authority may
-        satisfy it. LOCAL_PRIVATE explicitly does not require mTLS, so normal
-        route assurance is satisfied by that policy without claiming mTLS is
-        configured.
-        """
         config = sessions._config
         if not config.normal_mtls_required:
             return True
@@ -228,12 +219,21 @@ def attach_password_account_routes(app: Any) -> Any:
                 raise SecurityStoreError("Ambiguous local Owner authority")
 
             _audit(actor_id=actor_id, action="LOCAL_OWNER_PROVISIONING_AUTHORIZED")
-            identity = store.initialize_owner_password(
+            initialized = store.initialize_owner_password(
                 token=body.bootstrap_token.strip(),
                 display_name=body.display_name.strip(),
                 email=body.email.strip(),
                 password=body.password,
             )
+            # The same request canonicalizes any legacy activation token and
+            # guarantees OWNER-001 exists before the first returned session.
+            normalize_legacy_owner_activation(store)
+            identity = authority.verify_identity_password(
+                identifier="OWNER-001",
+                password=body.password,
+            )
+            if identity is None or identity.user_id != initialized.user_id:
+                raise SecurityStoreError("Owner identity canonicalization failed")
             session = _issue_password_session(identity, request)
             _record_success(limiter, ip_key)
             return _session_payload(session)
@@ -285,9 +285,6 @@ def attach_password_account_routes(app: Any) -> Any:
 
     app.include_router(router)
 
-    # Legacy packaged clients continue to function, but their password-created
-    # sessions are now delegated to the canonical authority and never receive a
-    # synthetic fresh-WebAuthn step-up bit.
     @app.middleware("http")
     async def legacy_local_password_bridge(request: Request, call_next):
         if request.method.upper() != "POST":
