@@ -1,4 +1,4 @@
-name: Owner Admin AI Authoritative Qualification
+name: Owner Admin AI Entry Gate Authoritative Qualification
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   windows-latest-qualification:
-    name: Owner/Admin + AI qualification (Windows latest)
+    name: Owner/Admin + AI + Entry Gate qualification (Windows latest)
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -41,10 +41,10 @@ jobs:
           python -m pip install -r requirements-runtime.lock.txt
           python -m pip install -r requirements-dashboard.in
           python -m pip install -r requirements-test.in
-      - name: Compile Owner/Admin + AI implementation
+      - name: Compile authoritative implementation
         shell: pwsh
         run: python -m compileall -q dashboard/backend/owner_admin dashboard/backend/account_v2 dashboard/backend/ai_control.py engine/ai build/tools/check_owner_admin_boundary.py tests_v1
-      - name: Permanent Owner/Admin + AI boundary guard
+      - name: Permanent Owner/Admin + AI + Entry Gate boundary guard
         shell: pwsh
         run: python build/tools/check_owner_admin_boundary.py
       - name: Existing S2 account boundary guard
@@ -53,7 +53,7 @@ jobs:
       - name: Existing Live READ_ONLY mutation firewall
         shell: pwsh
         run: python build/tools/check_phase6_live_readonly.py
-      - name: Focused Owner/Admin + AI + Owner singleton tests
+      - name: Focused Owner/Admin + AI + Entry Gate tests
         shell: pwsh
         run: >-
           python -m pytest
@@ -63,6 +63,10 @@ jobs:
           tests_v1/test_owner_admin_ai_control_plane.py
           tests_v1/test_owner_admin_ai_credentials.py
           tests_v1/test_owner_singleton_bootstrap_policy.py
+          tests_v1/test_entry_gate_password_accounts.py
+          tests_v1/test_entry_gate_password_routes.py
+          tests_v1/test_entry_gate_security_boundaries.py
+          tests_v1/test_local_desktop_auth.py
           -q
       - name: S2 focused regression
         shell: pwsh
@@ -74,7 +78,7 @@ jobs:
       - name: Install frontend dependencies
         shell: pwsh
         run: npm --prefix dashboard/web ci
-      - name: User + Owner Vitest regression
+      - name: User + Owner + Entry Gate Vitest regression
         shell: pwsh
         run: npm --prefix dashboard/web run test:user-dashboard
       - name: Frontend typecheck
@@ -88,7 +92,7 @@ jobs:
         run: git rev-parse HEAD
 
   windows-2022-safety-crosscheck:
-    name: Owner/Admin + AI safety cross-check (Windows 2022)
+    name: Owner/Admin + AI + Entry Gate safety cross-check (Windows 2022)
     runs-on: windows-2022
     timeout-minutes: 30
     env:
@@ -112,13 +116,13 @@ jobs:
       - name: Compile focused implementation
         shell: pwsh
         run: python -m compileall -q dashboard/backend/owner_admin dashboard/backend/account_v2 dashboard/backend/ai_control.py engine/ai build/tools/check_owner_admin_boundary.py
-      - name: Owner/Admin + AI boundary guard
+      - name: Owner/Admin + AI + Entry Gate boundary guard
         shell: pwsh
         run: python build/tools/check_owner_admin_boundary.py
       - name: Live READ_ONLY mutation firewall
         shell: pwsh
         run: python build/tools/check_phase6_live_readonly.py
-      - name: Focused Owner/Admin + AI + Owner singleton tests
+      - name: Focused Owner/Admin + AI + Entry Gate tests
         shell: pwsh
         run: >-
           python -m pytest
@@ -128,6 +132,10 @@ jobs:
           tests_v1/test_owner_admin_ai_control_plane.py
           tests_v1/test_owner_admin_ai_credentials.py
           tests_v1/test_owner_singleton_bootstrap_policy.py
+          tests_v1/test_entry_gate_password_accounts.py
+          tests_v1/test_entry_gate_password_routes.py
+          tests_v1/test_entry_gate_security_boundaries.py
+          tests_v1/test_local_desktop_auth.py
           -q
       - name: Record cross-check SHA
         shell: pwsh
