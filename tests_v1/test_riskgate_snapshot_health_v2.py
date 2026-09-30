@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from engine.alerts.contracts import AlertDeliveryRecord
 from engine.core.runtime import FixedClock
 from engine.paper.contracts_v2 import FailureSeverity, PaperOperationalState
+from engine.paper.failure_policy_v2 import FailureStormPolicy, StormEvaluator
 from engine.paper.operational_state_v2 import PaperOperationalStateMachine
 from engine.risk.snapshot_health_v2 import RiskSnapshotHealthCoordinator, SnapshotHealthEvent
 
@@ -59,7 +60,7 @@ def _event(severity: FailureSeverity, failure_class: str = "RISK_SNAPSHOT_STALE"
     )
 
 
-def _coordinator(state=PaperOperationalState.HEALTHY, dispatcher=None):
+def _coordinator(state=PaperOperationalState.HEALTHY, dispatcher=None, storm_evaluator=None):
     machine = PaperOperationalStateMachine(initial_state=state)
     store = _IncidentStore()
     return (
@@ -70,6 +71,7 @@ def _coordinator(state=PaperOperationalState.HEALTHY, dispatcher=None):
             id_generator=_Ids(),
             clock=_clock(),
             session_scope="paper-session-1",
+            storm_evaluator=storm_evaluator,
         ),
         machine,
         store,
@@ -122,3 +124,24 @@ def test_sticky_halted_state_does_not_auto_clear_on_health_event() -> None:
     result = coordinator.handle(_event(FailureSeverity.WARNING, "RISK_SNAPSHOT_BUILDER_UNHEALTHY"))
     assert result is PaperOperationalState.HALTED
     assert machine.state is PaperOperationalState.HALTED
+
+
+def test_mismatched_storm_policy_fails_closed_to_halted() -> None:
+    policy = FailureStormPolicy(
+        policy_id="TEST_ONLY/other-failure",
+        version="v1",
+        failure_class="OTHER_FAILURE",
+        observation_window_ms=1000,
+        trigger_count=2,
+        cooldown_ms=0,
+        escalation_action="HALT_ENTRIES",
+        reset_rule="WINDOW_AND_COOLDOWN",
+        test_only=True,
+    )
+    coordinator, machine, store = _coordinator(storm_evaluator=StormEvaluator(policy))
+    result = coordinator.handle(
+        _event(FailureSeverity.WARNING, "RISK_SNAPSHOT_BUILDER_UNHEALTHY")
+    )
+    assert result is PaperOperationalState.HALTED
+    assert machine.state is PaperOperationalState.HALTED
+    assert store.incidents[-1].halt_latched is True
