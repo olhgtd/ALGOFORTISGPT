@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from build.tools.check_owner_admin_boundary import check_source_text
 from dashboard.backend.account_v2.password_router import (
     PasswordActivationRequest,
     PasswordLoginRequest,
 )
-from pydantic import ValidationError
-import pytest
 
 
 ENTRY_FILES = (
@@ -88,3 +89,12 @@ def test_secure_entry_has_no_direct_dashboard_authority_or_broker_calls() -> Non
     assert "cancel_order" not in source
     assert "_mint_approved_order" not in source
     assert "engine.broker_adapters" not in source
+
+
+def test_root_dashboard_urls_still_require_authoritative_current_user() -> None:
+    source = Path("dashboard/web/src/main.tsx").read_text(encoding="utf-8")
+    assert "function AuthorizedDashboard" in source
+    assert "api.currentUser()" in source
+    assert "workspace_eligibility" in source
+    assert "if (!resolved || !authorized) return null" in source
+    assert "onDenied={switchToSecureEntry}" in source
