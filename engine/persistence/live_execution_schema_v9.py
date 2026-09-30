@@ -1,4 +1,4 @@
-"""Additive SQLite V9 objects for durable Live execution evidence and capacity reservations."""
+"""Additive SQLite V9 objects for durable Live execution evidence and safety state."""
 from __future__ import annotations
 
 LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
@@ -44,9 +44,21 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_live_capacity_account_status
         ON live_execution_capacity_reservations (broker_account_ref, status, created_at_utc, client_order_id);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS live_account_exclusivity (
+        broker_id TEXT NOT NULL,
+        broker_account_ref TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        session_family_id TEXT NOT NULL,
+        ownership_nonce TEXT NOT NULL,
+        acquired_at_utc TEXT NOT NULL,
+        PRIMARY KEY (broker_id, broker_account_ref)
+    );
+    """,
 )
 
 LIVE_EXECUTION_DROP_TABLES_SQL: tuple[str, ...] = (
+    "DROP TABLE IF EXISTS live_account_exclusivity;",
     "DROP INDEX IF EXISTS idx_live_capacity_account_status;",
     "DROP INDEX IF EXISTS idx_live_capacity_client_order_identity;",
     "DROP TABLE IF EXISTS live_execution_capacity_reservations;",
