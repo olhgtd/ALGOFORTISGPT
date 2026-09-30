@@ -22,6 +22,8 @@ from dashboard.backend.governance_store import SQLiteGovernanceStore
 from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
 from dashboard.backend.account_v2.owner_bootstrap import resolve_owner_bootstrap
+from dashboard.backend.account_v2.password_accounts import normalize_legacy_owner_activation
+from dashboard.backend.account_v2.password_router import attach_password_account_routes
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
 from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verification_routes
@@ -41,6 +43,10 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
     profile = paths.mode.value.lower()
     options = dict(profile=profile, data_root=paths.databases, windows_acl_validator=CurrentUserAcl())
     security = SQLiteSecurityStore(paths.databases / "security" / "sentinelx_security.sqlite3", seed_governance=False, **options)
+    # Legacy V1 local-private builds could persist OWNER activation_status as
+    # ACTIVATED, which is not a current V2 enum value. Normalize the narrow
+    # historical value before any identity object is reconstructed.
+    normalize_legacy_owner_activation(security)
     governance = SQLiteGovernanceStore(paths.databases / "governance" / "sentinelx_governance.sqlite3", **options)
     core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="sentinelx-local",
                                 starting_capital=Decimal("0.00"), audit_source_identity="sentinelx-local")
@@ -75,9 +81,10 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
                          feed=market_data, source_identity="algofortis-canonical-cache"),
                      historical_data_service=market_data,
                      artifact_root=paths.artifacts)
-    # Additive Owner/Admin + AI authority layer. It hardens legacy destructive
-    # Owner routes with fresh WebAuthn step-up and exposes backend-only Owner/AI
-    # read models. It has no broker mutation or Live-arm authority.
+    # Additive account/Owner/Admin authority layers. Password entry composes the
+    # existing security/session/audit authorities; it is not a second identity
+    # database or a trading authority.
+    attach_password_account_routes(app)
     attach_owner_admin_control_plane(app)
     attach_owner_user_inspection(app)
     attach_ai_verification_routes(app)
