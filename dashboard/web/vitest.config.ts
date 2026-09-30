@@ -15,6 +15,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: [
+      "src/__tests__/**/*.test.{ts,tsx}",
+      "src/visual-lab/secure-entry/__tests__/**/*.test.{ts,tsx}",
       "../user-dashboard/**/*.test.{ts,tsx}",
       "../owner-dashboard/**/*.test.{ts,tsx}",
       "../shared/components/professionalChartTruth.test.ts",
