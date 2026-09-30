@@ -37,6 +37,10 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
     );
     """,
     """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_live_capacity_client_order_identity
+        ON live_execution_capacity_reservations (client_order_id);
+    """,
+    """
     CREATE INDEX IF NOT EXISTS idx_live_capacity_account_status
         ON live_execution_capacity_reservations (broker_account_ref, status, created_at_utc, client_order_id);
     """,
@@ -44,6 +48,7 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
 
 LIVE_EXECUTION_DROP_TABLES_SQL: tuple[str, ...] = (
     "DROP INDEX IF EXISTS idx_live_capacity_account_status;",
+    "DROP INDEX IF EXISTS idx_live_capacity_client_order_identity;",
     "DROP TABLE IF EXISTS live_execution_capacity_reservations;",
     "DROP INDEX IF EXISTS idx_live_execution_uncertain;",
     "DROP TABLE IF EXISTS live_execution_records;",
