@@ -7,7 +7,7 @@ from build.tools.check_owner_admin_boundary import check_repository, check_sourc
 
 def test_owner_guard_rejects_sample_authority_in_canonical_owner_file() -> None:
     failures = check_source_text(
-        "dashboard/owner-dashboard/screens/AdminHome.tsx",
+        "dashboard/owner-dashboard/authoritative/AdminHome.tsx",
         'import { OWNER_USERS } from "../../sampleData";\nexport const x = OWNER_USERS;\n',
     )
     assert any("sample/prototype authority" in item for item in failures)
@@ -33,6 +33,14 @@ def do_it():
     assert any("forbidden module" in item for item in failures)
     assert any("forbidden authority token 'place_order'" in item for item in failures)
     assert any("forbidden authority token '_mint_approved_order'" in item for item in failures)
+
+
+def test_entry_gate_guard_rejects_broker_mutation() -> None:
+    failures = check_source_text(
+        "dashboard/backend/account_v2/password_router.py",
+        "def authenticate():\n    cancel_order()\n",
+    )
+    assert any("forbidden authority token 'cancel_order'" in item for item in failures)
 
 
 def test_ai_guard_rejects_laya_owned_routing() -> None:
