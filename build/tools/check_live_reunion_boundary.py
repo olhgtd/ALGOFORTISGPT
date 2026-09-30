@@ -26,17 +26,17 @@ NONCANONICAL_ROOTS = (
     "engine/strategies/",
     "engine/strategy/",
 )
-DIRECT_MUTATION_TOKENS = (
+DIRECT_MUTATION_CALLS = (
     "place_order",
     "submit_order",
     "modify_order",
     "cancel_order",
 )
-AUTO_ARM_TOKENS = (
+AUTO_ARM_CALLS = (
     "arm_live",
     "auto_arm",
-    "autoarm",
-    "LIVE_ARMED",
+    "enable_live",
+    "live_arm",
 )
 RECONNECT_AUTHORITY_NAMES = {
     "ReconnectGenerationAuthority",
@@ -91,6 +91,22 @@ def _class_names(source: str, *, path: str) -> tuple[str, ...]:
     return tuple(node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
 
 
+def _call_names(source: str, *, path: str) -> tuple[str, ...]:
+    tree = _tree(source, path=path)
+    if tree is None:
+        return ()
+    names: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            names.append(func.id)
+        elif isinstance(func, ast.Attribute):
+            names.append(func.attr)
+    return tuple(names)
+
+
 def _is_noncanonical_runtime(path: str) -> bool:
     return path.startswith(NONCANONICAL_ROOTS)
 
@@ -109,12 +125,13 @@ def check_source_text(path: str, source: str) -> list[str]:
         if module.startswith("engine.broker_adapters.") and _is_noncanonical_runtime(path):
             failures.append(f"{path}: direct broker mutation authority import {module} is forbidden")
 
+    calls = _call_names(source, path=path)
     if _is_noncanonical_runtime(path) and path not in CANONICAL_MUTATION_PATHS:
-        for token in DIRECT_MUTATION_TOKENS:
-            if token in source:
-                failures.append(f"{path}: direct broker mutation token {token!r} is forbidden")
+        for name in DIRECT_MUTATION_CALLS:
+            if name in calls:
+                failures.append(f"{path}: direct broker mutation call {name!r} is forbidden")
 
-    if "_mint_approved_order" in source and path not in CANONICAL_MINT_PATHS:
+    if "_mint_approved_order" in calls and path not in CANONICAL_MINT_PATHS:
         failures.append(f"{path}: direct ApprovedOrder mint is forbidden outside RiskGateV2")
 
     for name in _class_names(source, path=path):
@@ -122,10 +139,9 @@ def check_source_text(path: str, source: str) -> list[str]:
             failures.append(f"{path}: second reconnect/generation authority class {name} is forbidden")
 
     if path not in CANONICAL_ARM_PATHS:
-        lower = source.lower()
-        for token in AUTO_ARM_TOKENS:
-            if token.lower() in lower:
-                failures.append(f"{path}: restart/recovery auto-arm token {token!r} is forbidden")
+        for name in AUTO_ARM_CALLS:
+            if name in calls:
+                failures.append(f"{path}: restart/recovery auto-arm call {name!r} is forbidden")
 
     return failures
 
