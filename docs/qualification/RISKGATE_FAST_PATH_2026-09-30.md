@@ -2,13 +2,14 @@
 
 Date: 2026-09-30
 
-Status: **IMPLEMENTED / EXECUTION VERIFICATION PENDING**
+Status: **IMPLEMENTED / EXECUTION VERIFICATION BLOCKED BEFORE RUNNER START**
 
 ## Source freeze before this report
 
 - Working branch: `riskgate-v2-fast-path-implementation-20260930`
-- Exact implementation/source head inspected before this documentation commit: `6ca7fcc9ac19275fdfd773d81eee0819243b42c2`
-- Executable qualification has intentionally **not** been run yet. No GREEN, merge-ready, production-latency, or final-verification claim is made by this record.
+- Exact implementation/source head inspected before the original documentation commit: `6ca7fcc9ac19275fdfd773d81eee0819243b42c2`
+- Immutable historical preverification checkpoint: `checkpoint-riskgate-v2-fast-path-preverification-20260930` at `4713b4dfb1d250ac01cf23dc73e89ddeac7716de`.
+- No GREEN, merge-ready, production-latency, or final-verification claim is made by this record.
 
 ## Implemented source scope
 
@@ -53,30 +54,34 @@ Fixture: `build/fixtures/riskgate_fast_path_test_only.json`
 - Hardware/runtime refs are TEST_ONLY qualification refs.
 - Numeric ceilings in that fixture are test/calibration inputs only and are **not** production SLOs.
 
-## Execution verification intentionally pending
+## Execution verification attempt — hosted runner blocked
 
-Per owner instruction, CI/test/build/benchmark execution is deferred until execution capacity/quota is available. Therefore this record does **not** assert:
+Execution was attempted on 2026-09-30 without moving or modifying the historical preverification checkpoint.
 
-- pytest PASS/GREEN,
-- Windows qualification GREEN,
-- benchmark distributions,
-- type/runtime compatibility proven by execution,
-- production SLO approval,
-- merge readiness.
+- Exact qualification target: `4713b4dfb1d250ac01cf23dc73e89ddeac7716de`.
+- Because the connected GitHub action surface did not expose a fresh `workflow_dispatch`, an isolated temporary push-triggered workflow was created on `ci/riskgate-fast-path-verify-4713b4d-20260930`. Its workspace explicitly checked out the exact target SHA above; the temporary trigger commit itself was not the code under qualification.
+- Trigger commit: `28bbd38d35ca38723c530562ffb889319d238da5`.
+- GitHub Actions run: `36704577212` (`RiskGate Fast Path Exact-SHA CI Verification`).
+- Attempt 1: both `windows-latest` and `windows-2022` jobs failed before any step executed. Both had empty step lists and no hosted runner assignment (`runner_id: 0` / empty runner name where reported).
+- Attempt 2: a job rerun was requested to rule out a transient scheduling failure. The `windows-latest` job again completed as failure before any step executed with `runner_id: 0` and an empty step list.
+- Independent supporting evidence: unrelated Phase-5 qualification run `36552670663` on 2026-09-29 showed the same pre-step Windows hosted-runner failure pattern, so the RiskGate source is not implicated by these startup failures.
+- Therefore no pytest, compile, boundary-guard, Live READ_ONLY guard, benchmark, or full-regression command executed in these attempts. There is no executable PASS or executable source failure to report.
 
-When execution capacity is available, dispatch `.github/workflows/riskgate-fast-path-qualification.yml` against the immutable preverification checkpoint created from the final source/documentation head. If anything fails, repair on a new commit/branch, rerun until clean, and create a **new** final verified checkpoint. Never move or overwrite the historical preverification checkpoint.
+This is an external hosted-runner/account-capacity startup blockade, not a test failure. The qualification remains fail-closed and unverified until a runner actually starts and executes the required commands.
 
 ## Required later qualification
 
-The manual workflow must verify at minimum:
+When hosted Windows execution is available, run `.github/workflows/riskgate-fast-path-qualification.yml` against the immutable preverification checkpoint (or a new repair head if source changes become necessary) and verify at minimum:
 
 - `python build/tools/check_riskgate_fast_path_boundary.py`
 - `python build/tools/check_phase6_live_readonly.py`
 - focused latency/snapshot/fast-path/warm-handoff/benchmark/boundary tests
 - existing Phase-2/3 RiskGate/feed regressions
 - TEST_ONLY warm and cold benchmark evidence bound to the exact SHA
-- optional/full `python -m pytest tests_v1 -q` as configured
+- full `python -m pytest tests_v1 -q` when configured
 - Windows latest plus Windows-2022 safety cross-check
 - exact qualified SHA recording
+
+If any executable check fails, repair on a new commit/branch and rerun until clean. Never move or overwrite the historical preverification checkpoint.
 
 A final verified checkpoint may be created only after those executable checks are clean. No merge to `main` is authorized by this record.
