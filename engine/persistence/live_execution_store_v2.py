@@ -364,6 +364,27 @@ class LiveExecutionStoreV2:
             )
             return cursor.rowcount == 1
 
+    def release_capacity_by_client(
+        self,
+        client_order_id: str,
+        *,
+        released_at_utc: datetime,
+        reason: str,
+    ) -> bool:
+        client = _text(client_order_id, "client_order_id")
+        released = _aware(released_at_utc, "released_at_utc")
+        normalized_reason = _text(reason, "reason")
+        with self._open() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE live_execution_capacity_reservations
+                SET status = 'RELEASED', released_at_utc = ?, release_reason = ?
+                WHERE client_order_id = ? AND status = 'ACTIVE'
+                """,
+                (released.isoformat(), normalized_reason, client),
+            )
+            return cursor.rowcount == 1
+
     @staticmethod
     def _record_from_row(row: tuple[object, ...]) -> LiveExecutionRecord:
         return LiveExecutionRecord(
