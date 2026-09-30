@@ -24,6 +24,7 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
     """,
     """
     CREATE TABLE IF NOT EXISTS live_execution_capacity_reservations (
+        broker_id TEXT NOT NULL,
         broker_account_ref TEXT NOT NULL,
         client_order_id TEXT NOT NULL,
         instrument_scope TEXT NOT NULL,
@@ -33,7 +34,7 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
         released_at_utc TEXT,
         release_reason TEXT,
         status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'RELEASED')),
-        PRIMARY KEY (broker_account_ref, client_order_id)
+        PRIMARY KEY (broker_id, broker_account_ref, client_order_id)
     );
     """,
     """
@@ -42,7 +43,9 @@ LIVE_EXECUTION_CREATE_TABLES_SQL: tuple[str, ...] = (
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_live_capacity_account_status
-        ON live_execution_capacity_reservations (broker_account_ref, status, created_at_utc, client_order_id);
+        ON live_execution_capacity_reservations (
+            broker_id, broker_account_ref, status, created_at_utc, client_order_id
+        );
     """,
     """
     CREATE TABLE IF NOT EXISTS live_account_exclusivity (
