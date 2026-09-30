@@ -68,6 +68,15 @@ def test_guard_rejects_restart_auto_arm_outside_state_machine() -> None:
     assert any("auto-arm" in item.lower() or "arm" in item.lower() for item in failures)
 
 
+def test_guard_ignores_protected_setting_names_that_are_not_calls() -> None:
+    guard = _load_guard()
+    failures = guard.check_source_text(
+        "dashboard/backend/security_store.py",
+        "_PROTECTED_SETTING_KEYS = {'arm_live_trading', 'enable_broker_mutation'}\n",
+    )
+    assert failures == []
+
+
 def test_guard_allows_canonical_live_state_machine_arm_vocabulary() -> None:
     guard = _load_guard()
     failures = guard.check_source_text(
