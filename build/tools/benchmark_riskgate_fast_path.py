@@ -1,12 +1,15 @@
 """Paper/Shadow-only RiskGate fast-path benchmark harness.
 
 The harness imports no real broker adapter. All latency ceilings and probe
-parameters are supplied by an explicit TEST_ONLY/CALIBRATION fixture.
+parameters are supplied by an explicit TEST_ONLY/CALIBRATION fixture. Warm and
+cold probes are reported separately by rebuilding the local Paper/Shadow
+runtime for every cold sample; neither mode authorizes Live or real-broker I/O.
 """
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -16,7 +19,7 @@ from engine.orders.contracts_v2 import OrderIntent, OrderSource, RunMode
 from engine.orders.model import OrderType
 from engine.paper.execution_adapter_v2 import PaperExecutionAdapterV2
 from engine.paper.fill_simulator_v2 import FillSimulationPolicy, PaperFillSimulator, QuoteSnapshot
-from engine.paper.warm_handoff_v2 import WarmPaperHandoff
+from engine.paper.warm_handoff_v2 import WarmPaperContext, WarmPaperHandoff
 from engine.portfolio.model import InstrumentIdentity
 from engine.risk.fast_path_v2 import CurrentQuoteEvidence, FastPathRiskEvaluator
 from engine.risk.gate_v2 import RiskGateV2
@@ -31,10 +34,13 @@ from engine.risk.snapshot_publication_v2 import RiskSnapshotPublication
 class _Clock:
     def __init__(self, now: datetime) -> None:
         self._now = now
+
     def now_utc(self) -> datetime:
         return self._now
+
     def monotonic_ns(self) -> int:
         return perf_counter_ns()
+
     def session_calendar(self) -> object:
         return object()
 
@@ -42,6 +48,7 @@ class _Clock:
 class _Ids:
     def __init__(self) -> None:
         self._counter = 0
+
     def new_id(self, kind: str) -> str:
         self._counter += 1
         return f"bench-{kind}-{self._counter}"
@@ -56,6 +63,7 @@ class _Audit:
 class _LatencySink:
     def __init__(self) -> None:
         self.records: list[RiskGateLatencyRecord] = []
+
     def record(self, record: RiskGateLatencyRecord) -> None:
         self.records.append(record)
 
@@ -63,6 +71,7 @@ class _LatencySink:
 class _QuoteProvider:
     def __init__(self, quote: CurrentQuoteEvidence) -> None:
         self.quote = quote
+
     def current(self, instrument_ref: InstrumentIdentity) -> CurrentQuoteEvidence:
         return self.quote
 
@@ -70,6 +79,7 @@ class _QuoteProvider:
 class _ReplayGuard:
     def __init__(self) -> None:
         self.claimed: set[str] = set()
+
     def claim(self, intent_id: str, snapshot_id: str, market_sequence: int) -> bool:
         key = f"{intent_id}:{snapshot_id}:{market_sequence}"
         if key in self.claimed:
@@ -80,20 +90,33 @@ class _ReplayGuard:
 
 class _Freshness:
     reference = "TEST_ONLY/benchmark-freshness@v1"
+
     def is_fresh(self, snapshot: RiskSnapshot, now: datetime) -> bool:
         return True
 
 
 class _PricePolicy:
     reference = "TEST_ONLY/benchmark-price@v1"
+
     def allows(self, intent: OrderIntent, quote: CurrentQuoteEvidence) -> bool:
         return True
 
 
 class _EntryPolicy:
     reference = "TEST_ONLY/benchmark-entry@v1"
+
     def entries_allowed(self, snapshot: RiskSnapshot) -> bool:
         return snapshot.operational_state == "HEALTHY"
+
+
+@dataclass(slots=True)
+class _ProbeRuntime:
+    gate: RiskGateV2
+    latency_sink: _LatencySink
+    handoff: WarmPaperHandoff
+    context: WarmPaperContext
+    quote: QuoteSnapshot
+    fill_policy: FillSimulationPolicy
 
 
 def _load_fixture(path: Path) -> dict[str, object]:
@@ -134,36 +157,27 @@ def _count_breaches(samples: tuple[int, ...], ceiling: int) -> int:
     return sum(1 for value in samples if value > ceiling)
 
 
-def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, warm: bool):
-    if iterations <= 0:
-        raise ValueError("iterations must be positive")
-    policy = _policy(fixture)
-    probe = fixture["probe"]
-    if not isinstance(probe, dict):
-        raise ValueError("probe must be an object")
-    now = datetime.fromisoformat(str(probe["now_utc"]))
-    if now.tzinfo is None or now.utcoffset() is None:
-        raise ValueError("probe.now_utc must be timezone-aware")
-    clock = _Clock(now)
-    instrument = InstrumentIdentity(
-        market="NSE",
-        instrument=str(probe["instrument"]),
-        segment="options",
-        underlying=str(probe["underlying"]),
-        expiry=date.fromisoformat(str(probe["expiry"])),
-        strike=Decimal(str(probe["strike"])),
-        option_type=str(probe["option_type"]),
-    )
+def _build_runtime(
+    *,
+    policy: RiskGateLatencyPolicy,
+    probe: dict[str, object],
+    now: datetime,
+    instrument: InstrumentIdentity,
+    market_sequence: int,
+) -> _ProbeRuntime:
+    hard_limits = HardLimitHierarchy(
+        definitions={"max_order_qty": LimitDirection.MAXIMUM},
+        platform={"max_order_qty": str(probe["hard_max_order_qty"])},
+    ).resolve()
     publication = RiskSnapshotPublication()
-    market_sequence = int(probe["market_sequence"])
-    quantity_ceiling = Decimal(str(probe["quantity_ceiling"]))
+    scope = instrument.underlying or instrument.instrument
     snapshot = RiskSnapshot(
         snapshot_id="benchmark-snapshot",
         schema_version="v1",
         generated_at_utc=now,
         input_fingerprint="a" * 64,
         risk_rule_version="benchmark-risk-v1",
-        limits_snapshot_id="benchmark-limits-v1",
+        limits_snapshot_id=hard_limits.snapshot_id,
         account_authority_ref="benchmark-account",
         strategy_eligibility_ref="benchmark-strategy",
         portfolio_state_ref="benchmark-portfolio",
@@ -171,9 +185,9 @@ def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, war
         operational_state="HEALTHY",
         kill_switch_state="CLEAR",
         hold_state="CLEAR",
-        allowed_instrument_scope=(instrument.underlying or instrument.instrument,),
+        allowed_instrument_scope=(scope,),
         allowed_side_scope=("BUY",),
-        quantity_ceiling_by_scope={(instrument.underlying or instrument.instrument): quantity_ceiling},
+        quantity_ceiling_by_scope={scope: Decimal(str(probe["quantity_ceiling"]))},
         risk_budget_evidence="benchmark-risk-budget",
         feed_health_ref="benchmark-feed",
         latest_market_sequence=market_sequence,
@@ -189,6 +203,7 @@ def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, war
         ask=Decimal(str(probe["ask"])),
         source_ref="benchmark-quote",
     )
+    clock = _Clock(now)
     evaluator = FastPathRiskEvaluator(
         publication=publication,
         quote_provider=_QuoteProvider(current_quote),
@@ -198,16 +213,10 @@ def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, war
         entry_state_policy=_EntryPolicy(),
         clock=clock,
         active_risk_rule_version=snapshot.risk_rule_version,
-        active_limits_snapshot_id=snapshot.limits_snapshot_id,
+        active_limits_snapshot_id=hard_limits.snapshot_id,
         active_builder_health_generation=lambda: 1,
         latency_policy_ref=policy.reference,
     )
-    hard_limits = HardLimitHierarchy(
-        definitions={"max_order_qty": LimitDirection.MAXIMUM},
-        platform={"max_order_qty": str(probe["hard_max_order_qty"])},
-    ).resolve()
-    # The benchmark snapshot and RiskGate must bind to the same hard-limit identity.
-    object.__setattr__(snapshot, "limits_snapshot_id", hard_limits.snapshot_id)
     latency_sink = _LatencySink()
     gate = RiskGateV2(
         evaluator=evaluator,
@@ -234,52 +243,121 @@ def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, war
         stale_after_ms=int(probe["stale_after_ms"]),
         test_only=True,
     )
-    paper_quote = QuoteSnapshot(current_quote.bid, current_quote.ask, now, market_sequence)
+    quote = QuoteSnapshot(current_quote.bid, current_quote.ask, now, market_sequence)
+    return _ProbeRuntime(gate, latency_sink, handoff, context, quote, fill_policy)
+
+
+def _approved_intent(
+    *, index: int, now: datetime, instrument: InstrumentIdentity, probe: dict[str, object], market_sequence: int
+) -> OrderIntent:
+    return OrderIntent(
+        intent_id=f"bench-approved-{index}",
+        strategy_id="benchmark",
+        strategy_version="v1",
+        run_mode=RunMode.PAPER,
+        instrument_ref=instrument,
+        side="BUY",
+        qty=Decimal(str(probe["order_qty"])),
+        order_type=OrderType.MARKET,
+        created_at=now,
+        valid_until=now + timedelta(seconds=int(probe["intent_ttl_seconds"])),
+        source=OrderSource.STRATEGY,
+        provenance={"market_sequence": market_sequence},
+    )
+
+
+def _rejected_intent(
+    *, index: int, now: datetime, instrument: InstrumentIdentity, probe: dict[str, object], market_sequence: int
+) -> OrderIntent:
+    return OrderIntent(
+        intent_id=f"bench-rejected-{index}",
+        strategy_id="benchmark",
+        strategy_version="v1",
+        run_mode=RunMode.PAPER,
+        instrument_ref=instrument,
+        side="SELL",
+        qty=Decimal(str(probe["order_qty"])),
+        order_type=OrderType.MARKET,
+        created_at=now,
+        valid_until=now + timedelta(seconds=int(probe["intent_ttl_seconds"])),
+        source=OrderSource.STRATEGY,
+        provenance={"market_sequence": market_sequence},
+    )
+
+
+def run_probe(*, fixture: dict[str, object], code_sha: str, iterations: int, warm: bool):
+    if iterations <= 0:
+        raise ValueError("iterations must be positive")
+    policy = _policy(fixture)
+    probe = fixture["probe"]
+    if not isinstance(probe, dict):
+        raise ValueError("probe must be an object")
+    now = datetime.fromisoformat(str(probe["now_utc"]))
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("probe.now_utc must be timezone-aware")
+    instrument = InstrumentIdentity(
+        market="NSE",
+        instrument=str(probe["instrument"]),
+        segment="options",
+        underlying=str(probe["underlying"]),
+        expiry=date.fromisoformat(str(probe["expiry"])),
+        strike=Decimal(str(probe["strike"])),
+        option_type=str(probe["option_type"]),
+    )
+    market_sequence = int(probe["market_sequence"])
+
+    shared_runtime = (
+        _build_runtime(policy=policy, probe=probe, now=now, instrument=instrument, market_sequence=market_sequence)
+        if warm else None
+    )
+    all_latency_records: list[RiskGateLatencyRecord] = []
+    handoff_samples: list[int] = []
+
+    for index in range(iterations):
+        start = perf_counter_ns()
+        runtime = shared_runtime or _build_runtime(
+            policy=policy,
+            probe=probe,
+            now=now,
+            instrument=instrument,
+            market_sequence=market_sequence,
+        )
+        approved = runtime.gate.evaluate_entry(
+            _approved_intent(
+                index=index,
+                now=now,
+                instrument=instrument,
+                probe=probe,
+                market_sequence=market_sequence,
+            )
+        )
+        runtime.handoff.handoff(
+            approved,
+            runtime.context,
+            runtime.quote,
+            runtime.fill_policy,
+            now=now,
+        )
+        handoff_samples.append(perf_counter_ns() - start)
+        runtime.gate.evaluate_entry(
+            _rejected_intent(
+                index=index,
+                now=now,
+                instrument=instrument,
+                probe=probe,
+                market_sequence=market_sequence,
+            )
+        )
+        if shared_runtime is None:
+            all_latency_records.extend(runtime.latency_sink.records)
+
+    if shared_runtime is not None:
+        all_latency_records.extend(shared_runtime.latency_sink.records)
 
     approved_samples: list[int] = []
     rejected_samples: list[int] = []
-    handoff_samples: list[int] = []
     audit_samples: list[int] = []
-
-    for index in range(iterations):
-        created = now
-        intent = OrderIntent(
-            intent_id=f"bench-approved-{index}",
-            strategy_id="benchmark",
-            strategy_version="v1",
-            run_mode=RunMode.PAPER,
-            instrument_ref=instrument,
-            side="BUY",
-            qty=Decimal(str(probe["order_qty"])),
-            order_type=OrderType.MARKET,
-            created_at=created,
-            valid_until=created + timedelta(seconds=int(probe["intent_ttl_seconds"])),
-            source=OrderSource.STRATEGY,
-            provenance={"market_sequence": market_sequence},
-        )
-        start = perf_counter_ns()
-        approved = gate.evaluate_entry(intent)
-        handoff.handoff(approved, context, paper_quote, fill_policy, now=now)
-        end = perf_counter_ns()
-        handoff_samples.append(end - start)
-
-        rejected_intent = OrderIntent(
-            intent_id=f"bench-rejected-{index}",
-            strategy_id="benchmark",
-            strategy_version="v1",
-            run_mode=RunMode.PAPER,
-            instrument_ref=instrument,
-            side="SELL",
-            qty=Decimal(str(probe["order_qty"])),
-            order_type=OrderType.MARKET,
-            created_at=created,
-            valid_until=created + timedelta(seconds=int(probe["intent_ttl_seconds"])),
-            source=OrderSource.STRATEGY,
-            provenance={"market_sequence": market_sequence},
-        )
-        gate.evaluate_entry(rejected_intent)
-
-    for record in latency_sink.records:
+    for record in all_latency_records:
         total = record.duration_ns(RiskLatencyStage.RISK_GATE_ENTER, RiskLatencyStage.DECISION_FINALIZED)
         if record.decision_kind == "APPROVED":
             approved_samples.append(total)
