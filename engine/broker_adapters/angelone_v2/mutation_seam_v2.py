@@ -77,7 +77,7 @@ class AngelOneV2MutationSeam:
             client_order_id=order.client_order_id,
             intent_id=order.intent_id,
             risk_decision_ref=order.risk_decision_ref,
-            exchange=instrument.exchange,
+            exchange=instrument.market.upper(),
             instrument=instrument.instrument,
             segment=instrument.segment,
             underlying=instrument.underlying,
