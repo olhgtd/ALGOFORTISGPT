@@ -156,7 +156,8 @@ class RiskSnapshotHealthCoordinator:
 
         # WARNING: apply existing storm policy if one is injected; otherwise a
         # single trustworthy-state degradation is enough. Sticky HALTED/RECOVERY
-        # never auto-clear from a builder-health event.
+        # never auto-clear from a builder-health event. Invalid/mismatched storm
+        # policy fails closed to HALTED rather than leaking an ambiguous error.
         if current in {
             PaperOperationalState.HALTED,
             PaperOperationalState.RECOVERY,
@@ -164,11 +165,14 @@ class RiskSnapshotHealthCoordinator:
         }:
             return current
         if self._storm_evaluator is not None:
-            occurred_ms = self._clock.monotonic_ns() // 1_000_000
-            decision = self._storm_evaluator.observe(event.failure_class, occurred_ms)
+            try:
+                occurred_ms = self._clock.monotonic_ns() // 1_000_000
+                decision = self._storm_evaluator.observe(event.failure_class, occurred_ms)
+            except Exception:
+                return self._state_machine.halt_entries(
+                    reason=PaperTransitionReason.STORM_THRESHOLD_CROSSED
+                )
             if decision.halt:
-                if current is PaperOperationalState.HALTED:
-                    return current
                 return self._state_machine.halt_entries(
                     reason=PaperTransitionReason.STORM_THRESHOLD_CROSSED
                 )
