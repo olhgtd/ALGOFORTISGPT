@@ -119,9 +119,14 @@ class RiskEvaluation:
         latency_policy_ref: str | None = None,
     ) -> "RiskEvaluation":
         return cls(
-            RiskDecisionKind.APPROVED, (), risk_rule_version, limits_snapshot_id,
-            as_decimal(approved_qty, "approved_qty"), risk_snapshot_id,
-            market_sequence_ref, latency_policy_ref,
+            RiskDecisionKind.APPROVED,
+            (),
+            risk_rule_version,
+            limits_snapshot_id,
+            as_decimal(approved_qty, "approved_qty"),
+            risk_snapshot_id,
+            market_sequence_ref,
+            latency_policy_ref,
         )
 
     @classmethod
@@ -136,8 +141,13 @@ class RiskEvaluation:
         latency_policy_ref: str | None = None,
     ) -> "RiskEvaluation":
         return cls(
-            RiskDecisionKind.REJECTED, (_text(reason, "reason"),), risk_rule_version,
-            limits_snapshot_id, None, risk_snapshot_id, market_sequence_ref,
+            RiskDecisionKind.REJECTED,
+            (_text(reason, "reason"),),
+            risk_rule_version,
+            limits_snapshot_id,
+            None,
+            risk_snapshot_id,
+            market_sequence_ref,
             latency_policy_ref,
         )
 
@@ -337,20 +347,20 @@ class RiskGateV2:
     ) -> None:
         if self._latency_sink is None:
             return
-        record = RiskGateLatencyRecord(
-            intent_id=intent.intent_id,
-            risk_snapshot_id=risk_snapshot_id,
-            latency_policy_ref=latency_policy_ref,
-            stage_timestamps_ns=dict(marks),
-            decision_kind=decision_kind,
-            audit_result=audit_result,
-            rejection_reason=rejection_reason,
-        )
         try:
+            record = RiskGateLatencyRecord(
+                intent_id=intent.intent_id,
+                risk_snapshot_id=risk_snapshot_id,
+                latency_policy_ref=latency_policy_ref,
+                stage_timestamps_ns=dict(marks),
+                decision_kind=decision_kind,
+                audit_result=audit_result,
+                rejection_reason=rejection_reason,
+            )
             self._latency_sink.record(record)
         except Exception:
-            # Telemetry is non-authorizing. Mandatory risk audit above remains the
-            # trading-critical INV-16 gate.
+            # Latency telemetry is non-authorizing. Even malformed telemetry or a
+            # broken sink cannot alter a decision or mask INV-16 audit failure.
             return
 
     def _write_audit(self, event_type: str, payload: Mapping[str, object]) -> None:
