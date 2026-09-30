@@ -9,6 +9,7 @@ import pytest
 from engine.core.runtime import DeterministicIdGenerator, DeterministicSeedSource, FixedClock
 from engine.orders.contracts_v2 import ApprovedOrder, OrderIntent, OrderSource, RunMode
 from engine.orders.model import OrderType
+from engine.paper.execution_adapter_v2 import PaperExecutionAdapterV2
 from engine.paper.fill_simulator_v2 import FillSimulationPolicy, PaperFillSimulator, QuoteSnapshot
 from engine.paper.warm_handoff_v2 import WarmPaperContext, WarmPaperHandoff
 from engine.portfolio.model import InstrumentIdentity
@@ -108,35 +109,56 @@ def _quote() -> QuoteSnapshot:
     )
 
 
-def test_prepare_only_warms_static_non_authorizing_context() -> None:
+def test_prepare_static_only_builds_non_authorizing_context() -> None:
     simulator = _RecordingSimulator()
-    context = WarmPaperContext(
-        fill_policy=_policy(),
-        runtime_profile_ref="runtime:test",
-        config_snapshot_ref="config:test",
+    handoff = WarmPaperHandoff(PaperExecutionAdapterV2(simulator))
+    context = handoff.prepare_static(
+        instrument_mapping_ref="mapping:test",
+        serializer_ref="serializer:test",
     )
-    handoff = WarmPaperHandoff(simulator=simulator, context=context)
-
-    assert handoff.prepare() is context
+    assert isinstance(context, WarmPaperContext)
+    assert context.instrument_mapping_ref == "mapping:test"
     assert simulator.calls == []
+    assert handoff.handoff_count == 0
 
 
 def test_handoff_refuses_non_approved_order() -> None:
-    handoff = WarmPaperHandoff(
-        simulator=_RecordingSimulator(),
-        context=WarmPaperContext(_policy(), "runtime:test", "config:test"),
+    handoff = WarmPaperHandoff(PaperExecutionAdapterV2(_RecordingSimulator()))
+    context = handoff.prepare_static(
+        instrument_mapping_ref="mapping:test",
+        serializer_ref="serializer:test",
     )
     with pytest.raises(TypeError, match="ApprovedOrder"):
-        handoff.handoff(object(), _quote(), now=datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc))
+        handoff.handoff(
+            object(), context, _quote(), _policy(),
+            now=datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc),
+        )
 
 
-def test_handoff_forwards_only_genuine_paper_approved_order_to_existing_simulator() -> None:
+def test_handoff_forwards_only_genuine_paper_approved_order_to_existing_adapter() -> None:
     simulator = _RecordingSimulator()
-    context = WarmPaperContext(_policy(), "runtime:test", "config:test")
-    handoff = WarmPaperHandoff(simulator=simulator, context=context)
+    handoff = WarmPaperHandoff(PaperExecutionAdapterV2(simulator))
+    context = handoff.prepare_static(
+        instrument_mapping_ref="mapping:test",
+        serializer_ref="serializer:test",
+    )
     approved = _approved_order()
     quote = _quote()
-    now = datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc)
+    policy = _policy()
+    now = datetime(2026, 9, 30, 9, 0, 1, tzinfo=timezone.utc)
+    assert handoff.handoff(approved, context, quote, policy, now=now) == "simulated"
+    assert simulator.calls == [(approved, quote, policy, now)]
+    assert handoff.handoff_count == 1
 
-    assert handoff.handoff(approved, quote, now=now) == "simulated"
-    assert simulator.calls == [(approved, quote, context.fill_policy, now)]
+
+def test_same_approved_order_cannot_be_handed_off_twice() -> None:
+    handoff = WarmPaperHandoff(PaperExecutionAdapterV2(_RecordingSimulator()))
+    context = handoff.prepare_static(
+        instrument_mapping_ref="mapping:test",
+        serializer_ref="serializer:test",
+    )
+    approved = _approved_order()
+    now = datetime(2026, 9, 30, 9, 0, 1, tzinfo=timezone.utc)
+    handoff.handoff(approved, context, _quote(), _policy(), now=now)
+    with pytest.raises(ValueError, match="already handed off"):
+        handoff.handoff(approved, context, _quote(), _policy(), now=now)
