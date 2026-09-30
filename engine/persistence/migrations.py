@@ -1,7 +1,11 @@
-"""AlgoFortis V2 migration facade including additive Phase-5 V8 schema."""
+"""AlgoFortis V2 migration facade including additive Phase-5 V8 and Live V9 schema."""
 
 from __future__ import annotations
 
+from engine.persistence.live_execution_schema_v9 import (
+    LIVE_EXECUTION_CREATE_TABLES_SQL,
+    LIVE_EXECUTION_DROP_TABLES_SQL,
+)
 from engine.persistence.migrations_base_v7 import (
     Migration,
     MigrationError,
@@ -22,6 +26,14 @@ PHASE5_V8_MIGRATION = Migration(
     rollback_sql=PHASE5_DROP_TABLES_SQL,
 )
 
+LIVE_EXECUTION_V9_MIGRATION = Migration(
+    migration_id="live-execution-v9",
+    from_version=8,
+    to_version=9,
+    apply_sql=LIVE_EXECUTION_CREATE_TABLES_SQL,
+    rollback_sql=LIVE_EXECUTION_DROP_TABLES_SQL,
+)
+
 __all__ = [
     "MigrationError",
     "Migration",
@@ -29,4 +41,5 @@ __all__ = [
     "RollbackResult",
     "SQLiteMigrationRunner",
     "PHASE5_V8_MIGRATION",
+    "LIVE_EXECUTION_V9_MIGRATION",
 ]
