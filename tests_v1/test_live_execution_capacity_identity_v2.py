@@ -44,3 +44,20 @@ def test_client_order_identity_cannot_be_reserved_for_two_accounts(tmp_path) -> 
     assert store.try_reserve_capacity(_reservation("acct-a"), available_cash=Decimal("100")) is True
     with pytest.raises(LiveExecutionCapacityConflict):
         store.try_reserve_capacity(_reservation("acct-b"), available_cash=Decimal("100"))
+
+
+def test_capacity_can_be_released_by_global_client_identity(tmp_path) -> None:
+    database = tmp_path / "live.sqlite3"
+    _database(database)
+    store = LiveExecutionStoreV2(database)
+    reservation = _reservation("acct-a")
+    assert store.try_reserve_capacity(reservation, available_cash=Decimal("100")) is True
+
+    released = store.release_capacity_by_client(
+        reservation.client_order_id,
+        released_at_utc=datetime(2026, 9, 30, 12, 1, tzinfo=timezone.utc),
+        reason="pre_submit_abort",
+    )
+
+    assert released is True
+    assert store.active_reserved_cash("acct-a") == Decimal("0")
