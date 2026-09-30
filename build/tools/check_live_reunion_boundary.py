@@ -15,6 +15,7 @@ CANONICAL_MUTATION_PATHS = {
     "engine/live/execution_coordinator_v2.py",
     "engine/broker_adapters/angelone_v2/mutation_seam_v2.py",
 }
+MUTATION_GATE_PATH = "engine/live/mutation_release_gate_v2.py"
 NONCANONICAL_ROOTS = (
     "dashboard/",
     "engine/ai/",
@@ -32,6 +33,7 @@ DIRECT_MUTATION_CALLS = (
     "modify_order",
     "cancel_order",
 )
+LIVE_PORT_MUTATION_CALLS = ("place", "cancel")
 AUTO_ARM_CALLS = (
     "arm_live",
     "auto_arm",
@@ -131,12 +133,26 @@ def check_source_text(path: str, source: str) -> list[str]:
             if name in calls:
                 failures.append(f"{path}: direct broker mutation call {name!r} is forbidden")
 
+    if path.startswith("engine/live/") and path not in CANONICAL_MUTATION_PATHS:
+        for name in LIVE_PORT_MUTATION_CALLS:
+            if name in calls:
+                failures.append(f"{path}: direct Live broker mutation call {name!r} is forbidden")
+
     if "_mint_approved_order" in calls and path not in CANONICAL_MINT_PATHS:
         failures.append(f"{path}: direct ApprovedOrder mint is forbidden outside RiskGateV2")
 
-    for name in _class_names(source, path=path):
+    class_names = _class_names(source, path=path)
+    for name in class_names:
         if name in RECONNECT_AUTHORITY_NAMES or ("Reconnect" in name and "Authority" in name):
             failures.append(f"{path}: second reconnect/generation authority class {name} is forbidden")
+
+    if path == MUTATION_GATE_PATH:
+        for name in class_names:
+            if name in {"LiveMutationReleaseGate", "ClosedLiveMutationReleaseGate", "LiveMutationBlocked"}:
+                continue
+            lowered = name.casefold()
+            if "livemutation" in lowered and "gate" in lowered:
+                failures.append(f"{path}: production open mutation gate class {name} is forbidden")
 
     if path not in CANONICAL_ARM_PATHS:
         for name in AUTO_ARM_CALLS:
