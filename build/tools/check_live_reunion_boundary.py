@@ -16,6 +16,7 @@ CANONICAL_MUTATION_PATHS = {
     "engine/broker_adapters/angelone_v2/mutation_seam_v2.py",
 }
 MUTATION_GATE_PATH = "engine/live/mutation_release_gate_v2.py"
+MUTATION_SEAM_PATH = "engine/broker_adapters/angelone_v2/mutation_seam_v2.py"
 NONCANONICAL_ROOTS = (
     "dashboard/",
     "engine/ai/",
@@ -44,6 +45,22 @@ RECONNECT_AUTHORITY_NAMES = {
     "ReconnectGenerationAuthority",
     "ReconnectAuthority",
     "GenerationAuthority",
+}
+MUTATION_SEAM_NETWORK_IMPORTS = (
+    "requests",
+    "httpx",
+    "urllib",
+    "aiohttp",
+    "socket",
+)
+MUTATION_SEAM_CREDENTIAL_IDENTIFIERS = {
+    "api_key",
+    "access_token",
+    "totp",
+    "password",
+    "credential_loader",
+    "client_secret",
+    "secret_key",
 }
 SCAN_ROOTS = (
     "dashboard/backend",
@@ -109,6 +126,21 @@ def _call_names(source: str, *, path: str) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _identifier_names(source: str, *, path: str) -> tuple[str, ...]:
+    tree = _tree(source, path=path)
+    if tree is None:
+        return ()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.arg):
+            names.add(node.arg)
+        elif isinstance(node, ast.Attribute):
+            names.add(node.attr)
+    return tuple(sorted(names))
+
+
 def _is_noncanonical_runtime(path: str) -> bool:
     return path.startswith(NONCANONICAL_ROOTS)
 
@@ -126,6 +158,14 @@ def check_source_text(path: str, source: str) -> list[str]:
                 failures.append(f"{path}: legacy mutation adapter import {module} is forbidden")
         if module.startswith("engine.broker_adapters.") and _is_noncanonical_runtime(path):
             failures.append(f"{path}: direct broker mutation authority import {module} is forbidden")
+
+    if path == MUTATION_SEAM_PATH:
+        for module in imports:
+            if any(module == prefix or module.startswith(prefix + ".") for prefix in MUTATION_SEAM_NETWORK_IMPORTS):
+                failures.append(f"{path}: Package-1 mutation seam network import {module} is forbidden")
+        identifiers = set(_identifier_names(source, path=path))
+        for name in sorted(MUTATION_SEAM_CREDENTIAL_IDENTIFIERS & identifiers):
+            failures.append(f"{path}: Package-1 mutation seam credential identifier {name!r} is forbidden")
 
     calls = _call_names(source, path=path)
     if _is_noncanonical_runtime(path) and path not in CANONICAL_MUTATION_PATHS:
