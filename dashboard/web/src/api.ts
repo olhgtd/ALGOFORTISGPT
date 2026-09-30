@@ -1,7 +1,7 @@
 /**
- * SentinelX Control Center – API Client
+ * AlgoFortis Control Center – API Client
  *
- * Every request goes through authenticated session headers.
+ * Every request goes through the same backend authority surface.
  * The client never fabricates evidence; it only deserializes
  * authoritative backend DTOs.
  */
@@ -10,6 +10,10 @@ import type {
   ChartPayload,
   HealthPayload,
   OverviewPayload,
+  PasswordActivationRequest,
+  PasswordActivationResponse,
+  PasswordLoginRequest,
+  PasswordSessionResponse,
   PortfolioSummary,
   SecurityStatusPayload,
   SettingsProposal,
@@ -87,6 +91,18 @@ export const api = {
   overview: () => request<OverviewPayload>("/overview"),
   securityStatus: () => request<SecurityStatusPayload>("/security/status"),
   ownerBootstrapStatus: () => request<OwnerBootstrapStatus>("/identity/bootstrap-status"),
+
+  passwordActivate: (data: PasswordActivationRequest) =>
+    request<PasswordActivationResponse>("/auth/password/activate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  passwordLogin: (data: PasswordLoginRequest) =>
+    request<PasswordSessionResponse>("/auth/password/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   webauthnAuthenticationOptions: (identifier?: string) =>
     request<{ challenge_id: string; publicKey: PublicKeyCredentialRequestOptions }>(
       "/auth/webauthn/authentication/options",
