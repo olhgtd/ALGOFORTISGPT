@@ -2,13 +2,19 @@
 
 This module deliberately reuses the existing security-store transaction,
 password hashing, identity reconstruction, activation issuance, and service
-entitlement contracts.  It does not create a second account database.
+entitlement contracts. It does not create a second account database.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from dashboard.backend.domain import AccountAccessStatus, ActivationStatus, Lifecycle, Role
+from dashboard.backend.domain import (
+    AccountAccessStatus,
+    ActivationStatus,
+    Lifecycle,
+    Role,
+    compute_service_expiry,
+)
 from dashboard.backend.identity import persisted_identity
 from dashboard.backend.security_store import (
     SQLiteSecurityStore,
@@ -16,7 +22,6 @@ from dashboard.backend.security_store import (
     hash_password,
     verify_password,
 )
-from dashboard.backend.domain import compute_service_expiry
 
 
 def _utc_now() -> datetime:
@@ -24,17 +29,32 @@ def _utc_now() -> datetime:
 
 
 def normalize_legacy_owner_activation(store: SQLiteSecurityStore) -> int:
-    """Normalize the historical non-enum OWNER activation value exactly once.
+    """Normalize legacy Owner account identity into current canonical values.
 
-    Older local-private builds could persist ``ACTIVATED`` for an Owner while
-    current identity/session contracts only admit ``REDEEMED``.  The migration
-    is narrow, idempotent, and never changes User activation state.
+    Historical local-private builds could persist ``ACTIVATED`` even though
+    current V2 identity/session contracts admit ``REDEEMED``. Some Owner rows
+    also predate a durable public identifier. Because AlgoFortis has exactly
+    one Owner, the canonical Owner identifier is ``OWNER-001``.
+
+    The migration is narrow, idempotent, and never changes User rows.
     """
     with store._transaction() as cur:
         result = cur.execute(
             """UPDATE users
-               SET activation_status = 'REDEEMED'
-               WHERE role = 'OWNER' AND activation_status = 'ACTIVATED'"""
+               SET activation_status = CASE
+                       WHEN activation_status = 'ACTIVATED' THEN 'REDEEMED'
+                       ELSE activation_status
+                   END,
+                   sx_id = CASE
+                       WHEN sx_id IS NULL OR TRIM(sx_id) = '' THEN 'OWNER-001'
+                       ELSE sx_id
+                   END
+               WHERE role = 'OWNER'
+                 AND (
+                     activation_status = 'ACTIVATED'
+                     OR sx_id IS NULL
+                     OR TRIM(sx_id) = ''
+                 )"""
         )
         return int(result.rowcount or 0)
 
