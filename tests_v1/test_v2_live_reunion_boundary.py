@@ -41,6 +41,24 @@ def test_guard_rejects_direct_broker_mutation_from_noncanonical_runtime() -> Non
     assert any("direct broker mutation" in item for item in failures)
 
 
+def test_guard_rejects_direct_live_port_place_outside_coordinator() -> None:
+    guard = _load_guard()
+    failures = guard.check_source_text(
+        "engine/live/shortcut.py",
+        "def shortcut(port, order):\n    return port.place(order)\n",
+    )
+    assert any("direct Live broker mutation" in item for item in failures)
+
+
+def test_guard_rejects_production_open_mutation_gate_class() -> None:
+    guard = _load_guard()
+    failures = guard.check_source_text(
+        "engine/live/mutation_release_gate_v2.py",
+        "class OpenLiveMutationReleaseGate:\n    def authorize(self, *, order, live_state):\n        return 'allowed'\n",
+    )
+    assert any("open mutation gate" in item.lower() for item in failures)
+
+
 def test_guard_rejects_direct_approved_order_mint_outside_riskgate() -> None:
     guard = _load_guard()
     failures = guard.check_source_text(
