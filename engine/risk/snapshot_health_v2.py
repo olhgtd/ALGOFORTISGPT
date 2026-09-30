@@ -72,6 +72,8 @@ class RiskSnapshotHealthCoordinator:
             raise TypeError("id_generator must provide new_id")
         if not callable(getattr(clock, "now_utc", None)):
             raise TypeError("clock must provide now_utc")
+        if not callable(getattr(clock, "monotonic_ns", None)):
+            raise TypeError("clock must provide monotonic_ns")
         if storm_evaluator is not None and not isinstance(storm_evaluator, StormEvaluator):
             raise TypeError("storm_evaluator must be StormEvaluator")
         self._state_machine = state_machine
@@ -101,7 +103,7 @@ class RiskSnapshotHealthCoordinator:
             halt_latched=resulting is PaperOperationalState.HALTED,
             recovery_id=None,
             storm_policy_ref=(
-                self._storm_evaluator._policy.reference
+                self._storm_evaluator.policy_ref
                 if self._storm_evaluator is not None
                 else None
             ),
@@ -162,7 +164,7 @@ class RiskSnapshotHealthCoordinator:
         }:
             return current
         if self._storm_evaluator is not None:
-            occurred_ms = int(event.occurred_at.timestamp() * 1000)
+            occurred_ms = self._clock.monotonic_ns() // 1_000_000
             decision = self._storm_evaluator.observe(event.failure_class, occurred_ms)
             if decision.halt:
                 if current is PaperOperationalState.HALTED:
