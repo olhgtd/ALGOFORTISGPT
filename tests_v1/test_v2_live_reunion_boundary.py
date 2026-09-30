@@ -59,6 +59,20 @@ def test_guard_rejects_production_open_mutation_gate_class() -> None:
     assert any("open mutation gate" in item.lower() for item in failures)
 
 
+def test_guard_rejects_network_or_credential_composition_in_package1_mutation_seam() -> None:
+    guard = _load_guard()
+    path = "engine/broker_adapters/angelone_v2/mutation_seam_v2.py"
+
+    network_failures = guard.check_source_text(path, "import requests\n")
+    credential_failures = guard.check_source_text(
+        path,
+        "def connect(api_key, access_token):\n    return api_key, access_token\n",
+    )
+
+    assert any("network" in item.lower() for item in network_failures)
+    assert any("credential" in item.lower() for item in credential_failures)
+
+
 def test_guard_rejects_direct_approved_order_mint_outside_riskgate() -> None:
     guard = _load_guard()
     failures = guard.check_source_text(
