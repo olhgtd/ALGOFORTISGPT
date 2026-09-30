@@ -111,6 +111,7 @@ def build_benchmark_evidence(
         policy.status is LatencyPolicyStatus.APPROVED
         and policy.evidence_bundle_ref is not None
         and policy.approval_ref is not None
+        and all(count == 0 for count in normalized_breaches.values())
     )
     return RiskGateBenchmarkEvidence(
         code_sha=code_sha,
