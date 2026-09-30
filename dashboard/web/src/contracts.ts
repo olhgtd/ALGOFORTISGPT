@@ -1,5 +1,5 @@
 /**
- * Governed TypeScript contracts for the SentinelX control center.
+ * Governed TypeScript contracts for the AlgoFortis control center.
  * These types mirror the authoritative backend DTOs; the frontend
  * never fabricates evidence, candles, volume, signals, or protective state.
  */
@@ -7,6 +7,36 @@
 export type Trust = "FRESH" | "STALE" | "UNKNOWN";
 export type SecurityStatus = "CONFIGURED" | "NOT_CONFIGURED" | "UNKNOWN" | "NEEDS_ROTATION";
 export type ChartMode = "LIVE" | "FROZEN_HISTORICAL" | "BACKTEST";
+
+export interface PasswordActivationRequest {
+  identifier: string;
+  activation_code: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+}
+
+export interface PasswordActivationResponse {
+  activated: true;
+  authentication_required: true;
+}
+
+export interface PasswordLoginRequest {
+  identifier: string;
+  password: string;
+}
+
+export interface PasswordSessionResponse {
+  access_token: string;
+  expires_at_utc: string;
+  subject: string;
+  role: "OWNER" | "USER";
+  sx_id: string | null;
+  workspace_eligibility: {
+    owner: boolean;
+    user: boolean;
+  };
+}
 
 export interface Trusted<T> {
   value: T | null;
