@@ -243,19 +243,21 @@ class LiveExecutionStoreV2:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 """
-                SELECT instrument_scope, required_cash, funds_evidence_ref, created_at_utc, status
+                SELECT broker_account_ref, instrument_scope, required_cash,
+                       funds_evidence_ref, created_at_utc, status
                 FROM live_execution_capacity_reservations
-                WHERE broker_account_ref = ? AND client_order_id = ?
+                WHERE client_order_id = ?
                 """,
-                (reservation.broker_account_ref, reservation.client_order_id),
+                (reservation.client_order_id,),
             ).fetchone()
             if existing is not None:
                 same = (
-                    str(existing[0]) == reservation.instrument_scope
-                    and Decimal(str(existing[1])) == reservation.required_cash
-                    and str(existing[2]) == reservation.funds_evidence_ref
-                    and str(existing[3]) == reservation.created_at_utc.isoformat()
-                    and str(existing[4]) == "ACTIVE"
+                    str(existing[0]) == reservation.broker_account_ref
+                    and str(existing[1]) == reservation.instrument_scope
+                    and Decimal(str(existing[2])) == reservation.required_cash
+                    and str(existing[3]) == reservation.funds_evidence_ref
+                    and str(existing[4]) == reservation.created_at_utc.isoformat()
+                    and str(existing[5]) == "ACTIVE"
                 )
                 if same:
                     connection.commit()
@@ -275,22 +277,27 @@ class LiveExecutionStoreV2:
             if reserved + reservation.required_cash > cash:
                 connection.rollback()
                 return False
-            connection.execute(
-                """
-                INSERT INTO live_execution_capacity_reservations(
-                    broker_account_ref, client_order_id, instrument_scope, required_cash,
-                    funds_evidence_ref, created_at_utc, released_at_utc, release_reason, status
-                ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'ACTIVE')
-                """,
-                (
-                    reservation.broker_account_ref,
-                    reservation.client_order_id,
-                    reservation.instrument_scope,
-                    str(reservation.required_cash),
-                    reservation.funds_evidence_ref,
-                    reservation.created_at_utc.isoformat(),
-                ),
-            )
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO live_execution_capacity_reservations(
+                        broker_account_ref, client_order_id, instrument_scope, required_cash,
+                        funds_evidence_ref, created_at_utc, released_at_utc, release_reason, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'ACTIVE')
+                    """,
+                    (
+                        reservation.broker_account_ref,
+                        reservation.client_order_id,
+                        reservation.instrument_scope,
+                        str(reservation.required_cash),
+                        reservation.funds_evidence_ref,
+                        reservation.created_at_utc.isoformat(),
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise LiveExecutionCapacityConflict(
+                    f"capacity identity already reserved: {reservation.client_order_id}"
+                ) from exc
             connection.commit()
             return True
         except Exception:
