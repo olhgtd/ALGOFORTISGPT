@@ -93,6 +93,7 @@ class LiveExecutionRecord:
 
 @dataclass(frozen=True, slots=True)
 class LiveExecutionCapacityReservation:
+    broker_id: str
     broker_account_ref: str
     client_order_id: str
     instrument_scope: str
@@ -101,6 +102,7 @@ class LiveExecutionCapacityReservation:
     created_at_utc: datetime
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "broker_id", _text(self.broker_id, "broker_id"))
         object.__setattr__(self, "broker_account_ref", _text(self.broker_account_ref, "broker_account_ref"))
         object.__setattr__(self, "client_order_id", _text(self.client_order_id, "client_order_id"))
         object.__setattr__(self, "instrument_scope", _text(self.instrument_scope, "instrument_scope"))
@@ -114,12 +116,73 @@ class LiveExecutionStoreV2:
         self.database_path = Path(database_path)
         if not self.database_path.is_file():
             raise FileNotFoundError(self.database_path)
+        self._ensure_capacity_domain_schema()
 
     def _open(self) -> sqlite3.Connection:
         connection = sqlite3.connect(str(self.database_path), timeout=5.0)
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
+
+    def _ensure_capacity_domain_schema(self) -> None:
+        """Refuse ambiguous legacy capacity rows; only rebuild an empty pre-domain table."""
+        connection = self._open()
+        try:
+            table = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='live_execution_capacity_reservations'"
+            ).fetchone()
+            if table is None:
+                return
+            columns = {
+                str(row[1])
+                for row in connection.execute("PRAGMA table_info(live_execution_capacity_reservations)").fetchall()
+            }
+            if "broker_id" in columns:
+                return
+            row_count = int(
+                connection.execute("SELECT COUNT(*) FROM live_execution_capacity_reservations").fetchone()[0]
+            )
+            if row_count:
+                raise LiveExecutionStoreError(
+                    "legacy capacity rows missing broker_id; broker ownership cannot be inferred"
+                )
+            connection.execute("DROP INDEX IF EXISTS idx_live_capacity_account_status")
+            connection.execute("DROP INDEX IF EXISTS idx_live_capacity_client_order_identity")
+            connection.execute("DROP TABLE live_execution_capacity_reservations")
+            connection.execute(
+                """
+                CREATE TABLE live_execution_capacity_reservations (
+                    broker_id TEXT NOT NULL,
+                    broker_account_ref TEXT NOT NULL,
+                    client_order_id TEXT NOT NULL,
+                    instrument_scope TEXT NOT NULL,
+                    required_cash TEXT NOT NULL,
+                    funds_evidence_ref TEXT NOT NULL,
+                    created_at_utc TEXT NOT NULL,
+                    released_at_utc TEXT,
+                    release_reason TEXT,
+                    status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'RELEASED')),
+                    PRIMARY KEY (broker_id, broker_account_ref, client_order_id)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX idx_live_capacity_client_order_identity
+                ON live_execution_capacity_reservations (client_order_id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX idx_live_capacity_account_status
+                ON live_execution_capacity_reservations (
+                    broker_id, broker_account_ref, status, created_at_utc, client_order_id
+                )
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
     def reserve(self, record: LiveExecutionRecord) -> LiveExecutionRecord:
         if not isinstance(record, LiveExecutionRecord):
@@ -243,7 +306,7 @@ class LiveExecutionStoreV2:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 """
-                SELECT broker_account_ref, instrument_scope, required_cash,
+                SELECT broker_id, broker_account_ref, instrument_scope, required_cash,
                        funds_evidence_ref, created_at_utc, status
                 FROM live_execution_capacity_reservations
                 WHERE client_order_id = ?
@@ -252,12 +315,13 @@ class LiveExecutionStoreV2:
             ).fetchone()
             if existing is not None:
                 same = (
-                    str(existing[0]) == reservation.broker_account_ref
-                    and str(existing[1]) == reservation.instrument_scope
-                    and Decimal(str(existing[2])) == reservation.required_cash
-                    and str(existing[3]) == reservation.funds_evidence_ref
-                    and str(existing[4]) == reservation.created_at_utc.isoformat()
-                    and str(existing[5]) == "ACTIVE"
+                    str(existing[0]) == reservation.broker_id
+                    and str(existing[1]) == reservation.broker_account_ref
+                    and str(existing[2]) == reservation.instrument_scope
+                    and Decimal(str(existing[3])) == reservation.required_cash
+                    and str(existing[4]) == reservation.funds_evidence_ref
+                    and str(existing[5]) == reservation.created_at_utc.isoformat()
+                    and str(existing[6]) == "ACTIVE"
                 )
                 if same:
                     connection.commit()
@@ -269,9 +333,9 @@ class LiveExecutionStoreV2:
             rows = connection.execute(
                 """
                 SELECT required_cash FROM live_execution_capacity_reservations
-                WHERE broker_account_ref = ? AND status = 'ACTIVE'
+                WHERE broker_id = ? AND broker_account_ref = ? AND status = 'ACTIVE'
                 """,
-                (reservation.broker_account_ref,),
+                (reservation.broker_id, reservation.broker_account_ref),
             ).fetchall()
             reserved = sum((Decimal(str(row[0])) for row in rows), Decimal("0"))
             if reserved + reservation.required_cash > cash:
@@ -281,11 +345,13 @@ class LiveExecutionStoreV2:
                 connection.execute(
                     """
                     INSERT INTO live_execution_capacity_reservations(
-                        broker_account_ref, client_order_id, instrument_scope, required_cash,
-                        funds_evidence_ref, created_at_utc, released_at_utc, release_reason, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'ACTIVE')
+                        broker_id, broker_account_ref, client_order_id, instrument_scope,
+                        required_cash, funds_evidence_ref, created_at_utc,
+                        released_at_utc, release_reason, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'ACTIVE')
                     """,
                     (
+                        reservation.broker_id,
                         reservation.broker_account_ref,
                         reservation.client_order_id,
                         reservation.instrument_scope,
@@ -307,36 +373,46 @@ class LiveExecutionStoreV2:
         finally:
             connection.close()
 
-    def active_reserved_cash(self, broker_account_ref: str) -> Decimal:
-        account = _text(broker_account_ref, "broker_account_ref")
-        with self._open() as connection:
-            rows = connection.execute(
-                "SELECT required_cash FROM live_execution_capacity_reservations WHERE broker_account_ref = ? AND status = 'ACTIVE'",
-                (account,),
-            ).fetchall()
-        return sum((Decimal(str(row[0])) for row in rows), Decimal("0"))
-
-    def list_active_capacity(self, broker_account_ref: str) -> tuple[LiveExecutionCapacityReservation, ...]:
+    def active_reserved_cash(self, broker_id: str, broker_account_ref: str) -> Decimal:
+        broker = _text(broker_id, "broker_id")
         account = _text(broker_account_ref, "broker_account_ref")
         with self._open() as connection:
             rows = connection.execute(
                 """
-                SELECT broker_account_ref, client_order_id, instrument_scope, required_cash,
-                       funds_evidence_ref, created_at_utc
+                SELECT required_cash FROM live_execution_capacity_reservations
+                WHERE broker_id = ? AND broker_account_ref = ? AND status = 'ACTIVE'
+                """,
+                (broker, account),
+            ).fetchall()
+        return sum((Decimal(str(row[0])) for row in rows), Decimal("0"))
+
+    def list_active_capacity(
+        self,
+        broker_id: str,
+        broker_account_ref: str,
+    ) -> tuple[LiveExecutionCapacityReservation, ...]:
+        broker = _text(broker_id, "broker_id")
+        account = _text(broker_account_ref, "broker_account_ref")
+        with self._open() as connection:
+            rows = connection.execute(
+                """
+                SELECT broker_id, broker_account_ref, client_order_id, instrument_scope,
+                       required_cash, funds_evidence_ref, created_at_utc
                 FROM live_execution_capacity_reservations
-                WHERE broker_account_ref = ? AND status = 'ACTIVE'
+                WHERE broker_id = ? AND broker_account_ref = ? AND status = 'ACTIVE'
                 ORDER BY created_at_utc, client_order_id
                 """,
-                (account,),
+                (broker, account),
             ).fetchall()
         return tuple(
             LiveExecutionCapacityReservation(
-                broker_account_ref=str(row[0]),
-                client_order_id=str(row[1]),
-                instrument_scope=str(row[2]),
-                required_cash=Decimal(str(row[3])),
-                funds_evidence_ref=str(row[4]),
-                created_at_utc=datetime.fromisoformat(str(row[5])),
+                broker_id=str(row[0]),
+                broker_account_ref=str(row[1]),
+                client_order_id=str(row[2]),
+                instrument_scope=str(row[3]),
+                required_cash=Decimal(str(row[4])),
+                funds_evidence_ref=str(row[5]),
+                created_at_utc=datetime.fromisoformat(str(row[6])),
             )
             for row in rows
         )
@@ -344,11 +420,13 @@ class LiveExecutionStoreV2:
     def release_capacity(
         self,
         *,
+        broker_id: str,
         broker_account_ref: str,
         client_order_id: str,
         released_at_utc: datetime,
         reason: str,
     ) -> bool:
+        broker = _text(broker_id, "broker_id")
         account = _text(broker_account_ref, "broker_account_ref")
         client = _text(client_order_id, "client_order_id")
         released = _aware(released_at_utc, "released_at_utc")
@@ -358,9 +436,10 @@ class LiveExecutionStoreV2:
                 """
                 UPDATE live_execution_capacity_reservations
                 SET status = 'RELEASED', released_at_utc = ?, release_reason = ?
-                WHERE broker_account_ref = ? AND client_order_id = ? AND status = 'ACTIVE'
+                WHERE broker_id = ? AND broker_account_ref = ?
+                  AND client_order_id = ? AND status = 'ACTIVE'
                 """,
-                (released.isoformat(), normalized_reason, account, client),
+                (released.isoformat(), normalized_reason, broker, account, client),
             )
             return cursor.rowcount == 1
 
