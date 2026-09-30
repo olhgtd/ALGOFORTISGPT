@@ -1,9 +1,10 @@
-"""Static fail-closed boundary guard for canonical Owner/Admin and AI code.
+"""Static fail-closed boundary guard for canonical Owner/Admin, AI, and entry-gate code.
 
 Legacy V1 Owner screens remain in the repository as UI donors, but production
-navigation must resolve only through OwnerDashboardApp + authoritative/**.  The
-guard therefore checks the canonical surface, backend Owner control plane and
-AI research/shadow packages while leaving disconnected donor screens untouched.
+navigation resolves only through the canonical Owner shell and authoritative
+adapters.  The entry gate is also governed because authentication code must
+never acquire broker mutation, RiskGate approval, or sample/localStorage
+identity authority.
 """
 from __future__ import annotations
 
@@ -43,6 +44,19 @@ LAYA_ROUTING_TOKENS = (
     "dispatch_agent",
 )
 
+ENTRY_FRONTEND_FILES = frozenset({
+    "dashboard/web/src/visual-lab/secure-entry/SecureEntryApp.tsx",
+    "dashboard/web/src/visual-lab/secure-entry/FirstTimeCustomerFlow.tsx",
+    "dashboard/web/src/visual-lab/secure-entry/ReturningUserFlow.tsx",
+    "dashboard/web/src/visual-lab/secure-entry/LocalOwnerSetupCard.tsx",
+})
+
+ENTRY_BACKEND_FILES = frozenset({
+    "dashboard/backend/account_v2/password_accounts.py",
+    "dashboard/backend/account_v2/password_router.py",
+    "dashboard/backend/account_v2/owner_bootstrap.py",
+})
+
 
 def _norm(path: str | Path) -> str:
     return PurePosixPath(str(path).replace("\\", "/")).as_posix()
@@ -71,7 +85,17 @@ def check_source_text(path: str, source: str) -> list[str]:
     is_owner_backend = path.startswith("dashboard/backend/owner_admin/") and path.endswith(".py")
     is_ai_engine = path.startswith("engine/ai/") and path.endswith(".py")
     is_ai_backend = path == "dashboard/backend/ai_control.py"
-    governed = is_owner_shell or is_owner_frontend or is_owner_backend or is_ai_engine or is_ai_backend
+    is_entry_frontend = path in ENTRY_FRONTEND_FILES
+    is_entry_backend = path in ENTRY_BACKEND_FILES
+    governed = (
+        is_owner_shell
+        or is_owner_frontend
+        or is_owner_backend
+        or is_ai_engine
+        or is_ai_backend
+        or is_entry_frontend
+        or is_entry_backend
+    )
     if not governed:
         return failures
 
@@ -87,7 +111,7 @@ def check_source_text(path: str, source: str) -> list[str]:
         if token in source:
             failures.append(f"{path}: forbidden authority token {token!r}")
 
-    if is_owner_shell or is_owner_frontend:
+    if is_owner_shell or is_owner_frontend or is_entry_frontend:
         for token in FORBIDDEN_OWNER_TRUTH_TOKENS:
             if token in source:
                 failures.append(f"{path}: sample/prototype authority token {token!r}")
@@ -125,6 +149,11 @@ def _candidate_files(root: Path) -> list[Path]:
     if ai_control.is_file():
         files.append(ai_control)
 
+    for relative in sorted(ENTRY_FRONTEND_FILES | ENTRY_BACKEND_FILES):
+        candidate = root / relative
+        if candidate.is_file():
+            files.append(candidate)
+
     return sorted(set(files))
 
 
@@ -141,7 +170,7 @@ def main() -> int:
     failures = check_repository()
     if failures:
         raise SystemExit("\n".join(failures))
-    print("Owner/Admin + AI authority boundary: PASS")
+    print("Owner/Admin + AI + entry-gate authority boundary: PASS")
     return 0
 
 
