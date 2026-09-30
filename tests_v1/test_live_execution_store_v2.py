@@ -50,9 +50,18 @@ def _record(store_mod, contracts, lifecycle, client_order_id: str = "co-nifty-1"
     )
 
 
-def _capacity(store_mod, *, client_order_id: str, instrument_scope: str, required_cash: str):
+def _capacity(
+    store_mod,
+    *,
+    client_order_id: str,
+    instrument_scope: str,
+    required_cash: str,
+    broker_id: str = "angelone",
+    broker_account_ref: str = "acct-1",
+):
     return store_mod.LiveExecutionCapacityReservation(
-        broker_account_ref="acct-1",
+        broker_id=broker_id,
+        broker_account_ref=broker_account_ref,
         client_order_id=client_order_id,
         instrument_scope=instrument_scope,
         required_cash=Decimal(required_cash),
@@ -75,6 +84,11 @@ def test_v9_migration_is_additive_and_reversible(tmp_path) -> None:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert "live_execution_records" in names
         assert "live_execution_capacity_reservations" in names
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(live_execution_capacity_reservations)")
+        }
+        assert "broker_id" in columns
         for statement in migration.rollback_sql:
             connection.execute(statement)
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -148,7 +162,7 @@ def test_capacity_reservation_is_idempotent_conflict_safe_and_cash_bounded(tmp_p
 
     assert store.try_reserve_capacity(nifty, available_cash=Decimal("100")) is True
     assert store.try_reserve_capacity(nifty, available_cash=Decimal("100")) is True
-    assert store.active_reserved_cash("acct-1") == Decimal("40")
+    assert store.active_reserved_cash("angelone", "acct-1") == Decimal("40")
 
     conflicting = _capacity(store_mod, client_order_id="co-nifty", instrument_scope="NIFTY", required_cash="41")
     with pytest.raises(store_mod.LiveExecutionCapacityConflict):
@@ -156,7 +170,73 @@ def test_capacity_reservation_is_idempotent_conflict_safe_and_cash_bounded(tmp_p
 
     banknifty = _capacity(store_mod, client_order_id="co-banknifty", instrument_scope="BANKNIFTY", required_cash="70")
     assert store.try_reserve_capacity(banknifty, available_cash=Decimal("100")) is False
-    assert store.active_reserved_cash("acct-1") == Decimal("40")
+    assert store.active_reserved_cash("angelone", "acct-1") == Decimal("40")
+
+
+def test_same_account_ref_on_different_brokers_has_independent_capital_pool(tmp_path) -> None:
+    schema, store_mod, _, _, _ = _api()
+    database = tmp_path / "live.sqlite3"
+    _create_v9_database(database, schema.LIVE_EXECUTION_CREATE_TABLES_SQL)
+    store = store_mod.LiveExecutionStoreV2(database)
+
+    angel = _capacity(
+        store_mod,
+        client_order_id="co-angel",
+        instrument_scope="NIFTY",
+        required_cash="80",
+        broker_id="angelone",
+        broker_account_ref="same-ref",
+    )
+    dhan = _capacity(
+        store_mod,
+        client_order_id="co-dhan",
+        instrument_scope="BANKNIFTY",
+        required_cash="80",
+        broker_id="dhan",
+        broker_account_ref="same-ref",
+    )
+
+    assert store.try_reserve_capacity(angel, available_cash=Decimal("100")) is True
+    assert store.try_reserve_capacity(dhan, available_cash=Decimal("100")) is True
+    assert store.active_reserved_cash("angelone", "same-ref") == Decimal("80")
+    assert store.active_reserved_cash("dhan", "same-ref") == Decimal("80")
+
+
+def test_pending_reservation_blocks_until_explicit_release(tmp_path) -> None:
+    schema, store_mod, _, _, _ = _api()
+    database = tmp_path / "live.sqlite3"
+    _create_v9_database(database, schema.LIVE_EXECUTION_CREATE_TABLES_SQL)
+    store = store_mod.LiveExecutionStoreV2(database)
+    first = _capacity(store_mod, client_order_id="co-1", instrument_scope="NIFTY", required_cash="60")
+    second = _capacity(store_mod, client_order_id="co-2", instrument_scope="BANKNIFTY", required_cash="50")
+
+    assert store.try_reserve_capacity(first, available_cash=Decimal("100")) is True
+    assert store.try_reserve_capacity(second, available_cash=Decimal("100")) is False
+    assert store.release_capacity(
+        broker_id="angelone",
+        broker_account_ref="acct-1",
+        client_order_id="co-1",
+        released_at_utc=datetime(2026, 9, 30, 12, 1, tzinfo=timezone.utc),
+        reason="BROKER_TERMINAL_CANCELLED",
+    ) is True
+    assert store.try_reserve_capacity(second, available_cash=Decimal("100")) is True
+
+
+def test_decimal_cash_accounting_never_rounds_through_float(tmp_path) -> None:
+    schema, store_mod, _, _, _ = _api()
+    database = tmp_path / "live.sqlite3"
+    _create_v9_database(database, schema.LIVE_EXECUTION_CREATE_TABLES_SQL)
+    store = store_mod.LiveExecutionStoreV2(database)
+    amounts = ("0.1", "0.2", "0.3")
+    for index, amount in enumerate(amounts):
+        reservation = _capacity(
+            store_mod,
+            client_order_id=f"co-dec-{index}",
+            instrument_scope=f"SCOPE-{index}",
+            required_cash=amount,
+        )
+        assert store.try_reserve_capacity(reservation, available_cash=Decimal("0.6")) is True
+    assert store.active_reserved_cash("angelone", "acct-1") == Decimal("0.6")
 
 
 def test_simultaneous_multi_instrument_reservations_cannot_oversubscribe_cash(tmp_path) -> None:
@@ -192,5 +272,37 @@ def test_simultaneous_multi_instrument_reservations_cannot_oversubscribe_cash(tm
     assert errors == []
     assert sorted(results) == [False, True]
     store = store_mod.LiveExecutionStoreV2(database)
-    assert store.active_reserved_cash("acct-1") == Decimal("70")
-    assert len(store.list_active_capacity("acct-1")) == 1
+    assert store.active_reserved_cash("angelone", "acct-1") == Decimal("70")
+    assert len(store.list_active_capacity("angelone", "acct-1")) == 1
+
+
+def test_legacy_capacity_rows_without_broker_id_fail_closed(tmp_path) -> None:
+    _, store_mod, _, _, _ = _api()
+    database = tmp_path / "legacy-v9.sqlite3"
+    connection = sqlite3.connect(str(database))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE live_execution_capacity_reservations (
+                broker_account_ref TEXT NOT NULL,
+                client_order_id TEXT NOT NULL PRIMARY KEY,
+                instrument_scope TEXT NOT NULL,
+                required_cash TEXT NOT NULL,
+                funds_evidence_ref TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                released_at_utc TEXT,
+                release_reason TEXT,
+                status TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO live_execution_capacity_reservations VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, 'ACTIVE')",
+            ("acct-legacy", "co-legacy", "NIFTY", "10", "funds-old", datetime.now(timezone.utc).isoformat()),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(store_mod.LiveExecutionStoreError, match="broker_id"):
+        store_mod.LiveExecutionStoreV2(database)
