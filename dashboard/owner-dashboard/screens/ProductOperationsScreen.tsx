@@ -36,16 +36,16 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
           <h1>Product Operations</h1>
           <p>Read-only operational, privacy, backup and policy evidence. This surface has no trading or broker-mutation authority.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <TruthChip tone={surface?.state === "AVAILABLE" ? "ok" : "dim"} label={surface?.state ?? "LOADING"} />
-          <TruthChip tone="dim" label={data?.live_state ?? "READ_ONLY/DISARMED"} />
-          <TruthChip tone="dim" label={data?.ai_authority ?? "RESEARCH_SHADOW_ONLY"} />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <TruthChip kind={surface?.state === "AVAILABLE" ? "REAL" : "DISABLED"} title={surface?.state ?? "LOADING"} />
+          <span className="v3-chip disabled">{data?.live_state ?? "READ_ONLY/DISARMED"}</span>
+          <span className="v3-chip disabled">{data?.ai_authority ?? "RESEARCH_SHADOW_ONLY"}</span>
         </div>
       </div>
 
-      {!surface && <Panel title="ProductOps authority"><p>LOADING</p></Panel>}
+      {!surface && <Panel label="ProductOps authority"><p>LOADING</p></Panel>}
       {surface && surface.state !== "AVAILABLE" && (
-        <Panel title="ProductOps authority">
+        <Panel label="ProductOps authority">
           <p><strong>UNAVAILABLE</strong></p>
           <p>Authoritative Product Operations read model is unavailable. No zero, PASS, policy, incident, or request status is inferred.</p>
         </Panel>
@@ -54,14 +54,14 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
       {data && (
         <>
           <div className="v3-grid-4">
-            <Panel title="Incidents"><strong>{data.unresolved_incidents}</strong><p>Unresolved operational/privacy incidents</p></Panel>
-            <Panel title="Alert Health"><strong>{data.alert_health}</strong><p>Independent notification-channel health</p></Panel>
-            <Panel title="Policy Health"><strong>{data.stale_policy_count}</strong><p>Missing/stale privacy policy count</p></Panel>
-            <Panel title="Backup"><strong>{data.backup_status}</strong><p>Central privacy backup evidence</p></Panel>
+            <Panel label="Incidents"><strong>{data.unresolved_incidents}</strong><p>Unresolved operational/privacy incidents</p></Panel>
+            <Panel label="Alert Health"><strong>{data.alert_health}</strong><p>Independent notification-channel health</p></Panel>
+            <Panel label="Policy Health"><strong>{data.stale_policy_count}</strong><p>Missing/stale privacy policy count</p></Panel>
+            <Panel label="Backup"><strong>{data.backup_status}</strong><p>Central privacy backup evidence</p></Panel>
           </div>
 
           <div className="v3-grid-2">
-            <Panel title="Privacy Workflow">
+            <Panel label="Privacy Workflow">
               {requestCounts.length === 0 ? <p>No authoritative privacy workflow rows.</p> : (
                 <div style={{ display: "grid", gap: 8 }}>
                   {requestCounts.map(([status, count]) => (
@@ -72,7 +72,7 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
                 </div>
               )}
             </Panel>
-            <Panel title="Recovery Drills">
+            <Panel label="Recovery Drills">
               <div style={{ display: "grid", gap: 8 }}>
                 <div><span>Restore</span> <strong>{data.restore_status}</strong></div>
                 <div><span>Rollback</span> <strong>{data.rollback_status}</strong></div>
@@ -81,7 +81,7 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
             </Panel>
           </div>
 
-          <Panel title="Active Privacy Policies">
+          <Panel label="Active Privacy Policies">
             {data.active_policy_versions.length === 0
               ? <p>No authoritative active policy versions.</p>
               : <ul>{data.active_policy_versions.map((policy) => <li key={policy}>{policy}</li>)}</ul>}
