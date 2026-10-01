@@ -51,6 +51,10 @@ jobs:
         shell: pwsh
         run: python -m compileall -q engine dashboard/backend build/tools tests_v1
 
+      - name: Live reunion boundary regression
+        shell: pwsh
+        run: python -m pytest tests_v1/test_live_reunion_boundary_guard_v2.py -q
+
       - name: Live reunion boundary guard
         shell: pwsh
         run: python build/tools/check_live_reunion_boundary.py
