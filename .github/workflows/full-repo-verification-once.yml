@@ -1,0 +1,263 @@
+name: Full Repository Verification (One-Time)
+
+on:
+  push:
+    branches:
+      - ci/full-repo-verification-20261001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFIED_MAIN_SHA: 718aacef31032483bdc5b78d1d63709a2895b690
+
+jobs:
+  windows-latest-full:
+    name: Full repo / Windows latest
+    runs-on: windows-latest
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_MAIN_SHA }}
+          fetch-depth: 1
+
+      - name: Assert exact main SHA
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_MAIN_SHA) { throw "Expected $env:QUALIFIED_MAIN_SHA but checked out $actual" }
+          Write-Host "FULL_REPO_TESTED_SHA=$actual"
+
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13.14
+          check-latest: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install locked Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+
+      - name: Compile complete Python source tree
+        run: python -m compileall -q engine dashboard build tests_v1 strategies
+
+      - name: Run all current static and safety guards
+        shell: pwsh
+        run: |
+          $guards = @(
+            'build/tools/check_module_boundaries.py',
+            'build/tools/check_phase1_foundation.py',
+            'build/tools/check_phase2_safety_spine.py',
+            'build/tools/check_phase3_data_v2.py',
+            'build/tools/check_phase4_research_backtest.py',
+            'build/tools/check_phase5_paper_recovery.py',
+            'build/tools/check_phase6_live_readonly.py',
+            'build/tools/check_phase7_portfolio_risk.py',
+            'build/tools/check_phase8_ai_shadow.py',
+            'build/tools/check_live_reunion_boundary.py',
+            'build/tools/check_riskgate_fast_path_boundary.py',
+            'build/tools/check_owner_admin_boundary.py',
+            'build/tools/check_s2_account_gate.py'
+          )
+          foreach ($guard in $guards) {
+            Write-Host "=== $guard ==="
+            python $guard
+            if ($LASTEXITCODE -ne 0) { throw "$guard failed with exit code $LASTEXITCODE" }
+          }
+
+      - name: Full Python regression suite
+        run: python -m pytest tests_v1 -q
+
+      - name: Existing regression certification
+        run: python build/tools/run_regression_certification.py
+
+      - name: Brand migration inventory
+        run: python build/tools/brand_audit.py
+
+      - name: Generate combined deterministic evidence A
+        shell: pwsh
+        run: |
+          "TESTED_MAIN_SHA=$env:QUALIFIED_MAIN_SHA" | Set-Content -Encoding utf8 full-evidence.txt
+          "AI_AUTHORITY=RESEARCH_SHADOW_ONLY" | Add-Content -Encoding utf8 full-evidence.txt
+          "LIVE_STATE=READ_ONLY/DISARMED" | Add-Content -Encoding utf8 full-evidence.txt
+          $probes = @(
+            'build/tools/phase4_probe.py',
+            'build/tools/phase5_probe.py',
+            'build/tools/phase6_probe.py',
+            'build/tools/phase7_probe.py',
+            'build/tools/phase8_ai_probe.py',
+            'build/tools/s2_deterministic_probe.py'
+          )
+          foreach ($probe in $probes) {
+            "=== $probe ===" | Add-Content -Encoding utf8 full-evidence.txt
+            python $probe | Add-Content -Encoding utf8 full-evidence.txt
+            if ($LASTEXITCODE -ne 0) { throw "$probe failed with exit code $LASTEXITCODE" }
+          }
+
+      - name: Upload deterministic evidence A
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-repo-evidence-a
+          path: full-evidence.txt
+
+      - name: Install root Node package
+        run: npm ci
+
+      - name: Root dependency security audit
+        run: npm audit --audit-level=high
+
+      - name: Install dashboard web package
+        run: npm ci --prefix dashboard/web
+
+      - name: Dashboard dependency security audit
+        run: npm audit --prefix dashboard/web --audit-level=high
+
+      - name: Full dashboard Vitest regression
+        run: npm --prefix dashboard/web run test:user-dashboard
+
+      - name: Root frontend typecheck
+        run: npm run typecheck
+
+      - name: Root frontend production build
+        run: npm run build
+
+  windows-2022-python:
+    name: Full repo Python / Windows 2022
+    runs-on: windows-2022
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_MAIN_SHA }}
+          fetch-depth: 1
+
+      - name: Assert exact main SHA
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_MAIN_SHA) { throw "Expected $env:QUALIFIED_MAIN_SHA but checked out $actual" }
+          Write-Host "FULL_REPO_TESTED_SHA=$actual"
+
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13.14
+          check-latest: false
+
+      - name: Install locked Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+
+      - name: Compile complete Python source tree
+        run: python -m compileall -q engine dashboard build tests_v1 strategies
+
+      - name: Run all current static and safety guards
+        shell: pwsh
+        run: |
+          $guards = @(
+            'build/tools/check_module_boundaries.py',
+            'build/tools/check_phase1_foundation.py',
+            'build/tools/check_phase2_safety_spine.py',
+            'build/tools/check_phase3_data_v2.py',
+            'build/tools/check_phase4_research_backtest.py',
+            'build/tools/check_phase5_paper_recovery.py',
+            'build/tools/check_phase6_live_readonly.py',
+            'build/tools/check_phase7_portfolio_risk.py',
+            'build/tools/check_phase8_ai_shadow.py',
+            'build/tools/check_live_reunion_boundary.py',
+            'build/tools/check_riskgate_fast_path_boundary.py',
+            'build/tools/check_owner_admin_boundary.py',
+            'build/tools/check_s2_account_gate.py'
+          )
+          foreach ($guard in $guards) {
+            Write-Host "=== $guard ==="
+            python $guard
+            if ($LASTEXITCODE -ne 0) { throw "$guard failed with exit code $LASTEXITCODE" }
+          }
+
+      - name: Full Python regression suite
+        run: python -m pytest tests_v1 -q
+
+      - name: Existing regression certification
+        run: python build/tools/run_regression_certification.py
+
+      - name: Generate combined deterministic evidence B
+        shell: pwsh
+        run: |
+          "TESTED_MAIN_SHA=$env:QUALIFIED_MAIN_SHA" | Set-Content -Encoding utf8 full-evidence.txt
+          "AI_AUTHORITY=RESEARCH_SHADOW_ONLY" | Add-Content -Encoding utf8 full-evidence.txt
+          "LIVE_STATE=READ_ONLY/DISARMED" | Add-Content -Encoding utf8 full-evidence.txt
+          $probes = @(
+            'build/tools/phase4_probe.py',
+            'build/tools/phase5_probe.py',
+            'build/tools/phase6_probe.py',
+            'build/tools/phase7_probe.py',
+            'build/tools/phase8_ai_probe.py',
+            'build/tools/s2_deterministic_probe.py'
+          )
+          foreach ($probe in $probes) {
+            "=== $probe ===" | Add-Content -Encoding utf8 full-evidence.txt
+            python $probe | Add-Content -Encoding utf8 full-evidence.txt
+            if ($LASTEXITCODE -ne 0) { throw "$probe failed with exit code $LASTEXITCODE" }
+          }
+
+      - name: Upload deterministic evidence B
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-repo-evidence-b
+          path: full-evidence.txt
+
+  cross-windows-compare:
+    name: Full repo deterministic cross-Windows compare
+    runs-on: ubuntu-latest
+    needs:
+      - windows-latest-full
+      - windows-2022-python
+    steps:
+      - name: Download evidence A
+        uses: actions/download-artifact@v4
+        with:
+          name: full-repo-evidence-a
+          path: a
+
+      - name: Download evidence B
+        uses: actions/download-artifact@v4
+        with:
+          name: full-repo-evidence-b
+          path: b
+
+      - name: Require identical evidence and safety markers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def norm(path):
+              return Path(path).read_text(encoding='utf-8-sig').replace('\r\n', '\n')
+          a = norm('a/full-evidence.txt')
+          b = norm('b/full-evidence.txt')
+          if a != b:
+              raise SystemExit('FULL_REPO_CROSS_WINDOWS_EVIDENCE_MISMATCH')
+          required = (
+              'TESTED_MAIN_SHA=718aacef31032483bdc5b78d1d63709a2895b690',
+              'AI_AUTHORITY=RESEARCH_SHADOW_ONLY',
+              'LIVE_STATE=READ_ONLY/DISARMED',
+          )
+          for marker in required:
+              if marker not in a:
+                  raise SystemExit(f'MISSING_REQUIRED_MARKER={marker}')
+          print('FULL_REPO_CROSS_WINDOWS_COMPARE=PASS')
+          print('FULL_REPO_VERIFICATION=PASS')
+          PY
