@@ -21,6 +21,14 @@ class AccountRuntimeMode(str, Enum):
     LOCAL_SAFETY_ONLY = "LOCAL_SAFETY_ONLY"
 
 
+class IntelligenceCapability(str, Enum):
+    ACCESS_LAYA_ANALYSIS = "ACCESS_LAYA_ANALYSIS"
+    ACCESS_AI_REVIEW = "ACCESS_AI_REVIEW"
+    ACCESS_INTELLIGENCE_CANDIDATES = "ACCESS_INTELLIGENCE_CANDIDATES"
+    ACCESS_STRATEGY_HUNTING = "ACCESS_STRATEGY_HUNTING"
+    ACCESS_ADVANCED_RESEARCH = "ACCESS_ADVANCED_RESEARCH"
+
+
 @dataclass(frozen=True, slots=True)
 class DeviceSessionGateResult:
     schema_version: str
@@ -32,6 +40,16 @@ class DeviceSessionGateResult:
     authority_evidence_ref: str | None
     evaluated_at: datetime
     audit_ref: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class IntelligenceEntitlementDecision:
+    user_id: UUID
+    capability: IntelligenceCapability
+    allowed: bool
+    reason: str
+    s2_status: DeviceSessionGateStatus
+    authority_evidence_ref: str | None
 
 
 @dataclass(frozen=True, slots=True)
