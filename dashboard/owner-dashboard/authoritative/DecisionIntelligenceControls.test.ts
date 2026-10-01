@@ -1,13 +1,20 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const ownerAuthoritativeDir = resolve(
+  process.cwd(),
+  "..",
+  "owner-dashboard",
+  "authoritative",
+);
+
 const source = readFileSync(
-  fileURLToPath(new URL("./DecisionIntelligenceControls.tsx", import.meta.url)),
+  resolve(ownerAuthoritativeDir, "DecisionIntelligenceControls.tsx"),
   "utf8",
 );
 const aiControl = readFileSync(
-  fileURLToPath(new URL("./AIControlCenter.tsx", import.meta.url)),
+  resolve(ownerAuthoritativeDir, "AIControlCenter.tsx"),
   "utf8",
 );
 
