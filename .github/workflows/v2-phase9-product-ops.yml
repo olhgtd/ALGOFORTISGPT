@@ -5,12 +5,20 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  QUALIFIED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   dev-smoke-ubuntu:
     name: Phase 9 development smoke (not G9 qualification)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD"
       - uses: actions/setup-python@v5
         with: {python-version: '3.13.14'}
       - name: Install test dependencies
@@ -25,12 +33,21 @@ jobs:
         run: python build/tools/phase9_product_ops_probe.py
 
   g9-windows:
+    name: G9 deterministic / ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_HEAD) { throw "Expected $env:QUALIFIED_HEAD but checked out $actual" }
+          Write-Host "G9_TESTED_HEAD=$actual"
       - uses: actions/setup-python@v5
         with: {python-version: '3.13.14'}
       - name: Install test dependencies
@@ -49,27 +66,91 @@ jobs:
           python -m pytest $tests -q
       - name: G9 evidence
         shell: pwsh
-        run: python build/tools/phase9_product_ops_probe.py | Set-Content -Encoding utf8 g9.txt
+        run: |
+          "G9_TESTED_HEAD=$env:QUALIFIED_HEAD" | Set-Content -Encoding utf8 g9.txt
+          python build/tools/phase9_product_ops_probe.py | Add-Content -Encoding utf8 g9.txt
       - uses: actions/upload-artifact@v4
         with:
           name: g9-${{ matrix.os }}
           path: g9.txt
 
-  g9-dashboard:
-    name: Phase 9 dashboard qualification / Windows latest
+  g9-full-stack:
+    name: G9 full repository preservation / Windows latest
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - name: Install root package
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_HEAD) { throw "Expected $env:QUALIFIED_HEAD but checked out $actual" }
+          Write-Host "G9_FULL_STACK_HEAD=$actual"
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13.14'}
+      - uses: actions/setup-node@v4
+        with: {node-version: 24}
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile complete Python source tree
+        run: python -m compileall -q engine dashboard build tests_v1 strategies
+      - name: Preserve all current static and safety gates
+        shell: pwsh
+        run: |
+          $guards = @(
+            'build/tools/check_module_boundaries.py',
+            'build/tools/check_phase1_foundation.py',
+            'build/tools/check_phase2_safety_spine.py',
+            'build/tools/check_phase3_data_v2.py',
+            'build/tools/check_phase4_research_backtest.py',
+            'build/tools/check_phase5_paper_recovery.py',
+            'build/tools/check_phase6_live_readonly.py',
+            'build/tools/check_phase7_portfolio_risk.py',
+            'build/tools/check_phase8_ai_shadow.py',
+            'build/tools/check_phase9_product_ops.py',
+            'build/tools/check_live_reunion_boundary.py',
+            'build/tools/check_riskgate_fast_path_boundary.py',
+            'build/tools/check_owner_admin_boundary.py',
+            'build/tools/check_s2_account_gate.py'
+          )
+          foreach ($guard in $guards) {
+            Write-Host "=== $guard ==="
+            python $guard
+            if ($LASTEXITCODE -ne 0) { throw "$guard failed with exit code $LASTEXITCODE" }
+          }
+      - name: Full Python regression
+        run: python -m pytest tests_v1 -q
+      - name: Existing regression certification
+        run: python build/tools/run_regression_certification.py
+      - name: Preserve deterministic phase probes
+        shell: pwsh
+        run: |
+          $probes = @(
+            'build/tools/phase4_probe.py',
+            'build/tools/phase5_probe.py',
+            'build/tools/phase6_probe.py',
+            'build/tools/phase7_probe.py',
+            'build/tools/phase8_ai_probe.py',
+            'build/tools/phase9_product_ops_probe.py',
+            'build/tools/s2_deterministic_probe.py'
+          )
+          foreach ($probe in $probes) {
+            Write-Host "=== $probe ==="
+            python $probe
+            if ($LASTEXITCODE -ne 0) { throw "$probe failed with exit code $LASTEXITCODE" }
+          }
+      - name: Install root Node package
         run: npm ci
-      - name: Root dependency audit
+      - name: Root dependency security audit
         run: npm audit --audit-level=high
       - name: Install dashboard package
         run: npm ci --prefix dashboard/web
-      - name: Dashboard dependency audit
+      - name: Dashboard dependency security audit
         run: npm audit --prefix dashboard/web --audit-level=high
       - name: Dashboard tests including Phase 9 surfaces
         run: npm --prefix dashboard/web run test:user-dashboard
@@ -79,8 +160,9 @@ jobs:
         run: npm run build
 
   compare:
+    name: G9 exact cross-Windows evidence compare
     runs-on: ubuntu-latest
-    needs: [g9-windows, g9-dashboard]
+    needs: [g9-windows, g9-full-stack]
     steps:
       - uses: actions/download-artifact@v4
         with: {name: g9-windows-latest, path: latest}
@@ -90,5 +172,7 @@ jobs:
         shell: bash
         run: |
           diff <(tr -d '\r' < latest/g9.txt) <(tr -d '\r' < win2022/g9.txt)
+          grep -F "G9_TESTED_HEAD=$QUALIFIED_HEAD" latest/g9.txt
           echo 'G9_CROSS_WINDOWS_COMPARE=PASS'
+          echo 'G9_FULL_REPOSITORY_PRESERVATION=PASS'
           echo 'G9_DASHBOARD_QUALIFICATION=PASS'
