@@ -47,7 +47,7 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
       {surface && surface.state !== "AVAILABLE" && (
         <Panel label="ProductOps authority">
           <p><strong>UNAVAILABLE</strong></p>
-          <p>Authoritative Product Operations read model is unavailable. No zero, PASS, policy, incident, or request status is inferred.</p>
+          <p>Authoritative Product Operations read model is unavailable. No zero, success status, policy, incident, or request status is inferred.</p>
         </Panel>
       )}
 
