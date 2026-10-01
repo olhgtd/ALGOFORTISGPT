@@ -41,7 +41,7 @@ class _Evaluator:
         return RiskEvaluation.approved(
             approved_qty=intent.qty,
             risk_rule_version="risk-v1",
-            limits_snapshot_id="limits-handoff",
+            limits_snapshot_id="limits_handoff",
         )
 
 
@@ -117,7 +117,7 @@ def test_pre_reserved_candidate_capital_is_adopted_not_reserved_twice_before_ris
         clock=_Clock(),
         id_generator=_Ids(),
         audit_sink=_Audit(),
-        hard_limits=ResolvedHardLimits({}, {}, {}, "limits-handoff"),
+        hard_limits=ResolvedHardLimits({}, {}, {}, "limits_handoff"),
     )
     coordinator = PortfolioAdmissionCoordinator(gate, _ContextProvider(), book)
     result = coordinator.evaluate_entry(intent)
