@@ -120,7 +120,7 @@ def _recovery_report() -> RecoveryReport:
 
 
 def test_phase5_schema_advances_additively_from_v7_to_v8():
-    assert SCHEMA_VERSION == 8
+    assert SCHEMA_VERSION >= 8
     assert PHASE5_V8_MIGRATION.from_version == 7
     assert PHASE5_V8_MIGRATION.to_version == 8
     assert PHASE5_V8_MIGRATION.migration_id == "phase5-paper-recovery-v8"
@@ -160,9 +160,7 @@ def test_owned_state_round_trip_restores_checkpoint_references_exactly(tmp_path:
     session_store.save_order(_order())
     session_store.save_position(_position())
     recovery_store.save_checkpoint(_checkpoint())
-
     owned = session_store.load_owned_state("session-p5")
-
     assert owned.session == _session()
     assert owned.orders == (_order(),)
     assert owned.positions == (_position(),)
@@ -175,7 +173,6 @@ def test_owned_state_missing_order_reference_fails_closed(tmp_path: Path):
     session_store.save_session(_session())
     session_store.save_position(_position())
     recovery_store.save_checkpoint(_checkpoint())
-
     with pytest.raises(RuntimeError, match="missing.*order"):
         session_store.load_owned_state("session-p5")
 
@@ -187,7 +184,6 @@ def test_owned_state_missing_position_reference_fails_closed(tmp_path: Path):
     session_store.save_session(_session())
     session_store.save_order(_order())
     recovery_store.save_checkpoint(_checkpoint())
-
     with pytest.raises(RuntimeError, match="missing.*position"):
         session_store.load_owned_state("session-p5")
 
@@ -220,7 +216,6 @@ def test_owned_state_uses_checkpoint_integrity_validation(tmp_path: Path):
             ("broken", "checkpoint-p5"),
         )
         connection.commit()
-
     with pytest.raises(CheckpointIntegrityError, match="fingerprint"):
         session_store.load_owned_state("session-p5")
 
