@@ -1,7 +1,8 @@
 """Pure fail-closed data licensing policy for AlgoFortis Data V2.
 
 This module evaluates declared rights only. It intentionally contains no network,
-downloader, scraper, or acquisition implementation.
+downloader, scraper, or acquisition implementation. External/provider processing
+is an additive decision and does not alter legacy acquisition/use semantics.
 """
 
 from __future__ import annotations
@@ -22,6 +23,12 @@ class AcquisitionPermission(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class ExternalProcessingPermission(str, Enum):
+    ALLOWED = "ALLOWED"
+    PROHIBITED = "PROHIBITED"
+    UNKNOWN = "UNKNOWN"
+
+
 class DataUse(str, Enum):
     RESEARCH = "RESEARCH"
     BACKTEST = "BACKTEST"
@@ -35,6 +42,13 @@ class DataLicenceReason(str, Enum):
     NSE_PROGRAMMATIC_ACQUISITION_PROHIBITED = "NSE_PROGRAMMATIC_ACQUISITION_PROHIBITED"
     USE_NOT_PERMITTED = "USE_NOT_PERMITTED"
     SYNTHETIC_NOT_PROMOTION_EVIDENCE = "SYNTHETIC_NOT_PROMOTION_EVIDENCE"
+
+
+class ExternalProcessingReason(str, Enum):
+    EXTERNAL_PROCESSING_PERMISSION_MISSING = "EXTERNAL_PROCESSING_PERMISSION_MISSING"
+    EXTERNAL_PROCESSING_PERMISSION_UNKNOWN = "EXTERNAL_PROCESSING_PERMISSION_UNKNOWN"
+    EXTERNAL_PROCESSING_PROHIBITED = "EXTERNAL_PROCESSING_PROHIBITED"
+    USE_NOT_PERMITTED = "USE_NOT_PERMITTED"
 
 
 def _text(value: str, name: str) -> str:
@@ -52,6 +66,9 @@ class DataLicenceMetadata:
     acquisition_permission: AcquisitionPermission | None
     permitted_uses: tuple[DataUse, ...]
     synthetic: bool = False
+    external_processing_permission: ExternalProcessingPermission | None = (
+        ExternalProcessingPermission.UNKNOWN
+    )
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_id", _text(self.source_id, "source_id"))
@@ -60,6 +77,12 @@ class DataLicenceMetadata:
             self.acquisition_permission, AcquisitionPermission
         ):
             raise DataLicenceError("acquisition_permission must be AcquisitionPermission or None")
+        if self.external_processing_permission is not None and not isinstance(
+            self.external_processing_permission, ExternalProcessingPermission
+        ):
+            raise DataLicenceError(
+                "external_processing_permission must be ExternalProcessingPermission or None"
+            )
         uses = tuple(self.permitted_uses)
         if not uses or any(not isinstance(item, DataUse) for item in uses):
             raise DataLicenceError("permitted_uses must contain DataUse values")
@@ -78,8 +101,15 @@ class DataLicenceDecision:
     fingerprint: str
 
 
+@dataclass(frozen=True, slots=True)
+class ExternalProcessingDecision:
+    allowed: bool
+    reasons: tuple[ExternalProcessingReason, ...]
+    fingerprint: str
+
+
 class DataLicencePolicy:
-    """Evaluate data acquisition/use rights under non-overridable project policy."""
+    """Evaluate data acquisition/use and external-processing rights fail closed."""
 
     def evaluate(
         self,
@@ -109,7 +139,6 @@ class DataLicencePolicy:
             reasons.append(DataLicenceReason.USE_NOT_PERMITTED)
 
         if programmatic_acquisition:
-            # Hard project policy wins over any source/adapter declaration.
             if normalized_market == "NSE":
                 reasons.append(DataLicenceReason.NSE_PROGRAMMATIC_ACQUISITION_PROHIBITED)
 
@@ -145,13 +174,60 @@ class DataLicencePolicy:
         )
         return DataLicenceDecision(allowed, normalized_reasons, normalized_labels, fingerprint)
 
+    def evaluate_external_processing(
+        self,
+        metadata: DataLicenceMetadata,
+        *,
+        requested_use: DataUse,
+    ) -> ExternalProcessingDecision:
+        """Decide whether a dataset may be processed by an external/cloud provider."""
+
+        if not isinstance(metadata, DataLicenceMetadata):
+            raise DataLicenceError("metadata must be DataLicenceMetadata")
+        if not isinstance(requested_use, DataUse):
+            raise DataLicenceError("requested_use must be DataUse")
+
+        reasons: list[ExternalProcessingReason] = []
+        if requested_use not in metadata.permitted_uses:
+            reasons.append(ExternalProcessingReason.USE_NOT_PERMITTED)
+
+        permission = metadata.external_processing_permission
+        if permission is None:
+            reasons.append(ExternalProcessingReason.EXTERNAL_PROCESSING_PERMISSION_MISSING)
+        elif permission is ExternalProcessingPermission.UNKNOWN:
+            reasons.append(ExternalProcessingReason.EXTERNAL_PROCESSING_PERMISSION_UNKNOWN)
+        elif permission is ExternalProcessingPermission.PROHIBITED:
+            reasons.append(ExternalProcessingReason.EXTERNAL_PROCESSING_PROHIBITED)
+
+        normalized_reasons = tuple(sorted(set(reasons), key=lambda item: item.value))
+        allowed = not normalized_reasons
+        fingerprint = CanonicalCodec.fingerprint(
+            "algofortis-data-external-processing/v1",
+            (
+                ("source_id", metadata.source_id),
+                ("licence_ref", metadata.licence_ref),
+                ("requested_use", requested_use.value),
+                ("permitted_uses", tuple(item.value for item in metadata.permitted_uses)),
+                (
+                    "external_processing_permission",
+                    "" if permission is None else permission.value,
+                ),
+                ("allowed", "true" if allowed else "false"),
+                ("reasons", tuple(item.value for item in normalized_reasons)),
+            ),
+        )
+        return ExternalProcessingDecision(allowed, normalized_reasons, fingerprint)
+
 
 __all__ = [
     "DataLicenceError",
     "AcquisitionPermission",
+    "ExternalProcessingPermission",
     "DataUse",
     "DataLicenceReason",
+    "ExternalProcessingReason",
     "DataLicenceMetadata",
     "DataLicenceDecision",
+    "ExternalProcessingDecision",
     "DataLicencePolicy",
 ]
