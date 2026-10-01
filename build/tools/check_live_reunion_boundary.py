@@ -17,6 +17,7 @@ CANONICAL_MUTATION_PATHS = {
 }
 MUTATION_GATE_PATH = "engine/live/mutation_release_gate_v2.py"
 MUTATION_SEAM_PATH = "engine/broker_adapters/angelone_v2/mutation_seam_v2.py"
+PAPER_COORDINATOR_PATH = "engine/paper/coordinator.py"
 NONCANONICAL_ROOTS = (
     "dashboard/",
     "engine/ai/",
@@ -126,6 +127,40 @@ def _call_names(source: str, *, path: str) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _is_paper_local_cancel(path: str, func: ast.Attribute) -> bool:
+    """Allow only Paper coordinator's own in-memory cancellation method.
+
+    A nested receiver such as ``self.broker.cancel_order(...)`` is deliberately
+    not allowed because ``func.value`` is then an ``ast.Attribute`` rather than
+    the direct ``self`` name.
+    """
+
+    return (
+        path == PAPER_COORDINATOR_PATH
+        and func.attr == "cancel_order"
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "self"
+    )
+
+
+def _direct_mutation_call_names(source: str, *, path: str) -> tuple[str, ...]:
+    tree = _tree(source, path=path)
+    if tree is None:
+        return ()
+    names: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in DIRECT_MUTATION_CALLS:
+            names.append(func.id)
+        elif isinstance(func, ast.Attribute) and func.attr in DIRECT_MUTATION_CALLS:
+            if _is_paper_local_cancel(path, func):
+                continue
+            names.append(func.attr)
+    return tuple(names)
+
+
 def _identifier_names(source: str, *, path: str) -> tuple[str, ...]:
     tree = _tree(source, path=path)
     if tree is None:
@@ -169,8 +204,9 @@ def check_source_text(path: str, source: str) -> list[str]:
 
     calls = _call_names(source, path=path)
     if _is_noncanonical_runtime(path) and path not in CANONICAL_MUTATION_PATHS:
+        mutation_calls = _direct_mutation_call_names(source, path=path)
         for name in DIRECT_MUTATION_CALLS:
-            if name in calls:
+            if name in mutation_calls:
                 failures.append(f"{path}: direct broker mutation call {name!r} is forbidden")
 
     if path.startswith("engine/live/") and path not in CANONICAL_MUTATION_PATHS:
