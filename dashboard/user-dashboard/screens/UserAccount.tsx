@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { loadAccountSurface, type AccountSurfaceData } from "../data/userSurfaceData";
+import type { UserPrivacySurfaceData } from "../data/privacy";
+import { PrivacyAndRequestsScreen } from "./PrivacyAndRequestsScreen";
 import {
   AuthorityMessage,
   MetricCell,
@@ -10,9 +12,10 @@ import {
 
 export interface UserAccountProps {
   loadData?: () => Promise<AccountSurfaceData>;
+  loadPrivacyData?: () => Promise<UserPrivacySurfaceData>;
 }
 
-export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccountSurface }) => {
+export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccountSurface, loadPrivacyData }) => {
   const [data, setData] = useState<AccountSurfaceData | null>(null);
 
   useEffect(() => {
@@ -35,7 +38,7 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
       <UserSurfaceHeader
         eyebrow="Identity & Connectivity"
         title="Account"
-        description="Authoritative account identity, service entitlement, workspace access, and broker-connection metadata. Secret material is never rendered here."
+        description="Authoritative account identity, service entitlement, workspace access, broker-connection metadata, and privacy evidence. Secret material is never rendered here."
         aside={<div className="af-surface-lock"><span>Execution</span><strong>CONNECTION ≠ ARMED LIVE</strong></div>}
       />
 
@@ -131,6 +134,8 @@ export const UserAccount: React.FC<UserAccountProps> = ({ loadData = loadAccount
         )}
         <p className="af-account-security-note">Connection metadata is read-only on this finished surface. Secret references, API secrets, and authentication material are never displayed. A connected broker does not arm Live execution.</p>
       </SurfacePanel>
+
+      <PrivacyAndRequestsScreen {...(loadPrivacyData ? { loadData: loadPrivacyData } : {})} />
     </div>
   );
 };

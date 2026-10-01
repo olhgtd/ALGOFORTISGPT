@@ -17,6 +17,7 @@ import {
 } from "./authoritative/screens";
 import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
+import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -52,6 +53,7 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
       { id: "paper", label: "Paper Sessions", icon: "layers" },
       { id: "portfolio-oversight", label: "Portfolio & Orders", icon: "chart" },
       { id: "reports", label: "Reports & Audit", icon: "file" },
+      { id: "product-operations", label: "Product Operations", icon: "activity", badge: "Read only", badgeTone: "dim" },
     ],
   },
   {
@@ -176,6 +178,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "paper": return <OwnerPaperScreen />;
       case "portfolio-oversight": return <OwnerPortfolioOrdersScreen />;
       case "reports": return <OwnerReportsAuditScreen />;
+      case "product-operations": return <ProductOperationsScreen />;
       case "ai-control": return <OwnerAIControlScreen />;
       case "system": return <OwnerSystemScreen />;
       case "security": return <OwnerSecurityScreen />;
@@ -223,7 +226,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
         </nav>
       )}
 
-      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users"].includes(screen) ? "wide" : ""}`}>
+      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users", "product-operations"].includes(screen) ? "wide" : ""}`}>
         <div className="v3-screen" key={screen}>{renderScreen()}</div>
       </main>
 

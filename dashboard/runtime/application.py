@@ -27,6 +27,8 @@ from dashboard.backend.account_v2.password_router import attach_password_account
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
 from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verification_routes
+from dashboard.backend.product_ops_v2.router import attach_product_ops_routes
+from dashboard.backend.product_ops_v2.service import ProductOpsService
 from .paths import RuntimeMode, CurrentUserAcl
 
 
@@ -88,6 +90,8 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
     attach_owner_admin_control_plane(app)
     attach_owner_user_inspection(app)
     attach_ai_verification_routes(app)
+    app.state.product_ops_service = ProductOpsService(repository=None)
+    attach_product_ops_routes(app)
     app.state.roaming_identity = roaming_identity or UnavailableRoamingIdentity()
 
     def owner_bootstrap_decision():
