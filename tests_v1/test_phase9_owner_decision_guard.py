@@ -15,6 +15,9 @@ def test_od_v2_25_is_frozen_for_phase9_with_legal_review_gate():
 
 def test_phase9_blocking_matrix_is_frozen_on_2026_09_27():
     text = REGISTER.read_text(encoding="utf-8")
-    phase9_rows = [line for line in text.splitlines() if "Phase 9" in line and "OD-V2-25" in line]
+    phase9_rows = [line for line in text.splitlines() if "| Phase 9 |" in line]
     assert phase9_rows, "Phase 9 blocking row is missing"
-    assert any("FROZEN" in row and "2026-09-27" in row for row in phase9_rows)
+    row = phase9_rows[0]
+    assert "25 — DPDP/retention design" in row
+    assert "FROZEN" in row
+    assert "2026-09-27" in row
