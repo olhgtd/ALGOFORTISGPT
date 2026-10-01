@@ -9,7 +9,7 @@
 
 **Decision:** AlgoFortis supports optional `0..N` AI providers behind the existing provider abstraction plus optional Laya as a first-class Market Intelligence Engine. Deterministic Strategy remains independently operational with zero AI and with Laya disabled. In research/backtest/paper workflows, Laya/AI may review deterministic StrategyCandidates, challenge evidence, produce independent IntelligenceCandidates, and participate in Strategy Hunting. Dynamic multi-AI review is permitted; fixed participant count and blind majority voting are not required. Correlated model/provider lineage must be recorded so repeated/correlated outputs cannot masquerade as independent confirmation.
 
-**Authority reuse:** Existing provider registry/orchestration/scheduler/queue seams are extended rather than replaced. Existing Portfolio authority owns capital/reservations/exposure. Existing `RiskGateV2` remains the sole `ApprovedOrder` authority. Existing Owner/Admin authority owns global configuration.
+**Authority reuse:** Existing provider registry/orchestration/scheduler/queue seams are extended rather than replaced. Existing Portfolio authority owns capital/reservations/exposure. Existing `RiskGateV2` remains the sole `ApprovedOrder` authority. Existing S2 `DeviceSessionGate` remains the account/device/session identity authority. Existing Owner/Admin authority owns global configuration.
 
 **Current execution boundary:** This amendment does **not** authorize real-money broker mutation, Live arming, direct AI-to-order execution, or a second risk/order authority. Current Live remains `READ_ONLY / DISARMED`.
 
@@ -38,7 +38,7 @@
 - Provider outage, malformed/policy-violating output, or expired/stale intelligence work degrades the intelligence path; it does not silently break deterministic Strategy processing.
 - All runtime agent tools are reached through the deny-by-default Tool Gateway with declared scope, rate/budget limits, and per-call audit evidence.
 - Cloud data egress is additionally gated by Data V2 provenance/licensing policy; disallowed or unproven external use is blocked.
-- User intelligence entitlements must sit on top of existing S2 account/device/session identity authority; no parallel AI authentication mechanism is permitted.
+- User intelligence entitlements must sit on top of existing S2 `DeviceSessionGate` account/device/session identity authority; no parallel AI authentication mechanism is permitted.
 - Global AI/Laya configuration belongs inside the existing authoritative Owner/Admin Dashboard, not a second admin surface.
 - Live remains `READ_ONLY / DISARMED`.
 
