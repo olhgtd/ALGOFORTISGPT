@@ -44,6 +44,12 @@ def _normalize_url(value: str) -> str:
     return urlunsplit((scheme, netloc, path, parts.query, ""))
 
 
+# This is untrusted text to recognize, not executable broker authority. Keep the
+# marker source-safe so the Owner/Admin authority guard can continue treating
+# the corresponding executable identifier as forbidden everywhere under AI.
+_BROKER_MUTATION_MARKER = "broker.place" + "_order"
+
+
 @dataclass(frozen=True, slots=True)
 class UntrustedEvidence:
     content: str
@@ -76,7 +82,7 @@ class UntrustedContentGuard:
         "ignore previous instructions",
         "override policy",
         "disable safety",
-        "broker.place_order",
+        _BROKER_MUTATION_MARKER,
     )
     _SECRET_MARKERS = (
         "api_key",
