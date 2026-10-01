@@ -6,7 +6,7 @@ from enum import Enum
 from uuid import UUID
 
 from dashboard.backend.account_v2.audit import RequiredAuditSink
-from dashboard.backend.account_v2.contracts import DeviceSessionGateStatus
+from .identity import S2IdentityAuthorizer
 
 
 class RightsRequestType(str, Enum):
@@ -39,18 +39,22 @@ class RightsRequest:
 
 
 class RightsWorkflow:
-    """Privacy-rights state machine scoped by the existing S2 gate.
+    """Privacy-rights state machine scoped by the existing S2 authority.
 
-    This class never implements credentials or identity proof.  It consumes the
-    S2 DeviceSessionGate and a required audit sink; failure of either authority
-    blocks state progression.
+    This class never implements credentials or identity proof. It consumes the
+    Phase-9 S2IdentityAuthorizer wrapper and a required audit sink; failure of
+    either authority blocks state progression.
     """
 
-    def __init__(self, s2_gate, audit_sink: RequiredAuditSink):
-        self._gate = s2_gate
+    def __init__(self, s2_gate_or_authorizer, audit_sink: RequiredAuditSink):
+        self._identity = (
+            s2_gate_or_authorizer
+            if hasattr(s2_gate_or_authorizer, "authorize")
+            else S2IdentityAuthorizer(s2_gate_or_authorizer)
+        )
         self._audit_sink = audit_sink
 
-    def _audit(self, request: RightsRequest | None, *, user_id: UUID, request_id: str, action: str, now: datetime) -> str:
+    def _audit(self, *, user_id: UUID, request_id: str, action: str, now: datetime) -> str:
         audit_ref = self._audit_sink.record_required_intent(
             user_id=user_id,
             action=action,
@@ -75,7 +79,6 @@ class RightsWorkflow:
         if not request_id.strip():
             raise ValueError("RIGHTS_REQUEST_ID_REQUIRED")
         audit_ref = self._audit(
-            None,
             user_id=principal_user_id,
             request_id=request_id,
             action=f"PRIVACY_RIGHTS_RECEIVE:{request_type.value}",
@@ -94,7 +97,6 @@ class RightsWorkflow:
         if request.state is not RightsState.RECEIVED:
             raise ValueError("INVALID_RIGHTS_TRANSITION")
         audit_ref = self._audit(
-            request,
             user_id=request.principal_user_id,
             request_id=request.request_id,
             action="PRIVACY_RIGHTS_IDENTITY_CHECK_BEGIN",
@@ -114,19 +116,18 @@ class RightsWorkflow:
         if request.state is not RightsState.IDENTITY_CHECK:
             raise ValueError("INVALID_RIGHTS_TRANSITION")
         audit_ref = self._audit(
-            request,
             user_id=request.principal_user_id,
             request_id=request.request_id,
             action="PRIVACY_RIGHTS_IDENTITY_CHECK_EVALUATE",
             now=now,
         )
-        result = self._gate.evaluate(
+        allowed, result = self._identity.authorize(
             request.principal_user_id,
             device_id,
             session_family_id,
             now,
         )
-        if result.status is not DeviceSessionGateStatus.VALID:
+        if not allowed:
             return replace(
                 request,
                 state=RightsState.REJECTED,
@@ -154,7 +155,6 @@ class RightsWorkflow:
         if request.state is not RightsState.ACCEPTED:
             raise ValueError("INVALID_RIGHTS_TRANSITION")
         audit_ref = self._audit(
-            request,
             user_id=request.principal_user_id,
             request_id=request.request_id,
             action="PRIVACY_RIGHTS_START",
@@ -166,7 +166,6 @@ class RightsWorkflow:
         if request.state is not RightsState.IN_PROGRESS:
             raise ValueError("INVALID_RIGHTS_TRANSITION")
         audit_ref = self._audit(
-            request,
             user_id=request.principal_user_id,
             request_id=request.request_id,
             action="PRIVACY_RIGHTS_COMPLETE",
