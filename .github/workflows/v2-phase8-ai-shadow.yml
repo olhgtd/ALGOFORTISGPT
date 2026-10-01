@@ -29,7 +29,10 @@ jobs:
         run: python build/tools/check_phase8_ai_shadow.py
       - name: Phase 8 focused and dependency regression
         shell: pwsh
-        run: python -m pytest tests_v1/test_phase8_*.py tests_v1/test_v2_phase1_adapter_registry.py tests_v1/test_v2_phase3_data_licensing.py -q
+        run: |
+          $phase8 = Get-ChildItem tests_v1/test_phase8_*.py | ForEach-Object { $_.FullName }
+          if (-not $phase8) { throw "No Phase 8 tests found" }
+          python -m pytest $phase8 tests_v1/test_v2_phase1_adapter_registry.py tests_v1/test_v2_phase3_data_licensing.py -q
       - name: G8 deterministic probe A
         shell: pwsh
         run: python build/tools/phase8_ai_probe.py | Set-Content -Encoding utf8 g8.txt
@@ -56,7 +59,10 @@ jobs:
         run: python build/tools/check_phase8_ai_shadow.py
       - name: Phase 8 focused and dependency regression
         shell: pwsh
-        run: python -m pytest tests_v1/test_phase8_*.py tests_v1/test_v2_phase1_adapter_registry.py tests_v1/test_v2_phase3_data_licensing.py -q
+        run: |
+          $phase8 = Get-ChildItem tests_v1/test_phase8_*.py | ForEach-Object { $_.FullName }
+          if (-not $phase8) { throw "No Phase 8 tests found" }
+          python -m pytest $phase8 tests_v1/test_v2_phase1_adapter_registry.py tests_v1/test_v2_phase3_data_licensing.py -q
       - name: G8 deterministic probe B
         shell: pwsh
         run: python build/tools/phase8_ai_probe.py | Set-Content -Encoding utf8 g8.txt
