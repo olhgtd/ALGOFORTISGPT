@@ -1,5 +1,5 @@
 /**
- * SentinelX Owner Dashboard Data Module Barrel
+ * AlgoFortis Owner Dashboard Data Module Barrel
  */
 export * from "./access";
 export * from "./users";
@@ -11,3 +11,4 @@ export * from "./portfolioOrders";
 export * from "./reportsAudit";
 export * from "./security";
 export * from "./settings";
+export * from "./productOps";
