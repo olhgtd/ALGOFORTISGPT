@@ -72,10 +72,11 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
                 </div>
               )}
             </Panel>
-            <Panel label="Recovery Drills">
+            <Panel label="Recovery & Runbooks">
               <div style={{ display: "grid", gap: 8 }}>
                 <div><span>Restore</span> <strong>{data.restore_status}</strong></div>
                 <div><span>Rollback</span> <strong>{data.rollback_status}</strong></div>
+                <div><span>Runbooks</span> <strong>{data.runbook_status ?? "UNAVAILABLE"}</strong></div>
                 <div><span>Live state</span> <strong>{data.live_state}</strong></div>
               </div>
             </Panel>
