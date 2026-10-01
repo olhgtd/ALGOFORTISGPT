@@ -210,8 +210,52 @@ class TradeCandidate:
             _aware(self.input_data_valid_until, "input_data_valid_until")
 
 
+@dataclass(frozen=True, slots=True)
+class IntelligenceCandidate:
+    """AI/Laya candidate evidence for research, backtest and paper only."""
+
+    candidate_id: str
+    instrument_ref: str
+    action: TradeCandidateAction
+    created_at: datetime
+    valid_until: datetime
+    input_fingerprint: str
+    source_participants: tuple[str, ...]
+    lineage_refs: tuple[str, ...]
+    regime: str
+    entry_context_ref: str
+    invalidation_ref: str
+    supporting_evidence_refs: tuple[str, ...]
+    conflicting_evidence_refs: tuple[str, ...]
+    policy_refs: tuple[str, ...]
+    schema_version: str
+    execution_scope: str = "RESEARCH_BACKTEST_PAPER_ONLY"
+
+    def __post_init__(self) -> None:
+        for name in ("candidate_id", "instrument_ref", "regime", "entry_context_ref", "invalidation_ref"):
+            object.__setattr__(self, name, _text(getattr(self, name), name))
+        if not isinstance(self.action, TradeCandidateAction):
+            raise AIContractError("action must be TradeCandidateAction")
+        created = _aware(self.created_at, "created_at")
+        valid_until = _aware(self.valid_until, "valid_until")
+        if valid_until <= created:
+            raise AIContractError("valid_until must be after created_at")
+        fp = _text(self.input_fingerprint, "input_fingerprint").lower()
+        if _HEX64.fullmatch(fp) is None:
+            raise AIContractError("input_fingerprint must be lowercase sha256 hex")
+        object.__setattr__(self, "input_fingerprint", fp)
+        object.__setattr__(self, "source_participants", _text_tuple(self.source_participants, "source_participants"))
+        object.__setattr__(self, "lineage_refs", _text_tuple(self.lineage_refs, "lineage_refs"))
+        object.__setattr__(self, "supporting_evidence_refs", _text_tuple(self.supporting_evidence_refs, "supporting_evidence_refs"))
+        object.__setattr__(self, "conflicting_evidence_refs", _text_tuple(self.conflicting_evidence_refs, "conflicting_evidence_refs", allow_empty=True))
+        object.__setattr__(self, "policy_refs", _text_tuple(self.policy_refs, "policy_refs"))
+        object.__setattr__(self, "schema_version", _semver(self.schema_version, "schema_version"))
+        if self.execution_scope != "RESEARCH_BACKTEST_PAPER_ONLY":
+            raise AIContractError("IntelligenceCandidate execution_scope is fixed to research/backtest/paper")
+
+
 __all__ = [
     "AIContractError", "ProviderKind", "DataClass", "TradeCandidateAction",
     "CandidateValidationVerdict", "NoTradeReason", "ProviderManifest", "AIRequest",
-    "AIResponse", "ProviderHealth", "ProviderUsage", "TradeCandidate"
+    "AIResponse", "ProviderHealth", "ProviderUsage", "TradeCandidate", "IntelligenceCandidate"
 ]

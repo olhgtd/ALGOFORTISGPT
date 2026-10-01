@@ -1,4 +1,8 @@
-"""Typed contracts for the AlgoFortis AI research/shadow plane."""
+"""Typed contracts for the AlgoFortis AI decision-intelligence plane.
+
+These contracts are limited to research, backtest and paper workflows. They do
+not grant broker mutation, Live arming, ApprovedOrder or RiskGate authority.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +15,8 @@ class AgentRole(str, Enum):
     LAYA = "LAYA"
     RESEARCH = "RESEARCH"
     RISK_CHALLENGER = "RISK_CHALLENGER"
+    STRATEGY_CRITIC = "STRATEGY_CRITIC"
+    VALIDATION = "VALIDATION"
 
 
 class AIAvailability(str, Enum):
@@ -23,6 +29,8 @@ class AIAvailability(str, Enum):
 class AIJobScope(str, Enum):
     RESEARCH = "RESEARCH"
     SHADOW = "SHADOW"
+    BACKTEST = "BACKTEST"
+    PAPER = "PAPER"
 
 
 class AIJobStatus(str, Enum):
@@ -45,13 +53,14 @@ class RoutingDecision:
 
 @dataclass(frozen=True, slots=True)
 class MarketIntelligenceObservation:
-    """Research-only Laya observation; never an executable order command."""
+    """Laya evidence for research/backtest/paper; never an executable order command."""
 
     state: AIAvailability
     regime: str | None
     context: Mapping[str, Any]
     evidence_refs: tuple[str, ...]
     research_disposition: str
+    candidate_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
