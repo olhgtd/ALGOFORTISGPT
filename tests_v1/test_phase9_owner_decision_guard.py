@@ -18,6 +18,7 @@ def test_phase9_blocking_matrix_is_frozen_on_2026_09_27():
     phase9_rows = [line for line in text.splitlines() if "| Phase 9 |" in line]
     assert phase9_rows, "Phase 9 blocking row is missing"
     row = phase9_rows[0]
-    assert "25 — DPDP/retention design" in row
+    assert "| Phase 9 | 25 —" in row
     assert "FROZEN" in row
     assert "2026-09-27" in row
+    assert "legal review" in row.lower()
