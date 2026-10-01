@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v1.2 — Phase-9 OD-V2-25 reconciliation on top of local-first portability/auth corrections |
+| Version | v1.3 — AI/Laya decision-intelligence reconciliation on top of Phase-9 and portability/auth corrections |
 | Date | 2026-10-01 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
@@ -27,6 +27,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 11. On 2026-09-26 the Owner approved carrying V1 Track-P platform decisions into V2 and froze OD-V2-20, OD-V2-21, OD-V2-22 and OD-V2-23 with three hardening refinements: versioned update safe windows, clock-tamper-resistant offline entitlement time evidence, and explicit production-domain WebAuthn re-enrollment/device re-binding. These are formalized by `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
 12. On 2026-09-28 the Owner corrected the in-progress architecture freeze: **OD-V2-02 remains unchanged/local-first for V2.0**; new OD-V2-27 freezes deployment portability rather than remote hosting; password fallback with mandatory step-up is retained; remote hosting/mobile/push/hosted-data re-review/hosted static-IP questions/internet-facing API external security testing are deferred cloud go-live triggers. The earlier contrary wording in commit `b94a7a5c470da7d63aac8db0d79536e7b7650cf0` is superseded by the follow-up correction documents.
 13. On 2026-10-01 this root register was reconciled with the controlling dated 2026-09-27 Phase-9 privacy freeze. OD-V2-25 is **FROZEN for engineering architecture**, not certified as legal compliance; a dated qualified legal review remains mandatory before G9 exit. Live remains `READ_ONLY / DISARMED`.
+14. On 2026-10-01 the Owner approved the AI/Laya decision-intelligence redesign and froze OD-V2-15 and OD-V2-16 through the amended `docs/v2/phase8/PHASE8_DECISION_FREEZE.md` and `docs/superpowers/specs/2026-10-01-ai-laya-decision-intelligence-architecture.md`. The amendment expands AI/Laya participation inside research/backtest/paper workflows while preserving `RiskGateV2`, existing Portfolio authority, S2 `DeviceSessionGate`, OD-V2-16 data-egress controls, existing Owner/Admin authority, and Live `READ_ONLY / DISARMED`.
 
 ---
 
@@ -82,7 +83,7 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 - *Status:* **FROZEN**
 
 **OD-V2-04 — Crypto (BTCUSD) scope** · Blocks Phase 3
-- *Options:* (A) in V2.0; (B) V2.3 behind the same instrument abstraction.
+- *Options:* (A) in V2.0; (B) V2.3 behind the common instrument/calendar abstractions.
 - *Decision:* **B — BTCUSD is deferred to V2.3 behind the common instrument/calendar abstractions. Phase 3 must remain free of assumptions that would force a rewrite for a future 24×7 market.**
 - *Status:* **FROZEN**
 
@@ -161,13 +162,16 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 ### AI
 
 **OD-V2-15 — AI scope and provider set for V2.0** · Blocks Phase 8
-- *Options:* (a) research + shadow only; (b) also committee/ensemble.
-- *Recommendation:* **(a)**. Start with one local and one cloud provider through the abstraction; committee stays T2 behind the same contract.
-- *Status:* OPEN
+- *Decision:* **AlgoFortis supports optional `0..N` AI providers behind the existing provider abstraction plus optional Laya as a first-class Market Intelligence Engine. Deterministic Strategy remains operational with zero AI providers and with Laya disabled. In research/backtest/paper workflows, Laya/AI may review StrategyCandidates, challenge evidence, generate independent IntelligenceCandidates, and participate in Strategy Hunting. Dynamic multi-AI review is permitted; fixed participant count and blind majority voting are not required. Correlated provider/model lineage must be recorded so repeated or related outputs cannot masquerade as independent confirmation.**
+- *Authority reuse:* Existing provider registry/orchestration/scheduler/queue seams are extended, existing Portfolio authority owns capital/reservations/exposure, S2 `DeviceSessionGate` owns identity/session authority, existing Owner/Admin owns global configuration, and `RiskGateV2` remains the sole `ApprovedOrder` authority.
+- *Safety:* This decision does not authorize real-money broker mutation, Live arming or direct AI-to-order execution. Live remains `READ_ONLY / DISARMED`.
+- *Authority:* `docs/v2/phase8/PHASE8_DECISION_FREEZE.md` amended 2026-10-01; `docs/superpowers/specs/2026-10-01-ai-laya-decision-intelligence-architecture.md`.
+- *Status:* **FROZEN**
 
 **OD-V2-16 — AI data-sharing rules** · Blocks Phase 8
-- *Recommendation:* Never send broker credentials, account identifiers, personal data or raw trade logs to any provider. Per-provider allowlist of data classes; review each cloud provider's retention terms; redaction at the tool gateway.
-- *Status:* OPEN
+- *Decision:* **Strict per-provider data-class allowlists, redaction, audit evidence and Data V2 provenance/licensing authorization are mandatory. Broker credentials, broker/account identifiers, personal data, raw trade logs and other disallowed sensitive data are never sent to AI providers. Before market, instrument, dataset-derived, news-derived, research, or Strategy-Hunting data leaves the local boundary for a cloud/third-party provider, the existing provenance/licensing authority must explicitly permit that use; missing, stale, ambiguous or prohibitive evidence fails closed. After-hours Strategy Hunting is not exempt. Redaction does not make otherwise restricted data exportable.**
+- *Authority:* `docs/v2/phase8/PHASE8_DECISION_FREEZE.md` amended 2026-10-01; Data V2 provenance/licensing policy; `docs/superpowers/specs/2026-10-01-ai-laya-decision-intelligence-architecture.md`.
+- *Status:* **FROZEN**
 
 ### Account, release and privacy (Track P)
 
@@ -246,6 +250,8 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 | OD-V2-05 PORTABILITY CLARIFICATION | Future local/remote cutover may never leave both hosts eligible for the same broker account; overlap -> HALT + reconcile; explicit handoff/manual resume. | 2026-09-28 | Corrected OD-V2-27 portability freeze. |
 | AUTH/S2 AMENDMENT | Passkey preferred; password fallback allowed; sensitive risk-increasing actions require step-up from password-only session; risk-reducing Pause/Halt/Exit does not. | 2026-09-28 | `docs/v2/S2_AUTH_ACCESS_AMENDMENT_2026-09-28.md` |
 | CLOUD GO-LIVE TRIGGERS | Mobile/push, hosted-data OD-V2-25 re-review, hosted/static-IP OD-V2-09 verification, remote secret/KMS selection and external testing of an internet-facing engine API activate only after a later Owner cloud go-live decision. | 2026-09-28 | Corrected portability roadmap + Phase-9 trigger doc. |
+| OD-V2-15 | Optional `0..N` AI + optional Laya; deterministic Strategy remains independent; research/backtest/paper review, independent candidates and Strategy Hunting are allowed under existing authorities. | 2026-10-01 | Amended Phase-8 freeze + locked AI/Laya decision-intelligence architecture; Live remains `READ_ONLY / DISARMED`. |
+| OD-V2-16 | Provider allowlists/redaction plus Data V2 provenance/licensing gate apply to all cloud/third-party AI egress, including after-hours Strategy Hunting. | 2026-10-01 | Amended Phase-8 freeze; missing/ambiguous licensing evidence fails closed. |
 
 ---
 
@@ -260,7 +266,7 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 | Phase 4 | 11, 17, ORB protective-policy governance — **FROZEN 2026-09-24** |
 | Phase 5 | 19, 24 — **FROZEN 2026-09-25** |
 | Phase 6 | 05, 06, 08, 09 — **FROZEN 2026-09-26**; portability keeps host-specific dependencies behind adapters but does not add remote hosting to V2.0 |
-| Phase 8 | 15, 16 |
+| Phase 8 | 15, 16 — **FROZEN 2026-10-01** |
 | Phase 9 | 25 — **FROZEN 2026-09-27 for engineering architecture**; dated qualified legal review remains mandatory before G9 exit; hosted-data re-review is a future cloud go-live trigger |
 | Phase 10 | 18, 26 |
 | Track P1 | 20, 21, 22, 23 — **FROZEN 2026-09-26** |
