@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document | `ALGOFORTIS_V2_OWNER_DECISIONS.md` (4 of 5) |
-| Version | v1.1 — local-first V2.0 + deployment portability / password fallback correction |
-| Date | 2026-09-28 |
+| Version | v1.2 — Phase-9 OD-V2-25 reconciliation on top of local-first portability/auth corrections |
+| Date | 2026-10-01 |
 | Purpose | Freeze gates for the V2 build. Every OD here blocks a named phase in `ALGOFORTIS_V2_IMPLEMENTATION_PLAN.md`. |
 | Status legend | **OPEN** (needs Owner decision) · **FROZEN** (decided, recorded in §4) · **DEFERRED** (explicitly postponed) |
 
@@ -26,6 +26,7 @@ Recommendations below are proposals unless the corresponding OD is marked **FROZ
 10. On 2026-09-26 the Owner approved the G5 Owner gate and explicitly selected Option A for all Phase-6 blocking safety decisions: OD-V2-05, OD-V2-06, OD-V2-08 and OD-V2-09. The Phase-6 choices are formalized in `docs/v2/adr/ADR-015-phase6-live-safety-policy.md` and `docs/v2/phase6/PHASE6_OWNER_DECISION_FREEZE.md`. This approval does not authorize Live mutation; Live remains READ_ONLY / DISARMED.
 11. On 2026-09-26 the Owner approved carrying V1 Track-P platform decisions into V2 and froze OD-V2-20, OD-V2-21, OD-V2-22 and OD-V2-23 with three hardening refinements: versioned update safe windows, clock-tamper-resistant offline entitlement time evidence, and explicit production-domain WebAuthn re-enrollment/device re-binding. These are formalized by `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md`.
 12. On 2026-09-28 the Owner corrected the in-progress architecture freeze: **OD-V2-02 remains unchanged/local-first for V2.0**; new OD-V2-27 freezes deployment portability rather than remote hosting; password fallback with mandatory step-up is retained; remote hosting/mobile/push/hosted-data re-review/hosted static-IP questions/internet-facing API external security testing are deferred cloud go-live triggers. The earlier contrary wording in commit `b94a7a5c470da7d63aac8db0d79536e7b7650cf0` is superseded by the follow-up correction documents.
+13. On 2026-10-01 this root register was reconciled with the controlling dated 2026-09-27 Phase-9 privacy freeze. OD-V2-25 is **FROZEN for engineering architecture**, not certified as legal compliance; a dated qualified legal review remains mandatory before G9 exit. Live remains `READ_ONLY / DISARMED`.
 
 ---
 
@@ -192,9 +193,12 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 
 **OD-V2-25 — Data-protection (DPDP) and retention** · Blocks Phase 9
 - *Question:* Owner's obligations for identity data held in the central plane: consent, retention, deletion, breach handling.
-- *Recommendation:* Confirm current applicability and timelines with a qualified adviser; keep the central data set minimal.
+- *Decision:* **FROZEN for Phase-9 engineering architecture: minimum-data, privacy-first, versioned and fail-closed governance. Production legal basis, response timelines, retention durations, breach timelines and transfer obligations are never guessed in code.**
+- *Authority:* `docs/v2/phase9/PHASE9_DPDP_DECISION_FREEZE.md` (dated 2026-09-27).
+- *Legal gate:* A dated review by a qualified legal adviser remains mandatory before G9 exit. This engineering freeze is **not** a legal-compliance certification.
 - *Cloud-go-live trigger:* A separate hosted-data re-review is required only if/when `REMOTE_HOST` is later approved for production and trade/position/runtime data is actually hosted. That future review is not active V2.0 scope merely because OD-V2-27 preserves portability.
-- *Status:* OPEN
+- *Safety:* Live remains `READ_ONLY / DISARMED`; this privacy decision grants no broker/trading authority.
+- *Status:* **FROZEN**
 
 ### Rollout
 
@@ -236,6 +240,7 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 | OD-V2-21 | V1 signed 7-day offline lease preserved; signed server/check-in + monotonic time evidence hardens against wall-clock tamper; protective safety unaffected. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
 | OD-V2-22 | Opt-in/minimized/scrubbed telemetry; sanitize-first support bundles; versioned purpose/retention; telemetry never safety authority. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
 | OD-V2-23 | SemVer/API/migrations preserved; publisher/domain pending external finalization; production domain requires fresh WebAuthn + device re-proof/re-bind. | 2026-09-26 | `docs/v2/adr/ADR-016-track-p-s2-platform-policy.md` |
+| OD-V2-25 | Minimum-data, privacy-first, versioned, fail-closed Phase-9 engineering governance; dated qualified legal review remains mandatory before G9 exit. | 2026-09-27 | `docs/v2/phase9/PHASE9_DPDP_DECISION_FREEZE.md`; not a legal-compliance certification; Live remains `READ_ONLY / DISARMED`. |
 | CORRECTION | Prior 2026-09-28 remote-hosting amendment to OD-V2-02 is withdrawn; OD-V2-02 remains local-first for V2.0. | 2026-09-28 | Follow-up correction to commit `b94a7a5c470da7d63aac8db0d79536e7b7650cf0`. |
 | OD-V2-27 | Deployment portability: same engine build, `LOCAL_PC` now / `REMOTE_HOST` future; config/adapters only; headless authenticated local API; host-neutral ports; backup/restore migration; recovery/manual resume; target-host requalification. | 2026-09-28 | Corrected portability freeze + roadmap/Phase-6 amendment. |
 | OD-V2-05 PORTABILITY CLARIFICATION | Future local/remote cutover may never leave both hosts eligible for the same broker account; overlap -> HALT + reconcile; explicit handoff/manual resume. | 2026-09-28 | Corrected OD-V2-27 portability freeze. |
@@ -256,7 +261,7 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 | Phase 5 | 19, 24 — **FROZEN 2026-09-25** |
 | Phase 6 | 05, 06, 08, 09 — **FROZEN 2026-09-26**; portability keeps host-specific dependencies behind adapters but does not add remote hosting to V2.0 |
 | Phase 8 | 15, 16 |
-| Phase 9 | 25 — original central-account privacy decision remains OPEN; hosted-data re-review is a future cloud go-live trigger |
+| Phase 9 | 25 — **FROZEN 2026-09-27 for engineering architecture**; dated qualified legal review remains mandatory before G9 exit; hosted-data re-review is a future cloud go-live trigger |
 | Phase 10 | 18, 26 |
 | Track P1 | 20, 21, 22, 23 — **FROZEN 2026-09-26** |
 | Track P — deployment portability foundation | 27 — **FROZEN 2026-09-28**; `LOCAL_PC` current, `REMOTE_HOST` future/deferred |
