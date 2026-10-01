@@ -9,6 +9,7 @@ import {
   setAIAgentPolicy,
 } from "./api";
 import { AuthorityBadge, AsyncActionButton, SimpleTable } from "./components";
+import { DecisionIntelligenceControls } from "./DecisionIntelligenceControls";
 import { useAsyncResource } from "./hooks";
 import type { AuthorityState } from "../authority";
 
@@ -71,15 +72,17 @@ export const OwnerAIControlScreen: React.FC = () => {
     <div className="v3-screen-head">
       <div>
         <h2 className="v3-screen-title">AI Control Center</h2>
-        <p className="v3-screen-sub">Prime orchestrates. Laya is market intelligence only. Research and Risk Challenger remain advisory. No broker mutation or Live arm authority.</p>
+        <p className="v3-screen-sub">Strategy remains independent. Laya and optional 0..N AI providers can review or create research/backtest/paper candidates. RiskGateV2 remains the only order-approval authority.</p>
       </div>
     </div>
     <div className="dev-preview-banner" style={{ marginBottom: 18 }}>
       <span className="banner-tag">AI SAFETY</span>
-      <span>RESEARCH / SHADOW ONLY · routing owner PRIME · Live READ_ONLY/DISARMED · health is backend-verified only</span>
+      <span>RESEARCH / BACKTEST / PAPER INTELLIGENCE · Owner-controlled scope · Live READ_ONLY/DISARMED · no broker mutation</span>
     </div>
 
     <div className="v3-grid">
+      <DecisionIntelligenceControls />
+
       <section className="v3-region v3-sp12">
         <div className="v3-region-head"><span className="v3-region-title">Agents</span><AuthorityBadge state={state} /></div>
         <SimpleTable rows={agents} columns={[
@@ -180,10 +183,13 @@ export const OwnerAIControlScreen: React.FC = () => {
       </section>
 
       <section className="v3-region v3-sp12">
-        <div className="v3-region-head"><span className="v3-region-title">Research / Shadow Jobs</span></div>
+        <div className="v3-region-head"><span className="v3-region-title">Decision Intelligence Jobs</span></div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <select className="v3-input" value={jobType} onChange={(e) => setJobType(e.target.value)}>
             <option value="MARKET_INTELLIGENCE">Laya · Market intelligence</option>
+            <option value="STRATEGY_REVIEW">Strategy review</option>
+            <option value="INDEPENDENT_CANDIDATE">Independent research candidate</option>
+            <option value="STRATEGY_HUNTING">Strategy Hunting</option>
             <option value="STRATEGY_RESEARCH">Research Agent</option>
             <option value="EVIDENCE_RESEARCH">Research evidence</option>
             <option value="RISK_CHALLENGE">Risk Challenger</option>
