@@ -1,0 +1,11 @@
+.af-user-workspace .af-surface-authority-stale {
+  color: var(--v3-warn-text);
+  border-color: color-mix(in srgb, var(--v3-warn-text) 38%, var(--af-hairline));
+  background: color-mix(in srgb, var(--v3-warn-text) 8%, var(--af-panel-raised));
+}
+
+.af-user-workspace .af-surface-authority-unknown {
+  color: var(--af-gold-soft);
+  border-color: var(--af-gold-line);
+  background: color-mix(in srgb, var(--af-gold) 7%, var(--af-panel-raised));
+}

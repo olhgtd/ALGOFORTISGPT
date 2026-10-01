@@ -13,11 +13,14 @@ import json
 
 
 class IdentityProvider(Protocol):
+    configured: bool
     def verify(self, assertion: dict) -> UserIdentity: ...
 
 
 class UnavailableRoamingIdentity:
     """No remote enrollment, email/OTP, or portable subject authority is deployed."""
+    configured = False
+
     def verify(self, assertion: dict) -> UserIdentity:
         raise SecurityError("Cross-PC identity authority is not configured")
 

@@ -179,21 +179,26 @@ export type DotTone = "ok" | "neg" | "warn" | "dim" | "live";
 export const Dot: React.FC<{ tone: DotTone }> = ({ tone }) => <span className={`v3-dot ${tone}`} aria-hidden="true" />;
 
 export const Panel: React.FC<{
-  label: string; meta?: React.ReactNode; truth?: Truth; action?: React.ReactNode;
+  label?: string; meta?: React.ReactNode; truth?: Truth; action?: React.ReactNode;
   className?: string; children: React.ReactNode; id?: string;
-}> = ({ label, meta, truth, action, className, children, id }) => (
-  <section className={`v3-panel ${className ?? ""}`} id={id}>
-    <div className="v3-panel-head">
-      <span className="v3-panel-label">{label}</span>
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {meta != null && <span className="v3-panel-meta">{meta}</span>}
-        {truth && <TruthChip kind={truth} />}
-        {action}
-      </span>
-    </div>
-    {children}
-  </section>
-);
+}> = ({ label, meta, truth, action, className, children, id }) => {
+  const hasHeader = label != null || meta != null || truth != null || action != null;
+  return (
+    <section className={`v3-panel ${className ?? ""}`} id={id}>
+      {hasHeader && (
+        <div className="v3-panel-head">
+          {label != null && <span className="v3-panel-label">{label}</span>}
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {meta != null && <span className="v3-panel-meta">{meta}</span>}
+            {truth && <TruthChip kind={truth} />}
+            {action}
+          </span>
+        </div>
+      )}
+      {children}
+    </section>
+  );
+};
 
 export const Sparkline: React.FC<{ points: number[]; height?: number; width?: number }> = ({ points, height = 56, width = 240 }) => {
   const min = Math.min(...points);
@@ -261,12 +266,7 @@ export const CommandPalette: React.FC<{
   useEffect(() => { if (open) { setQ(""); setSel(0); } }, [open]);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, filtered.length - 1)); }
-      if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
-      if (e.key === "Enter" && filtered[sel]) { filtered[sel].run(); onClose(); }
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); if (e.key === "ArrowDown") { e.preventDefault(); setSel((s) => Math.min(s + 1, filtered.length - 1)); } if (e.key === "ArrowUp") { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); } if (e.key === "Enter" && filtered[sel]) { filtered[sel].run(); onClose(); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
@@ -274,25 +274,12 @@ export const CommandPalette: React.FC<{
   return (
     <div className="v3-palette-wrap" role="presentation" onClick={onClose}>
       <div className="v3-palette" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
-        <input
-          autoFocus
-          value={q}
-          placeholder="Search screens and actions…"
-          onChange={(e) => { setQ(e.target.value); setSel(0); }}
-          aria-label="Search screens and actions"
-        />
+        <input autoFocus value={q} placeholder="Search screens and actions…" onChange={(e) => { setQ(e.target.value); setSel(0); }} aria-label="Search screens and actions" />
         <div className="v3-palette-list">
           {filtered.length === 0 && <div style={{ padding: "14px 12px", color: "var(--v3-ink-dim)", fontSize: 12.5 }}>No matches.</div>}
           {filtered.map((c, i) => (
-            <button
-              key={c.id}
-              className={`v3-palette-item ${i === sel ? "sel" : ""}`}
-              onClick={() => { c.run(); onClose(); }}
-              onMouseEnter={() => setSel(i)}
-            >
-              <Icon name={c.icon} size={15} />
-              {c.label}
-              <span className="hint">{c.hint}</span>
+            <button key={c.id} className={`v3-palette-item ${i === sel ? "sel" : ""}`} onClick={() => { c.run(); onClose(); }} onMouseEnter={() => setSel(i)}>
+              <Icon name={c.icon} size={15} />{c.label}<span className="hint">{c.hint}</span>
             </button>
           ))}
         </div>

@@ -1,16 +1,16 @@
 """AlgoFortis V2 central Risk Gate approval authority.
 
-The gate is deliberately broker-neutral.  It can approve/reject an immutable
+The gate is deliberately broker-neutral. It can approve/reject an immutable
 OrderIntent and mint an ApprovedOrder capability only after required audit
-evidence is written successfully.  It never calls a broker and does not enable
+evidence is written successfully. It never calls a broker and does not enable
 live mutation.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Mapping, Protocol
+from time import perf_counter_ns
+from typing import Callable, Mapping, Protocol
 
 from engine.core.numeric import as_decimal
 from engine.core.runtime import Clock, IdGenerator
@@ -22,6 +22,7 @@ from engine.orders.contracts_v2 import (
     client_order_id_for_intent,
     _mint_approved_order,
 )
+from engine.risk.latency_evidence_v2 import RiskGateLatencyRecord, RiskLatencySink, RiskLatencyStage
 from engine.risk.limits import ResolvedHardLimits
 
 
@@ -48,6 +49,12 @@ def _text(value: object, field_name: str) -> str:
     return value.strip()
 
 
+def _optional_text(value: object, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _text(value, field_name)
+
+
 def _reasons(values: tuple[str, ...]) -> tuple[str, ...]:
     if not isinstance(values, tuple) or not values:
         raise ValueError("reasons must be a non-empty tuple")
@@ -58,8 +65,7 @@ def _reasons(values: tuple[str, ...]) -> tuple[str, ...]:
 class RiskEvaluation:
     """Broker-free adapter result consumed by RiskGateV2.
 
-    Phase 2 intentionally keeps the evaluator seam narrow so the mature V1
-    RiskGate can later be wrapped without rewriting its risk mathematics.
+    Optional fast-path evidence is additive so legacy evaluators remain valid.
     """
 
     decision: RiskDecisionKind
@@ -67,13 +73,18 @@ class RiskEvaluation:
     risk_rule_version: str
     limits_snapshot_id: str
     approved_qty: Decimal | None = None
+    risk_snapshot_id: str | None = None
+    market_sequence_ref: str | None = None
+    latency_policy_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.decision, RiskDecisionKind):
             raise TypeError("decision must be a RiskDecisionKind")
         object.__setattr__(self, "risk_rule_version", _text(self.risk_rule_version, "risk_rule_version"))
         object.__setattr__(self, "limits_snapshot_id", _text(self.limits_snapshot_id, "limits_snapshot_id"))
-
+        object.__setattr__(self, "risk_snapshot_id", _optional_text(self.risk_snapshot_id, "risk_snapshot_id"))
+        object.__setattr__(self, "market_sequence_ref", _optional_text(self.market_sequence_ref, "market_sequence_ref"))
+        object.__setattr__(self, "latency_policy_ref", _optional_text(self.latency_policy_ref, "latency_policy_ref"))
         if self.decision is RiskDecisionKind.APPROVED:
             if self.reasons:
                 raise ValueError("approved evaluation excludes reasons")
@@ -103,6 +114,9 @@ class RiskEvaluation:
         approved_qty: Decimal | int | str,
         risk_rule_version: str,
         limits_snapshot_id: str,
+        risk_snapshot_id: str | None = None,
+        market_sequence_ref: str | None = None,
+        latency_policy_ref: str | None = None,
     ) -> "RiskEvaluation":
         return cls(
             RiskDecisionKind.APPROVED,
@@ -110,6 +124,9 @@ class RiskEvaluation:
             risk_rule_version,
             limits_snapshot_id,
             as_decimal(approved_qty, "approved_qty"),
+            risk_snapshot_id,
+            market_sequence_ref,
+            latency_policy_ref,
         )
 
     @classmethod
@@ -119,6 +136,9 @@ class RiskEvaluation:
         *,
         risk_rule_version: str,
         limits_snapshot_id: str,
+        risk_snapshot_id: str | None = None,
+        market_sequence_ref: str | None = None,
+        latency_policy_ref: str | None = None,
     ) -> "RiskEvaluation":
         return cls(
             RiskDecisionKind.REJECTED,
@@ -126,6 +146,9 @@ class RiskEvaluation:
             risk_rule_version,
             limits_snapshot_id,
             None,
+            risk_snapshot_id,
+            market_sequence_ref,
+            latency_policy_ref,
         )
 
 
@@ -146,7 +169,7 @@ class RiskRejection:
 
 
 class RiskGateV2:
-    """The sole Phase-2 authority able to mint ApprovedOrder capabilities."""
+    """The sole authority able to mint ApprovedOrder capabilities."""
 
     def __init__(
         self,
@@ -157,6 +180,8 @@ class RiskGateV2:
         audit_sink: RiskAuditSink,
         hard_limits: ResolvedHardLimits,
         entry_policy: EntryPolicy | None = None,
+        monotonic_ns: Callable[[], int] | None = None,
+        latency_sink: RiskLatencySink | None = None,
     ) -> None:
         if not callable(getattr(evaluator, "evaluate", None)):
             raise TypeError("evaluator must provide evaluate(intent)")
@@ -175,94 +200,63 @@ class RiskGateV2:
                 raise TypeError("entry_policy must expose entries_allowed") from error
             if not isinstance(allowed, bool):
                 raise TypeError("entry_policy.entries_allowed must be bool")
+        if monotonic_ns is not None and not callable(monotonic_ns):
+            raise TypeError("monotonic_ns must be callable")
+        if latency_sink is not None and not callable(getattr(latency_sink, "record", None)):
+            raise TypeError("latency_sink must provide record(record)")
         self._evaluator = evaluator
         self._clock = clock
         self._id_generator = id_generator
         self._audit_sink = audit_sink
         self._hard_limits = hard_limits
         self._entry_policy = entry_policy
+        self._monotonic_ns = monotonic_ns or perf_counter_ns
+        self._latency_sink = latency_sink
 
     def evaluate_entry(self, intent: OrderIntent) -> ApprovedOrder | RiskRejection:
         if not isinstance(intent, OrderIntent):
             raise TypeError("intent must be an OrderIntent")
-
+        marks: dict[RiskLatencyStage, int] = {
+            RiskLatencyStage.RISK_GATE_ENTER: self._monotonic_ns()
+        }
         now = self._clock.now_utc()
         if now.tzinfo is None or now.utcoffset() is None:
             raise RiskApprovalError("clock returned a non-timezone-aware value")
         if now >= intent.valid_until:
-            return self._reject(
-                intent,
-                ("intent_expired",),
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
-
+            return self._reject(intent, ("intent_expired",), limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks)
         if self._entry_policy is not None:
             try:
                 entries_allowed = self._entry_policy.entries_allowed
             except Exception as error:
-                raise RiskApprovalError(
-                    "entry policy unavailable; risk action blocked"
-                ) from error
+                raise RiskApprovalError("entry policy unavailable; risk action blocked") from error
             if entries_allowed is not True:
-                return self._reject(
-                    intent,
-                    ("entries_halted",),
-                    limits_snapshot_id=self._hard_limits.snapshot_id,
-                )
-
+                return self._reject(intent, ("entries_halted",), limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks)
         if intent.instrument_ref.segment == "options" and intent.side != "BUY":
-            return self._reject(
-                intent,
-                ("options_buy_only",),
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
-
+            return self._reject(intent, ("options_buy_only",), limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks)
         max_order_qty = self._hard_limits.values.get("max_order_qty")
         if max_order_qty is not None and intent.qty > max_order_qty:
-            return self._reject(
-                intent,
-                ("max_order_qty",),
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
+            return self._reject(intent, ("max_order_qty",), limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks)
 
         try:
             evaluation = self._evaluator.evaluate(intent)
         except Exception as error:
             raise RiskApprovalError("risk evaluation failed closed") from error
+        marks[RiskLatencyStage.CHECKS_COMPLETE] = self._monotonic_ns()
         if not isinstance(evaluation, RiskEvaluation):
             raise RiskApprovalError("risk evaluator returned invalid evidence")
-
+        evidence = {
+            "risk_snapshot_id": evaluation.risk_snapshot_id,
+            "market_sequence_ref": evaluation.market_sequence_ref,
+            "latency_policy_ref": evaluation.latency_policy_ref,
+        }
         if evaluation.limits_snapshot_id != self._hard_limits.snapshot_id:
-            return self._reject(
-                intent,
-                ("limits_snapshot_mismatch",),
-                risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
-
+            return self._reject(intent, ("limits_snapshot_mismatch",), risk_rule_version=evaluation.risk_rule_version, limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks, **evidence)
         if evaluation.decision is RiskDecisionKind.REJECTED:
-            return self._reject(
-                intent,
-                evaluation.reasons,
-                risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
-
+            return self._reject(intent, evaluation.reasons, risk_rule_version=evaluation.risk_rule_version, limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks, **evidence)
         if evaluation.decision is RiskDecisionKind.REDUCED:
-            return self._reject(
-                intent,
-                ("reduced_order_requires_explicit_contract",),
-                risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
-
+            return self._reject(intent, ("reduced_order_requires_explicit_contract",), risk_rule_version=evaluation.risk_rule_version, limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks, **evidence)
         if evaluation.approved_qty != intent.qty:
-            return self._reject(
-                intent,
-                ("risk_quantity_mismatch",),
-                risk_rule_version=evaluation.risk_rule_version,
-                limits_snapshot_id=self._hard_limits.snapshot_id,
-            )
+            return self._reject(intent, ("risk_quantity_mismatch",), risk_rule_version=evaluation.risk_rule_version, limits_snapshot_id=self._hard_limits.snapshot_id, marks=marks, **evidence)
 
         approval_token = self._id_generator.new_id("risk_approval")
         risk_decision = RiskDecision(
@@ -276,23 +270,25 @@ class RiskGateV2:
         )
         decision_ref = risk_decision.reference
         client_order_id = client_order_id_for_intent(intent.intent_id)
-
-        self._write_audit(
-            "RISK_APPROVAL_GRANTED",
-            {
-                "client_order_id": client_order_id,
-                "intent_id": intent.intent_id,
-                "risk_decision_ref": decision_ref,
-                "risk_rule_version": evaluation.risk_rule_version,
-                "limits_snapshot_id": self._hard_limits.snapshot_id,
-            },
-        )
-
-        return _mint_approved_order(
-            client_order_id=client_order_id,
-            intent=intent,
-            risk_decision_ref=decision_ref,
-        )
+        payload: dict[str, object] = {
+            "client_order_id": client_order_id,
+            "intent_id": intent.intent_id,
+            "risk_decision_ref": decision_ref,
+            "risk_rule_version": evaluation.risk_rule_version,
+            "limits_snapshot_id": self._hard_limits.snapshot_id,
+        }
+        self._add_optional_evidence(payload, **evidence)
+        try:
+            self._write_audit("RISK_APPROVAL_GRANTED", payload)
+        except RiskApprovalError:
+            marks[RiskLatencyStage.DECISION_FINALIZED] = self._monotonic_ns()
+            self._emit_latency(intent, marks, "REJECTED", "FAILED", "audit_write_failed", **evidence)
+            raise
+        marks[RiskLatencyStage.AUDIT_APPEND_COMPLETE] = self._monotonic_ns()
+        approved = _mint_approved_order(client_order_id=client_order_id, intent=intent, risk_decision_ref=decision_ref)
+        marks[RiskLatencyStage.DECISION_FINALIZED] = self._monotonic_ns()
+        self._emit_latency(intent, marks, "APPROVED", "WRITTEN", None, **evidence)
+        return approved
 
     def _reject(
         self,
@@ -301,23 +297,71 @@ class RiskGateV2:
         *,
         risk_rule_version: str | None = None,
         limits_snapshot_id: str | None = None,
+        marks: dict[RiskLatencyStage, int] | None = None,
+        risk_snapshot_id: str | None = None,
+        market_sequence_ref: str | None = None,
+        latency_policy_ref: str | None = None,
     ) -> RiskRejection:
         normalized = _reasons(reasons)
-        payload: dict[str, object] = {
-            "intent_id": intent.intent_id,
-            "reasons": normalized,
-        }
+        marks = marks or {RiskLatencyStage.RISK_GATE_ENTER: self._monotonic_ns()}
+        marks.setdefault(RiskLatencyStage.CHECKS_COMPLETE, self._monotonic_ns())
+        payload: dict[str, object] = {"intent_id": intent.intent_id, "reasons": normalized}
         if risk_rule_version is not None:
             payload["risk_rule_version"] = risk_rule_version
         if limits_snapshot_id is not None:
             payload["limits_snapshot_id"] = limits_snapshot_id
-        self._write_audit("RISK_APPROVAL_REJECTED", payload)
-        return RiskRejection(
-            intent.intent_id,
-            normalized,
-            risk_rule_version,
-            limits_snapshot_id,
-        )
+        evidence = {
+            "risk_snapshot_id": risk_snapshot_id,
+            "market_sequence_ref": market_sequence_ref,
+            "latency_policy_ref": latency_policy_ref,
+        }
+        self._add_optional_evidence(payload, **evidence)
+        try:
+            self._write_audit("RISK_APPROVAL_REJECTED", payload)
+        except RiskApprovalError:
+            marks[RiskLatencyStage.DECISION_FINALIZED] = self._monotonic_ns()
+            self._emit_latency(intent, marks, "REJECTED", "FAILED", normalized[0], **evidence)
+            raise
+        marks[RiskLatencyStage.AUDIT_APPEND_COMPLETE] = self._monotonic_ns()
+        marks[RiskLatencyStage.DECISION_FINALIZED] = self._monotonic_ns()
+        self._emit_latency(intent, marks, "REJECTED", "WRITTEN", normalized[0], **evidence)
+        return RiskRejection(intent.intent_id, normalized, risk_rule_version, limits_snapshot_id)
+
+    @staticmethod
+    def _add_optional_evidence(payload: dict[str, object], **evidence: str | None) -> None:
+        for key, value in evidence.items():
+            if value is not None:
+                payload[key] = value
+
+    def _emit_latency(
+        self,
+        intent: OrderIntent,
+        marks: Mapping[RiskLatencyStage, int],
+        decision_kind: str,
+        audit_result: str,
+        rejection_reason: str | None,
+        *,
+        risk_snapshot_id: str | None,
+        market_sequence_ref: str | None,
+        latency_policy_ref: str | None,
+    ) -> None:
+        if self._latency_sink is None:
+            return
+        try:
+            record = RiskGateLatencyRecord(
+                intent_id=intent.intent_id,
+                risk_snapshot_id=risk_snapshot_id,
+                latency_policy_ref=latency_policy_ref,
+                stage_timestamps_ns=dict(marks),
+                decision_kind=decision_kind,
+                audit_result=audit_result,
+                rejection_reason=rejection_reason,
+            )
+            self._latency_sink.record(record)
+        except Exception:
+            # Latency telemetry is non-authorizing. Even malformed telemetry or a
+            # broken sink cannot alter a decision or mask INV-16 audit failure.
+            return
 
     def _write_audit(self, event_type: str, payload: Mapping[str, object]) -> None:
         try:
@@ -326,9 +370,4 @@ class RiskGateV2:
             raise RiskApprovalError("audit write failed; risk action blocked") from error
 
 
-__all__ = [
-    "RiskApprovalError",
-    "RiskEvaluation",
-    "RiskRejection",
-    "RiskGateV2",
-]
+__all__ = ["RiskApprovalError", "RiskEvaluation", "RiskRejection", "RiskGateV2"]

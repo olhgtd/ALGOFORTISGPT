@@ -1,0 +1,47 @@
+{
+  "latency_policy": {
+    "policy_id": "TEST_ONLY/riskgate-fast-path",
+    "version": "v1",
+    "status": "TEST_ONLY",
+    "environment_scope": "paper-shadow-qualification",
+    "hardware_profile_ref": "TEST_ONLY/windows-latest",
+    "runtime_profile_ref": "TEST_ONLY/python-3.13.14",
+    "sample_minimum_ref": "TEST_ONLY/manual-qualification",
+    "stages": [
+      {
+        "stage_name": "riskgate_total",
+        "percentile_target": "p99",
+        "ceiling_ns": 10000000,
+        "breach_action": "RECORD"
+      },
+      {
+        "stage_name": "candidate_to_transport_handoff",
+        "percentile_target": "p99",
+        "ceiling_ns": 25000000,
+        "breach_action": "RECORD"
+      }
+    ],
+    "evidence_bundle_ref": null,
+    "approval_ref": null
+  },
+  "probe": {
+    "now_utc": "2026-09-30T09:15:00+00:00",
+    "instrument": "NIFTY26OCT25000CE",
+    "underlying": "NIFTY",
+    "expiry": "2026-10-29",
+    "strike": "25000",
+    "option_type": "CE",
+    "market_sequence": 1000000,
+    "quantity_ceiling": "75",
+    "hard_max_order_qty": "75",
+    "order_qty": "1",
+    "bid": "224.90",
+    "ask": "225.10",
+    "tick_size": "0.05",
+    "slippage_ticks": 0,
+    "simulated_latency_ms": 0,
+    "stale_after_ms": 1000,
+    "intent_ttl_seconds": 10,
+    "sample_method_ref": "TEST_ONLY/in-memory-paper-shadow-probe@v1"
+  }
+}

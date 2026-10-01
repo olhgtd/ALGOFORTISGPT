@@ -11,6 +11,7 @@ from engine.orders.contracts_v2 import ApprovedOrder, OrderIntent, OrderSource, 
 from engine.orders.model import OrderType
 from engine.portfolio.model import InstrumentIdentity
 from engine.risk.gate_v2 import RiskApprovalError, RiskEvaluation, RiskGateV2, RiskRejection
+from engine.risk.latency_evidence_v2 import RiskGateLatencyRecord
 from engine.risk.limits import HardLimitHierarchy, LimitDirection
 
 
@@ -40,6 +41,19 @@ class _AuditSink:
         if self.fail:
             raise RuntimeError("audit unavailable")
         self.events.append((event_type, dict(payload)))
+
+
+class _LatencySink:
+    def __init__(self) -> None:
+        self.records: list[RiskGateLatencyRecord] = []
+
+    def record(self, record: RiskGateLatencyRecord) -> None:
+        self.records.append(record)
+
+
+class _BrokenLatencySink:
+    def record(self, record: RiskGateLatencyRecord) -> None:
+        raise RuntimeError("latency sink unavailable")
 
 
 def _clock(*, minute: int = 16) -> FixedClock:
@@ -212,3 +226,68 @@ def test_client_order_id_is_deterministic_for_same_intent_across_replay() -> Non
     assert isinstance(approved_b, ApprovedOrder)
     assert approved_a.client_order_id == approved_b.client_order_id
     assert approved_a.risk_decision_ref == approved_b.risk_decision_ref
+
+
+def test_fast_path_evidence_is_written_to_audit_before_approval_and_latency_recorded() -> None:
+    runtime_clock = _clock()
+    evaluation = RiskEvaluation.approved(
+        approved_qty=Decimal("2"),
+        risk_rule_version="risk-policy/v4",
+        limits_snapshot_id=_LIMITS.snapshot_id,
+        risk_snapshot_id="snap-1",
+        market_sequence_ref="7",
+        latency_policy_ref="TEST_ONLY/latency@v1",
+    )
+    audit = _AuditSink()
+    latency = _LatencySink()
+    ticks = iter((10, 20, 30, 40, 50, 60))
+    gate = RiskGateV2(
+        evaluator=_Evaluator(evaluation),
+        clock=runtime_clock,
+        id_generator=_ids(runtime_clock),
+        audit_sink=audit,
+        hard_limits=_LIMITS,
+        monotonic_ns=lambda: next(ticks),
+        latency_sink=latency,
+    )
+
+    result = gate.evaluate_entry(_intent())
+
+    assert isinstance(result, ApprovedOrder)
+    assert audit.events[0][0] == "RISK_APPROVAL_GRANTED"
+    assert audit.events[0][1]["risk_snapshot_id"] == "snap-1"
+    assert audit.events[0][1]["market_sequence_ref"] == "7"
+    assert audit.events[0][1]["latency_policy_ref"] == "TEST_ONLY/latency@v1"
+    assert latency.records[-1].decision_kind == "APPROVED"
+    assert latency.records[-1].audit_result == "WRITTEN"
+
+
+def test_latency_telemetry_failure_cannot_block_audited_approval() -> None:
+    runtime_clock = _clock()
+    gate = RiskGateV2(
+        evaluator=_Evaluator(_approved_evaluation()),
+        clock=runtime_clock,
+        id_generator=_ids(runtime_clock),
+        audit_sink=_AuditSink(),
+        hard_limits=_LIMITS,
+        monotonic_ns=lambda: 100,
+        latency_sink=_BrokenLatencySink(),
+    )
+
+    assert isinstance(gate.evaluate_entry(_intent()), ApprovedOrder)
+
+
+def test_audit_failure_remains_primary_even_if_latency_sink_is_broken() -> None:
+    runtime_clock = _clock()
+    gate = RiskGateV2(
+        evaluator=_Evaluator(_approved_evaluation()),
+        clock=runtime_clock,
+        id_generator=_ids(runtime_clock),
+        audit_sink=_AuditSink(fail=True),
+        hard_limits=_LIMITS,
+        monotonic_ns=lambda: 100,
+        latency_sink=_BrokenLatencySink(),
+    )
+
+    with pytest.raises(RiskApprovalError, match="audit"):
+        gate.evaluate_entry(_intent())

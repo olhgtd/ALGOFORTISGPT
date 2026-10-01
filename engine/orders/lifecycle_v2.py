@@ -1,6 +1,6 @@
 """AlgoFortis V2 broker-neutral order execution lifecycle.
 
-This module models execution state only.  It never calls a broker.  In-doubt
+This module models execution state only. It never calls a broker. In-doubt
 resolution consumes explicit broker-truth evidence supplied by a higher layer,
 and retry after NOT_FOUND requires a fresh Risk-Gate ApprovedOrder with the
 same idempotent client-order identity and an unexpired TTL.
@@ -37,8 +37,21 @@ class OrderExecutionState(str, Enum):
 
 class BrokerTruth(str, Enum):
     ACKED = "ACKED"
+    PARTIALLY_FILLED = "PARTIALLY_FILLED"
+    FILLED = "FILLED"
+    CANCELLED = "CANCELLED"
     REJECTED = "REJECTED"
     NOT_FOUND = "NOT_FOUND"
+
+
+_BROKER_ORDER_EXISTS_TRUTH = frozenset(
+    {
+        BrokerTruth.ACKED,
+        BrokerTruth.PARTIALLY_FILLED,
+        BrokerTruth.FILLED,
+        BrokerTruth.CANCELLED,
+    }
+)
 
 
 _ALLOWED_TRANSITIONS: dict[OrderExecutionState, frozenset[OrderExecutionState]] = {
@@ -50,7 +63,14 @@ _ALLOWED_TRANSITIONS: dict[OrderExecutionState, frozenset[OrderExecutionState]] 
         {OrderExecutionState.ACKED, OrderExecutionState.IN_DOUBT}
     ),
     OrderExecutionState.IN_DOUBT: frozenset(
-        {OrderExecutionState.ACKED, OrderExecutionState.REJECTED, OrderExecutionState.NOT_FOUND}
+        {
+            OrderExecutionState.ACKED,
+            OrderExecutionState.PARTIALLY_FILLED,
+            OrderExecutionState.FILLED,
+            OrderExecutionState.CANCELLED,
+            OrderExecutionState.REJECTED,
+            OrderExecutionState.NOT_FOUND,
+        }
     ),
     OrderExecutionState.ACKED: frozenset(
         {
@@ -110,13 +130,11 @@ class OrderTransitionEvidence:
         if self.broker_truth is not None and not isinstance(self.broker_truth, BrokerTruth):
             raise TypeError("broker_truth must be BrokerTruth or None")
         if self.broker_order_id is not None:
-            object.__setattr__(
-                self,
-                "broker_order_id",
-                _text(self.broker_order_id, "broker_order_id"),
+            object.__setattr__(self, "broker_order_id", _text(self.broker_order_id, "broker_order_id"))
+        if self.broker_truth in _BROKER_ORDER_EXISTS_TRUTH and self.broker_order_id is None:
+            raise OrderLifecycleError(
+                f"{self.broker_truth.value} broker truth requires broker_order_id"
             )
-        if self.broker_truth is BrokerTruth.ACKED and self.broker_order_id is None:
-            raise OrderLifecycleError("ACKED broker truth requires broker_order_id")
 
 
 class OrderExecutionLifecycle:
@@ -197,11 +215,7 @@ class OrderExecutionLifecycle:
         if state is OrderExecutionState.EXPIRED and now < self._approved_order.expires_at:
             raise OrderLifecycleError("cannot enter EXPIRED before ApprovedOrder TTL passes")
 
-        return self._spawn(
-            state,
-            reason=normalized_reason,
-            timestamp=now,
-        )
+        return self._spawn(state, reason=normalized_reason, timestamp=now)
 
     def mark_in_doubt(self, *, reason: str) -> "OrderExecutionLifecycle":
         if self._state is not OrderExecutionState.SENT_UNACKED:
@@ -225,10 +239,13 @@ class OrderExecutionLifecycle:
 
         target = {
             BrokerTruth.ACKED: OrderExecutionState.ACKED,
+            BrokerTruth.PARTIALLY_FILLED: OrderExecutionState.PARTIALLY_FILLED,
+            BrokerTruth.FILLED: OrderExecutionState.FILLED,
+            BrokerTruth.CANCELLED: OrderExecutionState.CANCELLED,
             BrokerTruth.REJECTED: OrderExecutionState.REJECTED,
             BrokerTruth.NOT_FOUND: OrderExecutionState.NOT_FOUND,
         }[broker_truth]
-        if broker_truth is BrokerTruth.ACKED:
+        if broker_truth in _BROKER_ORDER_EXISTS_TRUTH:
             broker_order_id = _text(broker_order_id, "broker_order_id")
         elif broker_order_id is not None:
             broker_order_id = _text(broker_order_id, "broker_order_id")

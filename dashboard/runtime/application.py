@@ -21,22 +21,36 @@ from dashboard.backend.security_store import SQLiteSecurityStore
 from dashboard.backend.governance_store import SQLiteGovernanceStore
 from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonyService, WebAuthnRelyingParty
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
+from dashboard.backend.account_v2.owner_bootstrap import resolve_owner_bootstrap
+from dashboard.backend.account_v2.password_accounts import normalize_legacy_owner_activation
+from dashboard.backend.account_v2.password_router import attach_password_account_routes
+from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
+from dashboard.backend.owner_admin.inspection_router import attach_owner_user_inspection
+from dashboard.backend.owner_admin.ai_verification_router import attach_ai_verification_routes
 from .paths import RuntimeMode, CurrentUserAcl
 
 
-def create_runtime_app(paths, origin: str, instance_id: str):
+_OWNER_BOOTSTRAP_MUTATIONS = frozenset({
+    "/api/v1/auth/local/setup",
+    "/api/v1/auth/webauthn/bootstrap-registration/options",
+    "/api/v1/auth/webauthn/bootstrap-registration/complete",
+})
+
+
+def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=None):
     if not (paths.frontend / "index.html").is_file():
         raise RuntimeError("Built AlgoFortis frontend resources are unavailable")
     profile = paths.mode.value.lower()
     options = dict(profile=profile, data_root=paths.databases, windows_acl_validator=CurrentUserAcl())
     security = SQLiteSecurityStore(paths.databases / "security" / "sentinelx_security.sqlite3", seed_governance=False, **options)
+    # Legacy V1 local-private builds could persist OWNER activation_status as
+    # ACTIVATED, which is not a current V2 enum value. Normalize the narrow
+    # historical value before any identity object is reconstructed.
+    normalize_legacy_owner_activation(security)
     governance = SQLiteGovernanceStore(paths.databases / "governance" / "sentinelx_governance.sqlite3", **options)
     core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="sentinelx-local",
                                 starting_capital=Decimal("0.00"), audit_source_identity="sentinelx-local")
     owner = local_owner(security, paths.config / "identity.json")
-    # Configurable WebAuthn RP and Origin:
-    # Read from deployment environment configuration with safe production defaults.
-    # In production, a loopback product transport cannot impersonate approved HTTPS identity origins.
     normal_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RP_ID", "algofortis.com")).strip()
     normal_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_ORIGIN", f"https://app.{normal_rp_id}")).strip()
     recovery_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_RP_ID", "algofortis-recovery.com")).strip()
@@ -48,16 +62,11 @@ def create_runtime_app(paths, origin: str, instance_id: str):
         else WebAuthnRelyingParty("localhost", origin, development_only=True),
         recovery_rp=WebAuthnRelyingParty(recovery_rp_id, recovery_origin) if paths.mode is RuntimeMode.PRODUCTION else None,
     )
-    # F-21: ONE product-owned historical-data lifecycle rooted in the product
-    # runtime storage authority (never the repository path). Backtesting,
-    # historical paper replay and charting all resolve through this service.
     market_data = HistoricalDataService(
         paths.cache / "market-data",
         imports_root=paths.imports,
         security_store=security,
     )
-    # Configuration-driven provider: an owner-configured local import source
-    # may provision missing ranges; default remains fail-closed UNCONFIGURED.
     local_import_path = os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", os.environ.get("SENTINELX_LOCAL_IMPORT_PATH", "")).strip()
     if local_import_path:
         candidate = Path(local_import_path)
@@ -72,7 +81,27 @@ def create_runtime_app(paths, origin: str, instance_id: str):
                          feed=market_data, source_identity="algofortis-canonical-cache"),
                      historical_data_service=market_data,
                      artifact_root=paths.artifacts)
-    app.state.roaming_identity = UnavailableRoamingIdentity()
+    # Additive account/Owner/Admin authority layers. Password entry composes the
+    # existing security/session/audit authorities; it is not a second identity
+    # database or a trading authority.
+    attach_password_account_routes(app)
+    attach_owner_admin_control_plane(app)
+    attach_owner_user_inspection(app)
+    attach_ai_verification_routes(app)
+    app.state.roaming_identity = roaming_identity or UnavailableRoamingIdentity()
+
+    def owner_bootstrap_decision():
+        """Never infer global Owner absence from an empty local database."""
+        return resolve_owner_bootstrap(
+            local_owner_initialized=security.has_initialized_owner(),
+            roaming_identity_configured=bool(getattr(app.state.roaming_identity, "configured", False)),
+            explicit_trusted_local_bootstrap=(
+                os.environ.get("ALGOFORTIS_ALLOW_LOCAL_OWNER_BOOTSTRAP", "").strip() == "1"
+            ),
+            production=paths.mode is RuntimeMode.PRODUCTION,
+        )
+
+    app.state.owner_bootstrap_decision = owner_bootstrap_decision
 
     backtest_lifespan = app.router.lifespan_context
 
@@ -88,6 +117,22 @@ def create_runtime_app(paths, origin: str, instance_id: str):
     app.router.lifespan_context = lifespan
 
     @app.middleware("http")
+    async def owner_bootstrap_firewall(request: Request, call_next):
+        # Every Owner-provisioning mutation is denied unless an explicit trusted
+        # authority allows setup. Empty local state alone is never sufficient.
+        if request.method.upper() == "POST" and request.url.path in _OWNER_BOOTSTRAP_MUTATIONS:
+            decision = owner_bootstrap_decision()
+            if not decision.setup_allowed:
+                return JSONResponse(
+                    {
+                        "detail": "OWNER_SETUP_NOT_AUTHORIZED",
+                        **decision.public_dict(),
+                    },
+                    status_code=403,
+                )
+        return await call_next(request)
+
+    @app.middleware("http")
     async def private_origin(request: Request, call_next):
         # Reject DNS rebinding and cross-origin mutation; no permissive CORS.
         if request.headers.get("host") != origin.removeprefix("http://"):
@@ -97,6 +142,10 @@ def create_runtime_app(paths, origin: str, instance_id: str):
         if paths.mode is RuntimeMode.PRODUCTION and request.url.path.startswith("/api/v1/auth/webauthn/"):
             return JSONResponse({"detail": "Approved HTTPS identity transport is not configured for this local installation"}, status_code=503)
         return await call_next(request)
+
+    @app.get("/api/v1/identity/bootstrap-status")
+    def identity_bootstrap_status():
+        return owner_bootstrap_decision().public_dict()
 
     @app.get("/api/v1/runtime/status")
     def runtime_status():
@@ -108,10 +157,15 @@ def create_runtime_app(paths, origin: str, instance_id: str):
             return JSONResponse({"state": "UNAVAILABLE", "instance_id": instance_id}, status_code=503)
         identity_type = "LOCAL_PRIVATE" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "LOCAL_WEBAUTHN"
         device_authority = "LOCAL_AUTHORITY" if paths.mode is RuntimeMode.LOCAL_PRIVATE else "WEBAUTHN_CREDENTIAL"
+        bootstrap = owner_bootstrap_decision()
         return {"state": "READY", "mode": paths.mode.value, "instance_id": instance_id,
                 "api_base": "/api/v1", "identity": identity_type,
-                "roaming_identity": "UNAVAILABLE", "device_authority": device_authority,
+                "roaming_identity": "CONFIGURED" if getattr(app.state.roaming_identity, "configured", False) else "UNAVAILABLE",
+                "device_authority": device_authority,
                 "local_auth_transport": "UNAVAILABLE" if paths.mode is RuntimeMode.PRODUCTION else "CONFIGURED",
+                "owner_presence": bootstrap.presence.value,
+                "owner_setup_allowed": bootstrap.setup_allowed,
+                "owner_entry_flow": bootstrap.flow.value,
                 "live_execution": "DISARMED"}
 
     @app.post("/api/v1/identity/roaming/verify")

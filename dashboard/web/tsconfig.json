@@ -28,5 +28,15 @@
     "../owner-dashboard",
     "../shared",
     "../sampleData.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "../user-dashboard/**/*.test.ts",
+    "../user-dashboard/**/*.test.tsx",
+    "../owner-dashboard/**/*.test.ts",
+    "../owner-dashboard/**/*.test.tsx",
+    "../shared/**/*.test.ts",
+    "../shared/**/*.test.tsx"
   ]
 }

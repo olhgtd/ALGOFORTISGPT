@@ -1,0 +1,142 @@
+name: Owner Admin AI Entry Gate Authoritative Qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_regression:
+        description: Run the complete tests_v1 regression after focused qualification
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  windows-latest-qualification:
+    name: Owner/Admin + AI + Entry Gate qualification (Windows latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - name: Checkout exact dispatched head
+        uses: actions/checkout@v4
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile authoritative implementation
+        shell: pwsh
+        run: python -m compileall -q dashboard/backend/owner_admin dashboard/backend/account_v2 dashboard/backend/ai_control.py engine/ai build/tools/check_owner_admin_boundary.py tests_v1
+      - name: Permanent Owner/Admin + AI + Entry Gate boundary guard
+        shell: pwsh
+        run: python build/tools/check_owner_admin_boundary.py
+      - name: Existing S2 account boundary guard
+        shell: pwsh
+        run: python build/tools/check_s2_account_gate.py
+      - name: Existing Live READ_ONLY mutation firewall
+        shell: pwsh
+        run: python build/tools/check_phase6_live_readonly.py
+      - name: Focused Owner/Admin + AI + Entry Gate tests
+        shell: pwsh
+        run: >-
+          python -m pytest
+          tests_v1/test_owner_admin_boundary_guard.py
+          tests_v1/test_owner_admin_contracts.py
+          tests_v1/test_owner_admin_step_up_policy.py
+          tests_v1/test_owner_admin_ai_control_plane.py
+          tests_v1/test_owner_admin_ai_credentials.py
+          tests_v1/test_owner_singleton_bootstrap_policy.py
+          tests_v1/test_entry_gate_password_accounts.py
+          tests_v1/test_entry_gate_password_routes.py
+          tests_v1/test_entry_gate_security_boundaries.py
+          tests_v1/test_local_desktop_auth.py
+          -q
+      - name: S2 focused regression
+        shell: pwsh
+        run: python -m pytest tests_v1 -k s2_ -q
+      - name: Full Python regression
+        if: ${{ inputs.full_regression }}
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: npm --prefix dashboard/web ci
+      - name: User + Owner + Entry Gate Vitest regression
+        shell: pwsh
+        run: npm --prefix dashboard/web run test:user-dashboard
+      - name: Frontend typecheck
+        shell: pwsh
+        run: npm --prefix dashboard/web run typecheck
+      - name: Frontend production build
+        shell: pwsh
+        run: npm --prefix dashboard/web run build
+      - name: Record exact qualified SHA
+        shell: pwsh
+        run: git rev-parse HEAD
+
+  windows-2022-safety-crosscheck:
+    name: Owner/Admin + AI + Entry Gate safety cross-check (Windows 2022)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - name: Checkout exact dispatched head
+        uses: actions/checkout@v4
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile focused implementation
+        shell: pwsh
+        run: python -m compileall -q dashboard/backend/owner_admin dashboard/backend/account_v2 dashboard/backend/ai_control.py engine/ai build/tools/check_owner_admin_boundary.py
+      - name: Owner/Admin + AI + Entry Gate boundary guard
+        shell: pwsh
+        run: python build/tools/check_owner_admin_boundary.py
+      - name: Live READ_ONLY mutation firewall
+        shell: pwsh
+        run: python build/tools/check_phase6_live_readonly.py
+      - name: Focused Owner/Admin + AI + Entry Gate tests
+        shell: pwsh
+        run: >-
+          python -m pytest
+          tests_v1/test_owner_admin_boundary_guard.py
+          tests_v1/test_owner_admin_contracts.py
+          tests_v1/test_owner_admin_step_up_policy.py
+          tests_v1/test_owner_admin_ai_control_plane.py
+          tests_v1/test_owner_admin_ai_credentials.py
+          tests_v1/test_owner_singleton_bootstrap_policy.py
+          tests_v1/test_entry_gate_password_accounts.py
+          tests_v1/test_entry_gate_password_routes.py
+          tests_v1/test_entry_gate_security_boundaries.py
+          tests_v1/test_local_desktop_auth.py
+          -q
+      - name: Record cross-check SHA
+        shell: pwsh
+        run: git rev-parse HEAD
