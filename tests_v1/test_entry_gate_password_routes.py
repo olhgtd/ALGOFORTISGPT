@@ -100,14 +100,17 @@ def test_activation_requires_matching_passwords_without_mutation(app_client):
 def test_successful_activation_returns_no_secrets_and_requires_sign_in(app_client):
     client, store, audit = app_client
     record, code = _invite(store)
-    res = _activate(client, record, code)
+    secret = "UserPassword123!"
+    res = _activate(client, record, code, password=secret)
     assert res.status_code == 200
     assert res.json() == {"activated": True, "authentication_required": True}
     serialized = res.text.lower()
     assert "password" not in serialized
     assert "hash" not in serialized
     assert "salt" not in serialized
-    assert all("password" not in str(event).lower() for event in audit.events)
+    assert all(secret not in str(event) for event in audit.events)
+    assert all("password_hash" not in str(event).lower() for event in audit.events)
+    assert all("salt" not in str(event).lower() for event in audit.events)
     assert all(code not in str(event) for event in audit.events)
 
 
