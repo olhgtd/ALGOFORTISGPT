@@ -8,11 +8,14 @@ const dashboardRoot = path.resolve(__dirname, "..");
 export default defineConfig({
   root: __dirname,
   resolve: {
-    alias: {
-      react: path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
-      "react/jsx-runtime": path.resolve(__dirname, "node_modules/react/jsx-runtime"),
-    },
+    alias: [
+      { find: /^\/user-dashboard(?=\/|$)/, replacement: path.resolve(dashboardRoot, "user-dashboard") },
+      { find: /^\/owner-dashboard(?=\/|$)/, replacement: path.resolve(dashboardRoot, "owner-dashboard") },
+      { find: /^\/shared(?=\/|$)/, replacement: path.resolve(dashboardRoot, "shared") },
+      { find: "react", replacement: path.resolve(__dirname, "node_modules/react") },
+      { find: "react-dom", replacement: path.resolve(__dirname, "node_modules/react-dom") },
+      { find: "react/jsx-runtime", replacement: path.resolve(__dirname, "node_modules/react/jsx-runtime") },
+    ],
   },
   server: {
     fs: {
