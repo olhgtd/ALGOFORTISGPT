@@ -11,6 +11,7 @@ permissions:
 
 env:
   QUALIFIED_MAIN_SHA: 718aacef31032483bdc5b78d1d63709a2895b690
+  PYTHONPATH: ${{ github.workspace }}
 
 jobs:
   windows-latest-full:
