@@ -1,0 +1,70 @@
+name: V2 Phase 8 AI Shadow Self-Hosted Development Qualification
+
+on:
+  push:
+    branches:
+      - ci/phase8-selfhosted-dev-20261001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  g8-selfhosted-windows:
+    name: G8 self-hosted Windows development evidence
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify host Python
+        shell: pwsh
+        run: |
+          $v = python -c "import platform; print(platform.python_version())"
+          Write-Host "PYTHON_VERSION=$v"
+          if ($v -ne "3.13.14") { throw "Python 3.13.14 required; found $v" }
+
+      - name: Create isolated CI environment
+        shell: pwsh
+        run: |
+          if (Test-Path .venv-ci) { Remove-Item -Recurse -Force .venv-ci }
+          python -m venv .venv-ci
+          .\.venv-ci\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv-ci\Scripts\python.exe -m pip install -r requirements-runtime.lock.txt
+          .\.venv-ci\Scripts\python.exe -m pip install -r requirements-dashboard.in
+          .\.venv-ci\Scripts\python.exe -m pip install -r requirements-test.in
+
+      - name: Phase 8 static firewall
+        shell: pwsh
+        run: .\.venv-ci\Scripts\python.exe build/tools/check_phase8_ai_shadow.py
+
+      - name: Phase 8 focused and dependency regression
+        shell: pwsh
+        run: |
+          $phase8 = Get-ChildItem tests_v1/test_phase8_*.py | ForEach-Object { $_.FullName }
+          if (-not $phase8) { throw "No Phase 8 tests found" }
+          .\.venv-ci\Scripts\python.exe -m pytest $phase8 tests_v1/test_v2_phase1_adapter_registry.py tests_v1/test_v2_phase3_data_licensing.py -q
+
+      - name: G8 deterministic probe
+        shell: pwsh
+        run: .\.venv-ci\Scripts\python.exe build/tools/phase8_ai_probe.py | Set-Content -Encoding utf8 g8-selfhosted.txt
+
+      - name: Assert safety markers
+        shell: pwsh
+        run: |
+          $text = Get-Content -Raw g8-selfhosted.txt
+          $required = @(
+            "AI_AUTHORITY=RESEARCH_SHADOW_ONLY",
+            "APPROVED_ORDER_AUTHORITY=RISK_GATE_V2_ONLY",
+            "LIVE_STATE=READ_ONLY/DISARMED",
+            "G8_ENABLES_REAL_MONEY_TRADING=NO"
+          )
+          foreach ($marker in $required) {
+            if (-not $text.Contains($marker)) { throw "Missing safety marker: $marker" }
+          }
+          Write-Host "G8_SELFHOSTED_SAFETY_MARKERS=PASS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g8-selfhosted-windows
+          path: g8-selfhosted.txt
