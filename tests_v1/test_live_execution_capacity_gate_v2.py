@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import sqlite3
@@ -22,7 +22,7 @@ try:
         LiveExecutionCapacityBlocked,
         LiveExecutionCapacityEvidence,
     )
-except ModuleNotFoundError as exc:  # RED until Task-3 implementation exists
+except ModuleNotFoundError as exc:
     pytest.fail(f"Live execution capacity gate is not implemented: {exc}", pytrace=False)
 
 
@@ -53,7 +53,17 @@ class _Evaluator:
 
 
 class _EvidenceProvider:
-    def __init__(self, *, available_cash: str = "100", required_cash: str = "70", fresh: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        broker_id: str = "angelone",
+        broker_account_ref: str = "acct-1",
+        available_cash: str = "100",
+        required_cash: str = "70",
+        fresh: bool = True,
+    ) -> None:
+        self.broker_id = broker_id
+        self.broker_account_ref = broker_account_ref
         self.available_cash = Decimal(available_cash)
         self.required_cash = Decimal(required_cash)
         self.fresh = fresh
@@ -61,7 +71,8 @@ class _EvidenceProvider:
     def current(self, order: ApprovedOrder, now: datetime) -> LiveExecutionCapacityEvidence:
         scope = order.intent.instrument_ref.underlying or order.intent.instrument_ref.instrument
         return LiveExecutionCapacityEvidence(
-            broker_account_ref="acct-1",
+            broker_id=self.broker_id,
+            broker_account_ref=self.broker_account_ref,
             instrument_scope=scope,
             required_cash=self.required_cash,
             available_cash=self.available_cash,
@@ -137,7 +148,7 @@ def test_unverified_capacity_evidence_fails_closed(tmp_path) -> None:
         gate.reserve(order, now=now)
 
 
-def test_shared_account_budget_blocks_second_simultaneous_scope(tmp_path) -> None:
+def test_shared_broker_account_budget_blocks_second_simultaneous_scope(tmp_path) -> None:
     database = tmp_path / "live.sqlite3"
     _database(database)
     journal = LiveExecutionStoreV2(database)
@@ -153,8 +164,8 @@ def test_shared_account_budget_blocks_second_simultaneous_scope(tmp_path) -> Non
     with pytest.raises(LiveExecutionCapacityBlocked, match="insufficient"):
         gate.reserve(banknifty, now=now)
 
-    assert journal.active_reserved_cash("acct-1") == Decimal("70")
-    assert {item.instrument_scope for item in journal.list_active_capacity("acct-1")} == {"NIFTY"}
+    assert journal.active_reserved_cash("angelone", "acct-1") == Decimal("70")
+    assert {item.instrument_scope for item in journal.list_active_capacity("angelone", "acct-1")} == {"NIFTY"}
 
 
 def test_pre_submit_release_frees_capacity_for_another_instrument(tmp_path) -> None:
@@ -172,4 +183,24 @@ def test_pre_submit_release_frees_capacity_for_another_instrument(tmp_path) -> N
     gate.reserve(nifty, now=now)
     assert gate.release(nifty.client_order_id, now=now + timedelta(seconds=1), reason="pre_submit_abort") is True
     assert gate.reserve(sensex, now=now + timedelta(seconds=2)) == "funds-1"
-    assert journal.active_reserved_cash("acct-1") == Decimal("70")
+    assert journal.active_reserved_cash("angelone", "acct-1") == Decimal("70")
+
+
+def test_same_account_ref_on_different_brokers_has_independent_capacity(tmp_path) -> None:
+    database = tmp_path / "live.sqlite3"
+    _database(database)
+    journal = LiveExecutionStoreV2(database)
+    now = datetime(2026, 9, 30, 9, 16, tzinfo=timezone.utc)
+    angel = JournalLiveExecutionCapacityGate(
+        journal=journal,
+        evidence_provider=_EvidenceProvider(broker_id="angelone", available_cash="100", required_cash="70"),
+    )
+    zerodha = JournalLiveExecutionCapacityGate(
+        journal=journal,
+        evidence_provider=_EvidenceProvider(broker_id="zerodha", available_cash="100", required_cash="70"),
+    )
+
+    assert angel.reserve(_approved("NIFTY", "intent-angel"), now=now) == "funds-1"
+    assert zerodha.reserve(_approved("BANKNIFTY", "intent-zerodha"), now=now) == "funds-1"
+    assert journal.active_reserved_cash("angelone", "acct-1") == Decimal("70")
+    assert journal.active_reserved_cash("zerodha", "acct-1") == Decimal("70")
