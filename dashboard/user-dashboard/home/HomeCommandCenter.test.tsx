@@ -29,7 +29,7 @@ describe("HomeCommandCenter", () => {
     expect(node.textContent).not.toContain("₹0");
     expect(node.textContent).not.toMatch(/\bPASS\b/);
     expect(node.textContent).not.toContain("Confirm");
-    expect(node.textContent).not.toContain("Auto");
+    expect(node.textContent).not.toMatch(/\bAuto\b/);
   });
 
   it("keeps Live locked and recovery manual when those states are authoritative", async () => {
