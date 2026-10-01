@@ -39,7 +39,7 @@ def _unavailable(reason: str) -> dict[str, Any]:
 
 
 class OwnerUserInspectionService:
-    """Composes the ten frozen V1 inspection tabs from current authorities."""
+    """Composes the frozen inspection tabs from current authorities."""
 
     def __init__(self, app: Any) -> None:
         self._app = app
@@ -91,6 +91,7 @@ class OwnerUserInspectionService:
         backtest_service = getattr(self._app.state, "backtest_service", None)
         paper_service = getattr(self._app.state, "paper_service", None)
         portfolio_service = getattr(self._app.state, "orders_portfolio_service", None)
+        entitlement_service = getattr(self._app.state, "intelligence_entitlements", None)
 
         strategies = (
             self._attempt(
@@ -159,8 +160,17 @@ class OwnerUserInspectionService:
             }
 
         security = self._attempt(security_projection, "USER_SECURITY_AUTHORITY_UNAVAILABLE")
+        intelligence_access = (
+            self._attempt(
+                lambda: {
+                    "identity_authority": "S2",
+                    "capabilities": [item.value for item in entitlement_service.list_for_user(user_uuid)],
+                },
+                "USER_INTELLIGENCE_ENTITLEMENT_AUTHORITY_UNAVAILABLE",
+            ) if entitlement_service is not None else _unavailable("USER_INTELLIGENCE_ENTITLEMENT_AUTHORITY_UNAVAILABLE")
+        )
 
-        # The current report endpoint is system-wide.  Until a tenant-scoped
+        # The current report endpoint is system-wide. Until a tenant-scoped
         # report read port exists, fail closed rather than filtering an
         # ambiguous system report projection in the presentation layer.
         reports = _unavailable("PER_USER_REPORT_AUTHORITY_NOT_EXPOSED")
@@ -183,5 +193,6 @@ class OwnerUserInspectionService:
                 "Reports": reports,
                 "Sessions": sessions,
                 "Security State": security,
+                "Intelligence Access": intelligence_access,
             },
         }
