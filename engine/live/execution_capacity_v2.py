@@ -3,7 +3,7 @@
 This service can only further restrict a genuine RiskGate ApprovedOrder. It does
 not mint approval, choose trades, or call a broker. Shared cash is reserved in
 the durable V9 journal so simultaneous instruments cannot consume the same
-account capacity independently.
+broker-account capacity independently.
 """
 from __future__ import annotations
 
@@ -48,6 +48,7 @@ def _money(value: object, field: str, *, allow_zero: bool = False) -> Decimal:
 
 @dataclass(frozen=True, slots=True)
 class LiveExecutionCapacityEvidence:
+    broker_id: str
     broker_account_ref: str
     instrument_scope: str
     required_cash: Decimal | int | str
@@ -57,6 +58,7 @@ class LiveExecutionCapacityEvidence:
     freshness_verified: bool
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "broker_id", _text(self.broker_id, "broker_id"))
         object.__setattr__(self, "broker_account_ref", _text(self.broker_account_ref, "broker_account_ref"))
         object.__setattr__(self, "instrument_scope", _text(self.instrument_scope, "instrument_scope"))
         object.__setattr__(self, "required_cash", _money(self.required_cash, "required_cash"))
@@ -72,7 +74,7 @@ class LiveExecutionCapacityEvidenceProvider(Protocol):
 
 
 class JournalLiveExecutionCapacityGate:
-    """Atomically reserves trusted shared account capacity before Live mutation."""
+    """Atomically reserves trusted shared broker-account capacity before Live mutation."""
 
     def __init__(
         self,
@@ -105,6 +107,7 @@ class JournalLiveExecutionCapacityGate:
             raise LiveExecutionCapacityBlocked("capacity evidence cannot be from the future")
 
         reservation = LiveExecutionCapacityReservation(
+            broker_id=evidence.broker_id,
             broker_account_ref=evidence.broker_account_ref,
             client_order_id=order.client_order_id,
             instrument_scope=evidence.instrument_scope,
