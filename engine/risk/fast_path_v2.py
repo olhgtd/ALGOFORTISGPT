@@ -1,7 +1,7 @@
 """Deterministic candidate-time RiskEvaluator backed by immutable snapshots.
 
 No database, broker, LLM, research, backtest, or synchronous rebuild dependency is
-permitted here.  Missing or ambiguous authority returns deterministic rejection.
+permitted here. Missing or ambiguous authority returns deterministic rejection.
 """
 from __future__ import annotations
 
@@ -158,6 +158,11 @@ class FastPathRiskEvaluator:
         if snapshot.limits_snapshot_id != self._active_limits_snapshot_id:
             return self._reject("limits_snapshot_mismatch", snapshot=snapshot)
 
+        # The immutable snapshot itself is authority evidence. A permissive or
+        # stale injected policy must never override a non-healthy operational
+        # state, so this check is deliberately duplicated at the fast boundary.
+        if snapshot.operational_state.upper() != "HEALTHY":
+            return self._reject("entries_not_allowed", snapshot=snapshot)
         try:
             if self._entry_state_policy.entries_allowed(snapshot) is not True:
                 return self._reject("entries_not_allowed", snapshot=snapshot)
@@ -198,45 +203,21 @@ class FastPathRiskEvaluator:
         if quote.instrument_ref != intent.instrument_ref:
             return self._reject("quote_instrument_mismatch", snapshot=snapshot)
         if quote.market_sequence < candidate_sequence:
-            return self._reject(
-                "quote_sequence_behind_candidate",
-                snapshot=snapshot,
-                market_sequence=quote.market_sequence,
-            )
+            return self._reject("quote_sequence_behind_candidate", snapshot=snapshot, market_sequence=quote.market_sequence)
 
         try:
-            claimed = self._replay_guard.claim(
-                intent.intent_id,
-                snapshot.snapshot_id,
-                quote.market_sequence,
-            )
+            claimed = self._replay_guard.claim(intent.intent_id, snapshot.snapshot_id, quote.market_sequence)
         except Exception:
-            return self._reject(
-                "replay_guard_unavailable",
-                snapshot=snapshot,
-                market_sequence=quote.market_sequence,
-            )
+            return self._reject("replay_guard_unavailable", snapshot=snapshot, market_sequence=quote.market_sequence)
         if claimed is not True:
-            return self._reject(
-                "duplicate_or_replay",
-                snapshot=snapshot,
-                market_sequence=quote.market_sequence,
-            )
+            return self._reject("duplicate_or_replay", snapshot=snapshot, market_sequence=quote.market_sequence)
 
         try:
             price_allowed = self._price_policy.allows(intent, quote)
         except Exception:
-            return self._reject(
-                "price_policy_unavailable",
-                snapshot=snapshot,
-                market_sequence=quote.market_sequence,
-            )
+            return self._reject("price_policy_unavailable", snapshot=snapshot, market_sequence=quote.market_sequence)
         if price_allowed is not True:
-            return self._reject(
-                "price_policy_rejected",
-                snapshot=snapshot,
-                market_sequence=quote.market_sequence,
-            )
+            return self._reject("price_policy_rejected", snapshot=snapshot, market_sequence=quote.market_sequence)
 
         return RiskEvaluation.approved(
             approved_qty=intent.qty,
