@@ -15,6 +15,6 @@ export const TestingProgressSummary: React.FC<{ testing: HomeCommandCenterModel[
       <div className="af-testing-stage"><span>Reports</span><strong>{show(testing.reports)}</strong></div>
       <div className="af-testing-stage"><span>Active Jobs</span><strong>{show(testing.activeJobs)}</strong></div>
     </div>
-    <p className="af-card-footnote">Authority: {testing.state}. Counts are evidence inventory only; no PASS or promotion result is inferred.</p>
+    <p className="af-card-footnote">Authority: {testing.state}. Counts are evidence inventory only; no successful validation or promotion result is inferred.</p>
   </section>
 );
