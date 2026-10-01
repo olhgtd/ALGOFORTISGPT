@@ -28,7 +28,7 @@ export const marketResultToInput = (result: MarketChartResult): HomeMarketInput 
     return { state: "UNAVAILABLE", price: null, asOf: null, source: "INVALID_AVAILABLE_PAYLOAD" };
   }
   return {
-    state: result.state,
+    state: result.state === "STALE" ? "STALE" : "AVAILABLE",
     price: last.close,
     asOf: last.time ?? null,
     source: "CANONICAL_MARKET_SERVICE",
