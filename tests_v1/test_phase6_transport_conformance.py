@@ -26,14 +26,15 @@ class _BrokerCase:
     name: str
     driver_type: type
     instrument: str
+    secondary_instrument: str
     mode: str = "LTP"
 
 
 CASES = (
-    _BrokerCase("angelone", AngelOneTransportDriver, "1:10626"),
-    _BrokerCase("zerodha", ZerodhaTransportDriver, "256265"),
-    _BrokerCase("dhan", DhanTransportDriver, "IDX_I:13"),
-    _BrokerCase("upstox", UpstoxTransportDriver, "NSE_INDEX|Nifty 50"),
+    _BrokerCase("angelone", AngelOneTransportDriver, "1:10626", "1:10627"),
+    _BrokerCase("zerodha", ZerodhaTransportDriver, "256265", "256266"),
+    _BrokerCase("dhan", DhanTransportDriver, "IDX_I:13", "IDX_I:14"),
+    _BrokerCase("upstox", UpstoxTransportDriver, "NSE_INDEX|Nifty 50", "NSE_INDEX|Nifty Bank"),
 )
 
 
@@ -293,11 +294,8 @@ def test_data_v2_per_instrument_stale_clock_gap_and_duplicate_behavior(case: _Br
 def test_partial_ack_never_marks_incomplete_subscription_healthy(case: _BrokerCase) -> None:
     runtime = MarketDataTransportRuntime(_driver(case, []), _policy())
     runtime.connect(object())
-    request = SubscriptionRequest((case.instrument, f"{case.instrument}-SECOND"), case.mode)
-    try:
-        runtime.subscribe(request)
-    except ValueError:
-        pytest.skip("provider instrument syntax cannot express synthetic second token")
+    request = SubscriptionRequest((case.instrument, case.secondary_instrument), case.mode)
+    assert runtime.subscribe(request) is True
 
     assert runtime.acknowledge_subscription(runtime.connection_generation, request, (case.instrument,)) is False
     assert any(event.code == "PARTIAL_SUBSCRIPTION_ACK" for event in runtime.events)
