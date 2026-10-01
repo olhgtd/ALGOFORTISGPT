@@ -17,6 +17,7 @@ env:
   LIVE_STATE: READ_ONLY/DISARMED
   SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
   ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+  QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   windows-latest-full:
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
 
       - name: Set up Python 3.13.14
         uses: actions/setup-python@v5
@@ -84,7 +87,7 @@ jobs:
         run: >-
           python build/tools/benchmark_riskgate_fast_path.py
           --fixture build/fixtures/riskgate_fast_path_test_only.json
-          --code-sha ${{ github.sha }}
+          --code-sha ${{ env.QUALIFIED_SHA }}
           --iterations 1000
           --warm true
           --output riskgate-fast-path-warm.json
@@ -94,7 +97,7 @@ jobs:
         run: >-
           python build/tools/benchmark_riskgate_fast_path.py
           --fixture build/fixtures/riskgate_fast_path_test_only.json
-          --code-sha ${{ github.sha }}
+          --code-sha ${{ env.QUALIFIED_SHA }}
           --iterations 100
           --warm false
           --output riskgate-fast-path-cold.json
@@ -122,7 +125,7 @@ jobs:
       - name: Upload Windows latest evidence
         uses: actions/upload-artifact@v4
         with:
-          name: live-reunion-windows-latest-${{ github.sha }}
+          name: live-reunion-windows-latest-${{ env.QUALIFIED_SHA }}
           path: |
             riskgate-fast-path-warm.json
             riskgate-fast-path-cold.json
@@ -140,6 +143,8 @@ jobs:
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_SHA }}
 
       - name: Set up Python 3.13.14
         uses: actions/setup-python@v5
@@ -189,7 +194,7 @@ jobs:
       - name: Upload Windows 2022 evidence
         uses: actions/upload-artifact@v4
         with:
-          name: live-reunion-windows-2022-${{ github.sha }}
+          name: live-reunion-windows-2022-${{ env.QUALIFIED_SHA }}
           path: g6-b.txt
           if-no-files-found: error
 
@@ -204,12 +209,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: live-reunion-windows-latest-${{ github.sha }}
+          name: live-reunion-windows-latest-${{ env.QUALIFIED_SHA }}
           path: latest
 
       - uses: actions/download-artifact@v4
         with:
-          name: live-reunion-windows-2022-${{ github.sha }}
+          name: live-reunion-windows-2022-${{ env.QUALIFIED_SHA }}
           path: win2022
 
       - name: Compare Phase 6 fingerprints
