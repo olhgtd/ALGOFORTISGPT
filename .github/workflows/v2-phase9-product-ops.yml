@@ -130,6 +130,7 @@ jobs:
       - name: Preserve deterministic phase probes
         shell: pwsh
         run: |
+          $env:PYTHONPATH = (Get-Location).Path
           $probes = @(
             'build/tools/phase4_probe.py',
             'build/tools/phase5_probe.py',
