@@ -94,7 +94,7 @@ export const OwnerAIControlScreen: React.FC = () => {
 
       <section className="v3-region v3-sp6">
         <div className="v3-region-head"><span className="v3-region-title">Provider Registry</span></div>
-        <p className="v3-region-note">Save metadata first. Provider keys/tokens are sent only to the backend DPAPI vault, never stored in UI/localStorage and never returned. Verification remains backend-owned.</p>
+        <p className="v3-region-note">Save metadata first. Provider keys/tokens are sent only to the backend DPAPI vault, never stored in UI/browser storage and never returned. Verification remains backend-owned.</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <input className="v3-input" value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="Provider ID" />
           <input className="v3-input" value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="Display name" />
