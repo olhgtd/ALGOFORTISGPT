@@ -17,7 +17,7 @@ import {
 } from "./authoritative/screens";
 import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
-import { ProductOperationsScreen } from "./screens/ProductOperationsScreen";
+import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
