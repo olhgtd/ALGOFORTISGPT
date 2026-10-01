@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ai-decision-intelligence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   QUALIFIED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   PYTHONPATH: ${{ github.workspace }}
