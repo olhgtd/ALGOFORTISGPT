@@ -50,7 +50,7 @@ export const DecisionIntelligenceControls: React.FC = () => {
       body: {
         policy_ref: "owner-market-watch/v1",
         policy_version: "1.0.0",
-        allowed_instruments: instruments.split(",").map((item) => item.trim()).filter(Boolean),
+        allowed_instruments: instruments.split(",").map((item: string) => item.trim()).filter(Boolean),
         frequency_seconds: Number(frequency),
         task_ttl_seconds: Number(ttl),
         provider_id: inferredProvider,
