@@ -42,11 +42,7 @@ class _MutableClock:
 
 
 def _clock(*, minute: int = 16) -> FixedClock:
-    return FixedClock(
-        datetime(2026, 9, 21, 9, minute, tzinfo=timezone.utc),
-        123,
-        object(),
-    )
+    return FixedClock(datetime(2026, 9, 21, 9, minute, tzinfo=timezone.utc), 123, object())
 
 
 def _limits():
@@ -59,13 +55,8 @@ def _limits():
 def _intent(*, intent_id: str = "intent-lifecycle", valid_for_minutes: int = 10) -> OrderIntent:
     created = datetime(2026, 9, 21, 9, 15, tzinfo=timezone.utc)
     instrument = InstrumentIdentity(
-        "NSE",
-        "NIFTY26SEP22000CE",
-        "options",
-        underlying="NIFTY",
-        expiry=date(2026, 9, 24),
-        strike="22000",
-        option_type="CE",
+        "NSE", "NIFTY26SEP22000CE", "options", underlying="NIFTY",
+        expiry=date(2026, 9, 24), strike="22000", option_type="CE",
     )
     return OrderIntent(
         intent_id=intent_id,
@@ -101,11 +92,7 @@ def _approved_order(
             )
         ),
         clock=runtime_clock,
-        id_generator=DeterministicIdGenerator(
-            runtime_clock,
-            DeterministicSeedSource(7),
-            id_namespace,
-        ),
+        id_generator=DeterministicIdGenerator(runtime_clock, DeterministicSeedSource(7), id_namespace),
         audit_sink=_AuditSink(),
         hard_limits=limits,
     )
@@ -119,7 +106,14 @@ def test_allowed_transition_table_matches_canonical_architecture() -> None:
         OrderExecutionState.RISK_APPROVED: frozenset({OrderExecutionState.SUBMITTING, OrderExecutionState.EXPIRED}),
         OrderExecutionState.SUBMITTING: frozenset({OrderExecutionState.SENT_UNACKED}),
         OrderExecutionState.SENT_UNACKED: frozenset({OrderExecutionState.ACKED, OrderExecutionState.IN_DOUBT}),
-        OrderExecutionState.IN_DOUBT: frozenset({OrderExecutionState.ACKED, OrderExecutionState.REJECTED, OrderExecutionState.NOT_FOUND}),
+        OrderExecutionState.IN_DOUBT: frozenset({
+            OrderExecutionState.ACKED,
+            OrderExecutionState.PARTIALLY_FILLED,
+            OrderExecutionState.FILLED,
+            OrderExecutionState.CANCELLED,
+            OrderExecutionState.REJECTED,
+            OrderExecutionState.NOT_FOUND,
+        }),
         OrderExecutionState.ACKED: frozenset({OrderExecutionState.PARTIALLY_FILLED, OrderExecutionState.CANCEL_PENDING, OrderExecutionState.REJECTED}),
         OrderExecutionState.PARTIALLY_FILLED: frozenset({OrderExecutionState.FILLED, OrderExecutionState.CANCEL_PENDING}),
         OrderExecutionState.CANCEL_PENDING: frozenset({OrderExecutionState.CANCELLED}),
@@ -129,22 +123,16 @@ def test_allowed_transition_table_matches_canonical_architecture() -> None:
         OrderExecutionState.REJECTED: frozenset(),
         OrderExecutionState.EXPIRED: frozenset(),
     }
-
-    assert {
-        state: OrderExecutionLifecycle.allowed_transitions(state)
-        for state in OrderExecutionState
-    } == expected
+    assert {state: OrderExecutionLifecycle.allowed_transitions(state) for state in OrderExecutionState} == expected
 
 
 def test_canonical_happy_path_reaches_filled() -> None:
     lifecycle = OrderExecutionLifecycle(_approved_order(), clock=_clock())
-
     lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
     lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
     lifecycle = lifecycle.transition_to(OrderExecutionState.ACKED, reason="broker_ack")
     lifecycle = lifecycle.transition_to(OrderExecutionState.PARTIALLY_FILLED, reason="partial_fill")
     lifecycle = lifecycle.transition_to(OrderExecutionState.FILLED, reason="fill_complete")
-
     assert lifecycle.state is OrderExecutionState.FILLED
     assert lifecycle.last_transition is not None
     assert lifecycle.last_transition.from_state is OrderExecutionState.PARTIALLY_FILLED
@@ -154,7 +142,6 @@ def test_canonical_happy_path_reaches_filled() -> None:
 
 def test_representative_illegal_transition_is_rejected() -> None:
     lifecycle = OrderExecutionLifecycle(_approved_order(), clock=_clock())
-
     with pytest.raises(OrderLifecycleError, match="invalid"):
         lifecycle.transition_to(OrderExecutionState.FILLED, reason="skip_states")
 
@@ -163,9 +150,7 @@ def test_sent_without_ack_enters_in_doubt() -> None:
     lifecycle = OrderExecutionLifecycle(_approved_order(), clock=_clock())
     lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
     lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
-
     lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
-
     assert lifecycle.state is OrderExecutionState.IN_DOUBT
     assert lifecycle.last_transition is not None
     assert lifecycle.last_transition.reason == "ack_timeout"
@@ -176,7 +161,6 @@ def test_in_doubt_cannot_be_blindly_retried_or_directly_acked() -> None:
     lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
     lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
     lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
-
     with pytest.raises(OrderLifecycleError, match="broker truth"):
         lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="blind_retry")
     with pytest.raises(OrderLifecycleError, match="broker truth"):
@@ -188,13 +172,30 @@ def test_in_doubt_resolves_only_through_explicit_broker_truth() -> None:
     lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
     lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
     lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
-
     acked = lifecycle.resolve_in_doubt(BrokerTruth.ACKED, broker_order_id="broker-123")
-
     assert acked.state is OrderExecutionState.ACKED
     assert acked.last_transition is not None
     assert acked.last_transition.broker_truth is BrokerTruth.ACKED
     assert acked.last_transition.broker_order_id == "broker-123"
+
+
+@pytest.mark.parametrize(
+    ("truth", "expected"),
+    [
+        (BrokerTruth.PARTIALLY_FILLED, OrderExecutionState.PARTIALLY_FILLED),
+        (BrokerTruth.FILLED, OrderExecutionState.FILLED),
+        (BrokerTruth.CANCELLED, OrderExecutionState.CANCELLED),
+    ],
+)
+def test_in_doubt_accepts_observed_broker_terminal_or_fill_truth(truth, expected) -> None:
+    lifecycle = OrderExecutionLifecycle(_approved_order(), clock=_clock())
+    lifecycle = lifecycle.transition_to(OrderExecutionState.SUBMITTING, reason="router_submit")
+    lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
+    lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
+    resolved = lifecycle.resolve_in_doubt(truth, broker_order_id="broker-123")
+    assert resolved.state is expected
+    assert resolved.last_transition is not None
+    assert resolved.last_transition.broker_truth is truth
 
 
 def test_not_found_retry_requires_fresh_approval_same_client_id_and_valid_ttl() -> None:
@@ -205,10 +206,8 @@ def test_not_found_retry_requires_fresh_approval_same_client_id_and_valid_ttl() 
     lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
     lifecycle = lifecycle.resolve_in_doubt(BrokerTruth.NOT_FOUND)
     assert lifecycle.state is OrderExecutionState.NOT_FOUND
-
     reapproved = _approved_order(id_namespace="fresh-reapproval")
     retried = lifecycle.retry_not_found(reapproved)
-
     assert retried.state is OrderExecutionState.SUBMITTING
     assert retried.approved_order.client_order_id == original.client_order_id
     assert retried.approved_order.risk_decision_ref != original.risk_decision_ref
@@ -222,11 +221,9 @@ def test_not_found_retry_rejects_different_client_identity_and_expired_reapprova
     lifecycle = lifecycle.transition_to(OrderExecutionState.SENT_UNACKED, reason="transport_sent")
     lifecycle = lifecycle.mark_in_doubt(reason="ack_timeout")
     lifecycle = lifecycle.resolve_in_doubt(BrokerTruth.NOT_FOUND)
-
     different = _approved_order(intent_id="intent-different")
     with pytest.raises(OrderLifecycleError, match="same client_order_id"):
         lifecycle.retry_not_found(different)
-
     expired = _approved_order(intent_id="intent-original", valid_for_minutes=5, id_namespace="expired-reapproval")
     clock.current = datetime(2026, 9, 21, 9, 26, tzinfo=timezone.utc)
     with pytest.raises(OrderLifecycleError, match="TTL"):
