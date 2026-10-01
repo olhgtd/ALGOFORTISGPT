@@ -1,0 +1,216 @@
+name: Live V1-V2 Reunion Final Qualification
+
+on:
+  push:
+    branches:
+      - live-v1-v2-reunion-20260930
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  LIVE_STATE: READ_ONLY/DISARMED
+  SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
+  ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+
+jobs:
+  windows-latest-full:
+    name: Live reunion full qualification / Windows latest
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+
+      - name: Compile Python tree
+        shell: pwsh
+        run: python -m compileall -q engine dashboard/backend build/tools tests_v1
+
+      - name: Live reunion boundary guard
+        shell: pwsh
+        run: python build/tools/check_live_reunion_boundary.py
+
+      - name: Phase 6 Live READ_ONLY mutation firewall
+        shell: pwsh
+        run: python build/tools/check_phase6_live_readonly.py
+
+      - name: RiskGate fast-path boundary guard
+        shell: pwsh
+        run: python build/tools/check_riskgate_fast_path_boundary.py
+
+      - name: Owner/Admin boundary guard
+        shell: pwsh
+        run: python build/tools/check_owner_admin_boundary.py
+
+      - name: S2 account boundary guard
+        shell: pwsh
+        run: python build/tools/check_s2_account_gate.py
+
+      - name: Full Python regression
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+
+      - name: RiskGate warm benchmark evidence
+        shell: pwsh
+        run: >-
+          python build/tools/benchmark_riskgate_fast_path.py
+          --fixture build/fixtures/riskgate_fast_path_test_only.json
+          --code-sha ${{ github.sha }}
+          --iterations 1000
+          --warm true
+          --output riskgate-fast-path-warm.json
+
+      - name: RiskGate cold benchmark evidence
+        shell: pwsh
+        run: >-
+          python build/tools/benchmark_riskgate_fast_path.py
+          --fixture build/fixtures/riskgate_fast_path_test_only.json
+          --code-sha ${{ github.sha }}
+          --iterations 100
+          --warm false
+          --output riskgate-fast-path-cold.json
+
+      - name: Phase 6 deterministic fingerprint A
+        shell: pwsh
+        run: python build/tools/phase6_probe.py | Out-File -Encoding utf8 g6-a.txt
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: npm --prefix dashboard/web ci
+
+      - name: Full frontend Vitest regression
+        shell: pwsh
+        run: npm --prefix dashboard/web run test:user-dashboard
+
+      - name: Frontend typecheck
+        shell: pwsh
+        run: npm --prefix dashboard/web run typecheck
+
+      - name: Frontend production build
+        shell: pwsh
+        run: npm --prefix dashboard/web run build
+
+      - name: Upload Windows latest evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-reunion-windows-latest-${{ github.sha }}
+          path: |
+            riskgate-fast-path-warm.json
+            riskgate-fast-path-cold.json
+            g6-a.txt
+          if-no-files-found: error
+
+      - name: Record exact qualified SHA
+        shell: pwsh
+        run: git rev-parse HEAD
+
+  windows-2022-full:
+    name: Live reunion full qualification / Windows 2022
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+
+      - name: Compile Python tree
+        shell: pwsh
+        run: python -m compileall -q engine dashboard/backend build/tools tests_v1
+
+      - name: Live reunion boundary guard
+        shell: pwsh
+        run: python build/tools/check_live_reunion_boundary.py
+
+      - name: Phase 6 Live READ_ONLY mutation firewall
+        shell: pwsh
+        run: python build/tools/check_phase6_live_readonly.py
+
+      - name: RiskGate fast-path boundary guard
+        shell: pwsh
+        run: python build/tools/check_riskgate_fast_path_boundary.py
+
+      - name: Owner/Admin boundary guard
+        shell: pwsh
+        run: python build/tools/check_owner_admin_boundary.py
+
+      - name: S2 account boundary guard
+        shell: pwsh
+        run: python build/tools/check_s2_account_gate.py
+
+      - name: Full Python regression
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+
+      - name: Phase 6 deterministic fingerprint B
+        shell: pwsh
+        run: python build/tools/phase6_probe.py | Out-File -Encoding utf8 g6-b.txt
+
+      - name: Upload Windows 2022 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-reunion-windows-2022-${{ github.sha }}
+          path: g6-b.txt
+          if-no-files-found: error
+
+      - name: Record exact qualified SHA
+        shell: pwsh
+        run: git rev-parse HEAD
+
+  cross-windows-fingerprint:
+    name: Cross-Windows deterministic fingerprint comparison
+    needs: [windows-latest-full, windows-2022-full]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: live-reunion-windows-latest-${{ github.sha }}
+          path: latest
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: live-reunion-windows-2022-${{ github.sha }}
+          path: win2022
+
+      - name: Compare Phase 6 fingerprints
+        shell: bash
+        run: |
+          tr -d '\r' < latest/g6-a.txt > latest/g6-normalized.txt
+          tr -d '\r' < win2022/g6-b.txt > win2022/g6-normalized.txt
+          diff -u latest/g6-normalized.txt win2022/g6-normalized.txt
+          grep -F 'LIVE_STATE=READ_ONLY/DISARMED' latest/g6-normalized.txt
+          grep -F 'REAL_BROKER_MUTATION_CAPABILITY=ABSENT' latest/g6-normalized.txt
+          grep -F 'G6_ENABLES_REAL_MONEY_TRADING=NO' latest/g6-normalized.txt
