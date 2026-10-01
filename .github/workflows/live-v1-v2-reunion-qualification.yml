@@ -110,6 +110,10 @@ jobs:
         shell: pwsh
         run: npm --prefix dashboard/web ci
 
+      - name: Frontend dependency security audit
+        shell: pwsh
+        run: npm --prefix dashboard/web audit --audit-level=high
+
       - name: Full frontend Vitest regression
         shell: pwsh
         run: npm --prefix dashboard/web run test:user-dashboard
