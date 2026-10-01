@@ -31,7 +31,7 @@ try:
         ClosedLiveMutationReleaseGate,
         LiveMutationBlocked,
     )
-except ModuleNotFoundError as exc:  # RED until Task-3 implementation exists
+except ModuleNotFoundError as exc:
     pytest.fail(f"Live execution coordinator is not implemented: {exc}", pytrace=False)
 
 
@@ -123,6 +123,7 @@ class _Port:
 
 
 def _database(path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(str(path))
     try:
         for statement in LIVE_EXECUTION_CREATE_TABLES_SQL:
@@ -202,15 +203,10 @@ def _coordinator(tmp_path, *, release_gate=None, capacity_gate=None, audit=None,
 
 
 def test_closed_release_gate_blocks_before_capacity_journal_or_port(tmp_path) -> None:
-    coordinator, journal, port, capacity, _, _ = _coordinator(
-        tmp_path,
-        release_gate=ClosedLiveMutationReleaseGate(),
-    )
+    coordinator, journal, port, capacity, _, _ = _coordinator(tmp_path, release_gate=ClosedLiveMutationReleaseGate())
     order = _approved()
-
     with pytest.raises(LiveMutationBlocked, match="closed"):
         coordinator.submit(order)
-
     assert port.calls == []
     assert capacity.reserved == []
     assert journal.get(order.client_order_id) is None
@@ -234,7 +230,6 @@ def test_expired_approval_fails_before_release_or_port(tmp_path) -> None:
     coordinator, _, port, capacity, _, clock = _coordinator(tmp_path)
     order = _approved(valid_minutes=1)
     clock.current = datetime(2026, 9, 30, 9, 17, tzinfo=timezone.utc)
-
     with pytest.raises(LiveExecutionCoordinatorError, match="expired"):
         coordinator.submit(order)
     assert port.calls == []
@@ -245,7 +240,6 @@ def test_capacity_denial_blocks_before_journal_and_port(tmp_path) -> None:
     capacity = _CapacityGate(deny=True)
     coordinator, journal, port, _, _, _ = _coordinator(tmp_path, capacity_gate=capacity)
     order = _approved()
-
     with pytest.raises(LiveExecutionCapacityBlocked):
         coordinator.submit(order)
     assert port.calls == []
@@ -255,9 +249,7 @@ def test_capacity_denial_blocks_before_journal_and_port(tmp_path) -> None:
 def test_success_persists_sent_unacked_before_call_and_ack_mapping_after(tmp_path) -> None:
     coordinator, journal, port, capacity, audit, _ = _coordinator(tmp_path)
     order = _approved()
-
     result = coordinator.submit(order)
-
     assert isinstance(result, LiveBrokerAcknowledgementV2)
     assert port.states_seen == [OrderExecutionState.SENT_UNACKED]
     record = journal.get(order.client_order_id)
@@ -273,7 +265,6 @@ def test_success_persists_sent_unacked_before_call_and_ack_mapping_after(tmp_pat
 def test_send_exception_becomes_in_doubt_and_is_not_released_or_retried(tmp_path) -> None:
     coordinator, journal, port, capacity, _, _ = _coordinator(tmp_path, port_fail=True)
     order = _approved()
-
     with pytest.raises(LiveExecutionInDoubt):
         coordinator.submit(order)
     record = journal.get(order.client_order_id)
@@ -282,7 +273,6 @@ def test_send_exception_becomes_in_doubt_and_is_not_released_or_retried(tmp_path
     assert record.is_uncertain is True
     assert capacity.released == []
     assert len(port.calls) == 1
-
     with pytest.raises(LiveExecutionCoordinatorError, match="duplicate"):
         coordinator.submit(order)
     assert len(port.calls) == 1
@@ -291,7 +281,6 @@ def test_send_exception_becomes_in_doubt_and_is_not_released_or_retried(tmp_path
 def test_invalid_ack_after_send_becomes_in_doubt(tmp_path) -> None:
     coordinator, journal, port, capacity, _, _ = _coordinator(tmp_path, bad_ack=True)
     order = _approved()
-
     with pytest.raises(LiveExecutionInDoubt, match="acknowledgement"):
         coordinator.submit(order)
     assert journal.get(order.client_order_id).lifecycle_state is OrderExecutionState.IN_DOUBT
@@ -303,7 +292,6 @@ def test_audit_failure_before_send_blocks_port_and_releases_capacity(tmp_path) -
     audit = _Audit(fail=True)
     coordinator, journal, port, capacity, _, _ = _coordinator(tmp_path, audit=audit)
     order = _approved()
-
     with pytest.raises(LiveExecutionAuditError):
         coordinator.submit(order)
     assert port.calls == []
@@ -317,10 +305,8 @@ def test_separate_instruments_keep_separate_order_lifecycles(tmp_path) -> None:
     coordinator, journal, port, _, _, _ = _coordinator(tmp_path)
     nifty = _approved(underlying="NIFTY", intent_id="intent-nifty")
     banknifty = _approved(underlying="BANKNIFTY", intent_id="intent-banknifty")
-
     coordinator.submit(nifty)
     coordinator.submit(banknifty)
-
     assert nifty.client_order_id != banknifty.client_order_id
     assert journal.get(nifty.client_order_id).broker_order_identity == "broker-1"
     assert journal.get(banknifty.client_order_id).broker_order_identity == "broker-2"
