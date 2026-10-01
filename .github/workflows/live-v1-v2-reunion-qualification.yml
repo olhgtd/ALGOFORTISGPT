@@ -1,6 +1,9 @@
 name: Live V1-V2 Reunion Final Qualification
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - live-v1-v2-reunion-20260930
