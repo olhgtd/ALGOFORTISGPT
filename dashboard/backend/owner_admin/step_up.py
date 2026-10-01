@@ -48,6 +48,11 @@ ROUTES: tuple[DestructiveRoute, ...] = (
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/agents/(?P<resource>[^/]+)/(?:binding|policy)$"), "AI_AGENT_POLICY"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/jobs$"), "AI_JOB_START", None),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/jobs/(?P<resource>[^/]+)/(?:cancel|resume|pause)$"), "AI_JOB_CONTROL"),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/intelligence/market-watch-policy$"), "AI_MONITORING_POLICY", None),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/intelligence/strategy-hunting$"), "AI_STRATEGY_HUNTING_POLICY", None),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/intelligence/provider-queue$"), "AI_PROVIDER_QUEUE_POLICY", None),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/intelligence/entitlements/(?P<resource>[^/]+)$"), "AI_ENTITLEMENT_CHANGE"),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/admin/ai/intelligence/scope-requests/(?P<resource>[^/]+)/decision$"), "AI_SCOPE_POLICY"),
 )
 
 

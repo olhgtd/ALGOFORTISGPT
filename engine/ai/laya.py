@@ -1,8 +1,9 @@
-"""Laya market-intelligence boundary from ADR-017.
+"""Laya market-intelligence boundary from ADR-017 and the 2026-10-01 amendment.
 
-Laya consumes already-approved market context and emits research observations.
-It has no agent dispatch, provider/model selection, RiskGate, broker, order, or
-Live-arm capability.
+Laya consumes scheduler-authorized market context and emits market-intelligence
+evidence. Decision-intelligence orchestration may use that evidence to form
+research/backtest/paper IntelligenceCandidates. Laya itself has no provider
+selection, RiskGate, broker, order, ApprovedOrder or Live-arm capability.
 """
 from __future__ import annotations
 
@@ -33,14 +34,11 @@ class LayaMarketIntelligence:
                 research_disposition="NO-TRADE",
             )
 
-        # This native control-plane adapter intentionally does not invent a
-        # trading signal.  A qualified model adapter may populate structured
-        # regime/context later, still under research/shadow constraints.
         regime = market_context.get("regime")
         return MarketIntelligenceObservation(
             state=AIAvailability.AVAILABLE,
             regime=str(regime) if regime else None,
             context=dict(market_context),
             evidence_refs=evidence_refs,
-            research_disposition="RESEARCH_ONLY",
+            research_disposition="DECISION_INTELLIGENCE_AVAILABLE",
         )

@@ -16,7 +16,7 @@ class PortfolioAdmissionRejection:
 
 
 class PortfolioAdmissionCoordinator:
-    """Reserve capital, delegate to RiskGateV2, and own reservation lifecycle."""
+    """Reserve/adopt capital, delegate to RiskGateV2, and own reservation lifecycle."""
 
     def __init__(self, risk_gate: RiskGateV2, context_provider, reservation_book) -> None:
         if not isinstance(risk_gate, RiskGateV2):
@@ -65,19 +65,39 @@ class PortfolioAdmissionCoordinator:
                 "RESERVATION_POLICY_UNAVAILABLE",
             )
 
-        reservation = self._reservations.reserve(
-            reservation_id=context.reservation_id,
-            user_id=user_id,
-            strategy_id=intent.strategy_id,
-            amount=context.required_capital,
-            created_at=context.evaluated_at,
-        )
-        if getattr(reservation, "accepted", False) is not True:
-            return PortfolioAdmissionRejection(
-                intent.intent_id,
-                "CAPITAL_RESERVATION_REJECTED",
-                str(getattr(reservation, "reason", "UNKNOWN")),
+        # Candidate arbitration may have already reserved the exact capital in
+        # this same Phase-7 reservation book.  Adopt that reservation instead
+        # of reserving a second time.  This is a hand-off, not a parallel
+        # accounting authority.
+        existing = None
+        get_active = getattr(self._reservations, "get_active", None)
+        if callable(get_active):
+            existing = get_active(context.reservation_id)
+
+        if existing is not None:
+            if (
+                getattr(existing, "user_id", None) != user_id
+                or getattr(existing, "strategy_id", None) != intent.strategy_id
+                or getattr(existing, "amount", None) != context.required_capital
+            ):
+                return PortfolioAdmissionRejection(
+                    intent.intent_id,
+                    "PRE_RESERVED_CAPITAL_MISMATCH",
+                )
+        else:
+            reservation = self._reservations.reserve(
+                reservation_id=context.reservation_id,
+                user_id=user_id,
+                strategy_id=intent.strategy_id,
+                amount=context.required_capital,
+                created_at=context.evaluated_at,
             )
+            if getattr(reservation, "accepted", False) is not True:
+                return PortfolioAdmissionRejection(
+                    intent.intent_id,
+                    "CAPITAL_RESERVATION_REJECTED",
+                    str(getattr(reservation, "reason", "UNKNOWN")),
+                )
 
         try:
             result = self._gate.evaluate_entry(intent)
