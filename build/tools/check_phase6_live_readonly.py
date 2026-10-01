@@ -66,6 +66,10 @@ REQUIRED = (
 _MUTATION_NAMES = frozenset({"place","place_order","submit","submit_order","modify","modify_order","cancel","cancel_order","create_gtt","modify_gtt","cancel_gtt"})
 _FORBIDDEN_IMPORT_ROOTS = ("engine.broker_adapters.angel_adapter", "engine.execution")
 _ENV_BYPASS_TOKENS = ("ARM", "MUTATION", "BROKER_WRITE", "LIVE_EXECUTION", "ALLOW_LIVE")
+_DORMANT_MUTATION_SEAM = "engine/broker_adapters/angelone_v2/mutation_seam_v2.py"
+_DORMANT_SEAM_METHODS = frozenset({"place", "cancel"})
+_DORMANT_SEAM_EXCEPTION = "AngelOneV2MutationUnavailable"
+_DORMANT_SEAM_NETWORK_IMPORTS = ("requests", "httpx", "urllib", "aiohttp", "socket")
 
 
 def _read(path: Path, problems: list[str]) -> str | None:
@@ -122,6 +126,19 @@ def _is_env_lookup(node: ast.Call) -> bool:
     return False
 
 
+def _raises_named_unavailable(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Raise) or child.exc is None:
+            continue
+        exc = child.exc
+        if isinstance(exc, ast.Call) and isinstance(exc.func, ast.Name):
+            if exc.func.id == _DORMANT_SEAM_EXCEPTION:
+                return True
+        if isinstance(exc, ast.Name) and exc.id == _DORMANT_SEAM_EXCEPTION:
+            return True
+    return False
+
+
 def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
     relative = path.relative_to(root).as_posix()
     try:
@@ -132,6 +149,7 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
     problems: list[str] = []
     imports = _import_names(tree)
     is_transport = relative.startswith("engine/data/transports/")
+    is_dormant_seam = relative == _DORMANT_MUTATION_SEAM
     if is_transport:
         for imported in imports:
             if imported == "engine.risk.gate_v2" or imported.startswith("engine.risk.gate_v2."):
@@ -145,14 +163,27 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
                     problems.append(f"{relative}: legacy AngelOneBrokerAdapter import is forbidden")
                 else:
                     problems.append(f"{relative}: execution mutation import root {forbidden} is forbidden")
+        if is_dormant_seam and any(
+            imported == prefix or imported.startswith(prefix + ".")
+            for prefix in _DORMANT_SEAM_NETWORK_IMPORTS
+        ):
+            problems.append(f"{relative}: dormant mutation seam network import {imported} is forbidden")
 
+    seen_dormant_methods: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
-                if alias.name == "ApprovedOrder":
+                if alias.name == "ApprovedOrder" and not is_dormant_seam:
                     problems.append(f"{relative}: ApprovedOrder import is forbidden in Phase-6 read-only code")
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in _MUTATION_NAMES:
-            problems.append(f"{relative}: mutation entrypoint {node.name} is structurally forbidden")
+            if is_dormant_seam and node.name in _DORMANT_SEAM_METHODS:
+                seen_dormant_methods.add(node.name)
+                if not _raises_named_unavailable(node):
+                    problems.append(
+                        f"{relative}: dormant mutation entrypoint {node.name} must raise {_DORMANT_SEAM_EXCEPTION}"
+                    )
+            else:
+                problems.append(f"{relative}: mutation entrypoint {node.name} is structurally forbidden")
         if isinstance(node, ast.Call):
             name = _call_name(node)
             if name in _MUTATION_NAMES:
@@ -170,6 +201,10 @@ def _source_problems(path: Path, root: Path, source: str) -> tuple[str, ...]:
                         problems.append(f"{relative}: arm_enabled=True is forbidden")
                     if isinstance(target, ast.Attribute) and target.attr == "arm_enabled":
                         problems.append(f"{relative}: arm_enabled=True is forbidden")
+    if is_dormant_seam and seen_dormant_methods != set(_DORMANT_SEAM_METHODS):
+        missing = sorted(set(_DORMANT_SEAM_METHODS) - seen_dormant_methods)
+        if missing:
+            problems.append(f"{relative}: dormant mutation seam missing fail-closed methods {missing}")
     return tuple(problems)
 
 
