@@ -285,6 +285,7 @@ export const CommandPalette: React.FC<{
         </div>
         <div style={{ padding: "8px 14px", borderTop: "1px solid var(--v3-line)", display: "flex", gap: 8, alignItems: "center" }}>
           <TruthChip kind="REAL" title="Palette navigation works within the visual prototype." />
+          <span className="v3-panel-meta">↑↓ navigate · Enter open · Esc close</span>
         </div>
       </div>
     </div>
