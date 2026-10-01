@@ -59,7 +59,7 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
   {
     label: "AI",
     items: [
-      { id: "ai-control", label: "AI Control Center", icon: "activity", badge: "Shadow", badgeTone: "dim" },
+      { id: "ai-control", label: "AI Control Center", icon: "activity", badge: "Decision Intel", badgeTone: "dim" },
     ],
   },
   {
