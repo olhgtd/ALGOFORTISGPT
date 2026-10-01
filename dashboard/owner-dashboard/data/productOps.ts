@@ -11,6 +11,7 @@ export interface ProductOpsHealthDto {
   restore_status: string;
   rollback_status: string;
   active_policy_versions: string[];
+  runbook_status?: string | null;
   live_state: "READ_ONLY/DISARMED";
   ai_authority: "RESEARCH_SHADOW_ONLY";
 }
