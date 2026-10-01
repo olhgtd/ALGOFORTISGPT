@@ -8,7 +8,7 @@ on:
       - .github/workflows/tmp-undici-lock-refresh.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh-lock:
@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: live-v1-v2-reunion-20260930
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -27,9 +29,15 @@ jobs:
         run: npm --prefix dashboard/web audit --audit-level=high
       - name: Show resolved Undici version
         run: node -e "const l=require('./dashboard/web/package-lock.json'); console.log(l.packages['node_modules/undici'])"
-      - name: Upload regenerated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: patched-package-lock
-          path: dashboard/web/package-lock.json
-          if-no-files-found: error
+      - name: Commit regenerated lockfile
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/web/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No lockfile change required"
+          else
+            git commit -m "security: refresh vulnerable undici lock"
+            git push origin HEAD:live-v1-v2-reunion-20260930
+          fi
