@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardRoot = path.resolve(__dirname, "..");
 
 export default defineConfig({
-  root: dashboardRoot,
+  root: __dirname,
   resolve: {
     alias: {
       react: path.resolve(__dirname, "node_modules/react"),
@@ -14,14 +14,19 @@ export default defineConfig({
       "react/jsx-runtime": path.resolve(__dirname, "node_modules/react/jsx-runtime"),
     },
   },
+  server: {
+    fs: {
+      allow: [dashboardRoot],
+    },
+  },
   test: {
     environment: "jsdom",
     include: [
-      "web/src/__tests__/**/*.test.{ts,tsx}",
-      "web/src/visual-lab/secure-entry/__tests__/**/*.test.{ts,tsx}",
-      "user-dashboard/**/*.test.{ts,tsx}",
-      "owner-dashboard/**/*.test.{ts,tsx}",
-      "shared/components/professionalChartTruth.test.ts",
+      "src/__tests__/**/*.test.{ts,tsx}",
+      "src/visual-lab/secure-entry/__tests__/**/*.test.{ts,tsx}",
+      "../user-dashboard/**/*.test.{ts,tsx}",
+      "../owner-dashboard/**/*.test.{ts,tsx}",
+      "../shared/components/professionalChartTruth.test.ts",
     ],
     clearMocks: true,
     restoreMocks: true,
