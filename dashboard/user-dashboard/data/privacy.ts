@@ -7,6 +7,8 @@ export interface UserPrivacyDto {
   notice_fingerprint: string;
   consent_state: string;
   request_statuses: [string, string][];
+  identity_authority?: string | null;
+  device_session_state?: string | null;
 }
 
 export interface UserPrivacySurfaceData {
