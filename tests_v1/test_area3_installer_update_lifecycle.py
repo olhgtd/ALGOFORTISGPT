@@ -1,42 +1,67 @@
-"""AlgoFortis V1 — Area 3: Windows Installer, Update Foundation & Lifecycle Invariants.
+"""AlgoFortis V2 — S3 installer/update lifecycle qualification.
 
-Covers:
-1. RUNTIME PATH & DIRECTORY ISOLATION:
-   - Program Files / Install Root immutable application files
-   - %LOCALAPPDATA% mutable user data
-   - Zero mutable databases allowed in Program Files
-   - Test vs Development vs Production isolation
-2. DEVICE IDENTITY PRESERVATION ACROSS REINSTALL:
-   - Preserves crypto identity without creating duplicate slots
-   - Fails closed on key tamper or corrupted identity file
-3. AUTO-UPDATE FOUNDATION (UpdateService):
-   - Signed / versioned update manifest validation
-   - Channel isolation (STABLE vs BETA)
-   - SHA-256 installer payload integrity verification
-   - Tampered installer bytes rejected with ValueError
-   - Fail-closed / rollback assumptions
-   - No unsigned silent update path
-4. UNINSTALL / DATA RETENTION CONTRACT:
-   - Binary removal does NOT purge %LOCALAPPDATA% user databases
-   - Security identity retained per product contract
+Covers runtime path isolation, signed update manifests and installer payloads,
+versioned UpdateSafeWindowPolicy enforcement, and uninstall data preservation.
+All signature functions below are TEST_ONLY deterministic verifiers; production
+release signing remains an external P4/G10 input.
 """
 import hashlib
+import hmac
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from dashboard.backend.update_service import (
-    UpdateService,
-    UpdateChannel,
-    UpdateManifest,
-)
-from dashboard.runtime.paths import RuntimePaths, RuntimeMode
+from dashboard.backend.account_v2.policy_seams import UpdateSafeWindowPolicy
+from dashboard.backend.update_service import UpdateChannel, UpdateService
+from dashboard.runtime.paths import RuntimeMode, RuntimePaths
+
+_TEST_KEY = b"algofortis-s3-test-only-key"
+_TEST_KEY_ID = "TEST_ONLY_RELEASE_KEY_V1"
+_TEST_INSTALLER_SIGNER = "TEST_ONLY_INSTALLER_SIGNER_V1"
+
+
+def _test_signature(payload: bytes, key_id: str) -> str:
+    return hmac.new(_TEST_KEY + key_id.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _test_verifier(payload: bytes, signature: str, key_id: str) -> bool:
+    expected = _test_signature(payload, key_id)
+    return hmac.compare_digest(expected, signature)
+
+
+def _signed_manifest(installer: bytes, *, channel: str = "STABLE") -> str:
+    data = {
+        "version": "9.1.0",
+        "channel": channel,
+        "installer_url": "https://releases.example.invalid/AlgoFortis-Setup-9.1.0.exe",
+        "sha256_checksum": hashlib.sha256(installer).hexdigest(),
+        "min_compatible_version": "9.0.0",
+        "security_critical": True,
+        "release_notes": "S3 qualification fixture.",
+        "signing_key_id": _TEST_KEY_ID,
+        "installer_signer_id": _TEST_INSTALLER_SIGNER,
+        "installer_signature": _test_signature(installer, _TEST_INSTALLER_SIGNER),
+        "safe_window_policy_id": "updates/safe-window/test-v1",
+        "safe_window_policy_version": "1",
+    }
+    data["manifest_signature"] = _test_signature(
+        UpdateService.canonical_manifest_bytes(data),
+        _TEST_KEY_ID,
+    )
+    return json.dumps(data)
+
+
+def _service() -> UpdateService:
+    return UpdateService(
+        current_version="9.0.0",
+        channel=UpdateChannel.STABLE,
+        manifest_signature_verifier=_test_verifier,
+        installer_signature_verifier=_test_verifier,
+    )
 
 
 class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
-
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory(prefix="af_area3_")
         self.tmp_path = Path(self._tmp.name).resolve()
@@ -48,32 +73,19 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    # ==========================================
-    # 1. RUNTIME PATH & DIRECTORY ISOLATION
-    # ==========================================
-
     def test_production_runtime_paths_isolation(self):
-        """In PRODUCTION mode:
-        - install is Program Files
-        - root (mutable data) is strictly under %LOCALAPPDATA%\\AlgoFortis
-        - databases, logs, runtimes reside in LOCALAPPDATA, NOT Program Files
-        """
         paths = RuntimePaths.resolve(
             RuntimeMode.PRODUCTION,
             install_root=self.install_dir,
-            environ={"LOCALAPPDATA": str(self.appdata_dir)}
+            environ={"LOCALAPPDATA": str(self.appdata_dir)},
         )
-
         self.assertEqual(paths.install, self.install_dir)
         self.assertEqual(paths.root, self.appdata_dir / "AlgoFortis")
         self.assertEqual(paths.databases, paths.root / "databases")
         self.assertEqual(paths.logs, paths.root / "logs")
-
-        # Crucial check: databases is NOT inside install directory
         self.assertFalse(str(paths.databases).startswith(str(paths.install)))
 
     def test_test_mode_isolation(self):
-        """In TEST mode: isolated data root must be provided, avoiding user data pollution."""
         isolated = (self.tmp_path / "isolated_test_data").resolve()
         paths = RuntimePaths.resolve(
             RuntimeMode.TEST,
@@ -82,88 +94,118 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         )
         self.assertEqual(paths.root, isolated)
 
-    # ==========================================
-    # 2. AUTO-UPDATE FOUNDATION TESTS
-    # ==========================================
-
-    def test_update_manifest_validation(self):
-        svc = UpdateService(current_version="9.0.0", channel=UpdateChannel.STABLE)
-
-        # Valid manifest
-        dummy_installer = b"MOCK_ALGOFORTIS_SETUP_INSTALLER_V9.1.0_BYTES"
-        expected_sha = hashlib.sha256(dummy_installer).hexdigest()
-
-        valid_json = json.dumps({
-            "version": "9.1.0",
-            "channel": "STABLE",
-            "installer_url": "https://releases.algofortis.io/AlgoFortis-Setup-9.1.0.exe",
-            "sha256_checksum": expected_sha,
-            "min_compatible_version": "9.0.0",
-            "security_critical": True,
-            "release_notes": "Security hardening update."
-        })
-
-        manifest = svc.parse_and_validate_manifest(valid_json)
+    def test_signed_manifest_and_installer_payload_verify(self):
+        installer = b"MOCK_ALGOFORTIS_SETUP_INSTALLER_V9.1.0_BYTES"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
         self.assertEqual(manifest.version, "9.1.0")
         self.assertEqual(manifest.channel, UpdateChannel.STABLE)
-        self.assertEqual(manifest.sha256_checksum, expected_sha)
-        self.assertTrue(manifest.security_critical)
+        self.assertTrue(svc.verify_installer_payload(installer, manifest))
 
-        # Integrity verification succeeds with matching bytes
-        self.assertTrue(svc.verify_installer_payload(dummy_installer, manifest))
+    def test_unsigned_or_tampered_manifest_fails_closed(self):
+        installer = b"INSTALLER"
+        data = json.loads(_signed_manifest(installer))
+        data["version"] = "9.1.1"
+        with self.assertRaisesRegex(ValueError, "UPDATE_MANIFEST_SIGNATURE_INVALID"):
+            _service().parse_and_validate_manifest(json.dumps(data))
 
-    def test_update_manifest_tampered_payload_rejected(self):
-        svc = UpdateService(current_version="9.0.0")
+        svc_without_verifier = UpdateService()
+        with self.assertRaisesRegex(ValueError, "SIGNATURE_VERIFIER_UNAVAILABLE"):
+            svc_without_verifier.parse_and_validate_manifest(_signed_manifest(installer))
 
-        manifest_json = json.dumps({
-            "version": "9.1.0",
-            "channel": "STABLE",
-            "installer_url": "https://releases.algofortis.io/AlgoFortis-Setup-9.1.0.exe",
-            "sha256_checksum": "0000000000000000000000000000000000000000000000000000000000000000",
-            "min_compatible_version": "9.0.0"
-        })
-        manifest = svc.parse_and_validate_manifest(manifest_json)
+    def test_tampered_installer_or_bad_signature_fails_closed(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
 
-        tampered_bytes = b"MALICIOUS_OR_CORRUPT_PAYLOAD"
-        with self.assertRaises(ValueError) as ctx:
-            svc.verify_installer_payload(tampered_bytes, manifest)
-        self.assertIn("INTEGRITY ERROR", str(ctx.exception))
+        with self.assertRaisesRegex(ValueError, "INTEGRITY ERROR"):
+            svc.verify_installer_payload(b"TAMPERED", manifest)
+
+        bad_sig_data = json.loads(_signed_manifest(installer))
+        bad_sig_data["installer_signature"] = "0" * 64
+        bad_sig_data["manifest_signature"] = _test_signature(
+            UpdateService.canonical_manifest_bytes(bad_sig_data),
+            _TEST_KEY_ID,
+        )
+        bad_sig_manifest = svc.parse_and_validate_manifest(json.dumps(bad_sig_data))
+        with self.assertRaisesRegex(ValueError, "UPDATE_INSTALLER_SIGNATURE_INVALID"):
+            svc.verify_installer_payload(installer, bad_sig_manifest)
+
+    def test_update_safe_window_blocks_active_open_position_and_policy_mismatch(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
+        policy = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/test-v1",
+            version="1",
+            allowed_engine_states=("IDLE", "DISARMED"),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+
+        allowed = svc.evaluate_apply_decision(
+            manifest,
+            policy,
+            engine_state="IDLE",
+            has_open_positions=False,
+        )
+        self.assertTrue(allowed.allowed)
+        self.assertFalse(allowed.auto_arm_live)
+
+        active = svc.evaluate_apply_decision(
+            manifest,
+            policy,
+            engine_state="ACTIVE",
+            has_open_positions=False,
+        )
+        self.assertFalse(active.allowed)
+        self.assertEqual(active.reason, "ENGINE_STATE_NOT_ALLOWED")
+
+        open_position = svc.evaluate_apply_decision(
+            manifest,
+            policy,
+            engine_state="IDLE",
+            has_open_positions=True,
+        )
+        self.assertFalse(open_position.allowed)
+        self.assertEqual(open_position.reason, "OPEN_POSITIONS_BLOCK_UPDATE")
+
+        mismatch = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/other",
+            version="1",
+            allowed_engine_states=("IDLE",),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+        decision = svc.evaluate_apply_decision(
+            manifest,
+            mismatch,
+            engine_state="IDLE",
+            has_open_positions=False,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, "UPDATE_POLICY_REFERENCE_MISMATCH")
 
     def test_update_manifest_missing_required_fields_rejected(self):
-        svc = UpdateService()
-        incomplete_json = json.dumps({
-            "version": "9.1.0",
-            # missing installer_url, sha256_checksum, min_compatible_version
-        })
-        with self.assertRaises(ValueError) as ctx:
-            svc.parse_and_validate_manifest(incomplete_json)
-        self.assertIn("missing field", str(ctx.exception).lower())
-
-    # ==========================================
-    # 3. UNINSTALL / RETENTION CONTRACT
-    # ==========================================
+        with self.assertRaisesRegex(ValueError, "missing field"):
+            _service().parse_and_validate_manifest(json.dumps({"version": "9.1.0"}))
 
     def test_uninstall_preserves_localappdata_user_databases(self):
-        """Simulate uninstallation: Program Files files removed,
-        but user data in %LOCALAPPDATA%\\AlgoFortis is preserved per contract.
-        """
-        # Create Program Files binaries
         (self.install_dir / "AlgoFortis.exe").write_bytes(b"launcher")
         (self.install_dir / "app.dll").write_bytes(b"dll")
 
-        # Create user database in LOCALAPPDATA
         user_db_dir = self.appdata_dir / "AlgoFortis" / "databases"
         user_db_dir.mkdir(parents=True, exist_ok=True)
         user_db = user_db_dir / "user_data.sqlite3"
         user_db.write_bytes(b"SQLITE_DATA")
 
-        # Uninstallation deletes Program Files
         for f in self.install_dir.glob("*"):
             f.unlink()
         self.install_dir.rmdir()
-        self.assertFalse(self.install_dir.exists())
 
-        # User data MUST still exist
+        self.assertFalse(self.install_dir.exists())
         self.assertTrue(user_db.exists())
         self.assertEqual(user_db.read_bytes(), b"SQLITE_DATA")
 
