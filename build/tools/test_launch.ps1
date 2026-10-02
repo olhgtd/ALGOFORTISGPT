@@ -26,13 +26,13 @@ if (Test-Path $logFile) {
 }
 
 Write-Host "`n--- Backend Status ---"
-& "$installDir\runtime\python\python.exe" -m dashboard.runtime.controller status --mode PRODUCTION
+& "$installDir\runtime\python\python.exe" -m dashboard.runtime.controller status --mode LOCAL_PRIVATE
 
 Write-Host "`n--- Process Tree for $appName & WebView2 ---"
 Get-Process | Where-Object { $_.ProcessName -match "msedgewebview2|$appName" } | Select-Object Id, ProcessName, MainWindowTitle
 
 Write-Host "`nStopping test instance..."
 Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-& "$installDir\runtime\python\python.exe" -m dashboard.runtime.controller stop --mode PRODUCTION
+& "$installDir\runtime\python\python.exe" -m dashboard.runtime.controller stop --mode LOCAL_PRIVATE
 Start-Sleep -Seconds 2
 Write-Host "Cleanup complete."
