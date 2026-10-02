@@ -1,5 +1,7 @@
 param(
-    [string]$OutputBaseFilename = "AlgoFortis-Setup-LocalPrivate-Fixed"
+    [string]$OutputBaseFilename = "AlgoFortis-Setup",
+    [switch]$RequireSignature,
+    [string]$ExpectedPublisherSubject = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,6 +9,7 @@ $ErrorActionPreference = "Stop"
 $toolsDir = $PSScriptRoot
 $cleanRoot = (Resolve-Path "$toolsDir\..\..").Path
 $installerDir = "$cleanRoot\build\installer"
+$stageDir = "$cleanRoot\build\stage"
 
 function Find-ISCC {
     if ($env:ISCC_PATH -and (Test-Path $env:ISCC_PATH)) {
@@ -19,8 +22,7 @@ function Find-ISCC {
     $candidates = @(
         "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-        "C:\Users\Ragini Music\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
     )
     foreach ($cand in $candidates) {
         if ($cand -and (Test-Path $cand)) {
@@ -30,71 +32,128 @@ function Find-ISCC {
     return $null
 }
 
-$isccPath = Find-ISCC
-
-Write-Host "=== BUILDING ALGOFORTIS PRODUCTION INSTALLER ==="
-
-# 1. Clean target installer output file if exists (preserve other installers)
-if (Test-Path $installerDir) {
-    $targetExe = Join-Path $installerDir "$OutputBaseFilename.exe"
-    if (Test-Path $targetExe) {
-        Write-Host "Removing existing $targetExe..."
-        Remove-Item -Path $targetExe -Force
+function Find-SignTool {
+    $cmd = Get-Command "signtool.exe" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
     }
-} else {
-    New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
+    return $null
 }
 
-# 2. Stage core product
+function Invoke-AuthenticodeSign {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][string]$Label
+    )
+
+    $certConfigured = $env:SIGNTOOL_CERT_PATH -and (Test-Path $env:SIGNTOOL_CERT_PATH)
+    if (-not $certConfigured) {
+        if ($RequireSignature) {
+            throw "$Label signing required but SIGNTOOL_CERT_PATH is not configured."
+        }
+        Write-Warning "$Label is UNSIGNED (development/qualification build only)."
+        return $false
+    }
+
+    $signTool = Find-SignTool
+    if (-not $signTool) {
+        throw "signtool.exe is required when a signing certificate is configured."
+    }
+    if ($RequireSignature -and -not $env:SIGNTOOL_TIMESTAMP_URL) {
+        throw "SIGNED RELEASE requires SIGNTOOL_TIMESTAMP_URL."
+    }
+
+    $args = @("sign", "/fd", "SHA256", "/f", $env:SIGNTOOL_CERT_PATH)
+    if ($env:SIGNTOOL_CERT_PASSWORD) {
+        $args += @("/p", $env:SIGNTOOL_CERT_PASSWORD)
+    }
+    if ($env:SIGNTOOL_TIMESTAMP_URL) {
+        $args += @("/tr", $env:SIGNTOOL_TIMESTAMP_URL, "/td", "SHA256")
+    }
+    $args += $Path
+
+    & $signTool @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Label Authenticode signing failed with exit code $LASTEXITCODE."
+    }
+
+    $signature = Get-AuthenticodeSignature -FilePath $Path
+    if ($signature.Status -ne "Valid") {
+        throw "$Label Authenticode verification failed: $($signature.Status) $($signature.StatusMessage)"
+    }
+    if ($ExpectedPublisherSubject) {
+        $subject = [string]$signature.SignerCertificate.Subject
+        if ($subject -notlike "*$ExpectedPublisherSubject*") {
+            throw "$Label signer subject '$subject' does not match expected publisher '$ExpectedPublisherSubject'."
+        }
+    }
+
+    Write-Host "$Label Authenticode signature VERIFIED."
+    return $true
+}
+
+$isccPath = Find-ISCC
+if (-not $isccPath) {
+    throw "Inno Setup compiler (ISCC.exe) not found in PATH or standard install locations."
+}
+
+$buildKind = if ($RequireSignature) { "SIGNED RELEASE" } else { "DEVELOPMENT / QUALIFICATION" }
+Write-Host "=== BUILDING ALGOFORTIS $buildKind INSTALLER ==="
+
+if (-not (Test-Path $installerDir)) {
+    New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
+}
+$targetExe = Join-Path $installerDir "$OutputBaseFilename.exe"
+if (Test-Path $targetExe) {
+    Remove-Item -Path $targetExe -Force
+}
+
 Write-Host "Staging application..."
 & powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\stage_app.ps1"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Staging failed with code $LASTEXITCODE"
-    exit 1
+    throw "Staging failed with code $LASTEXITCODE"
 }
 
-# 3. Compile Inno Setup package
-Write-Host "Compiling AlgoFortis installer via ISCC (Output: $OutputBaseFilename.exe)..."
-if (-not $isccPath) {
-    Write-Error "Inno Setup compiler (ISCC.exe) not found in PATH or standard Program Files locations."
-    exit 1
+$launcherPath = Join-Path $stageDir "AlgoFortis.exe"
+if (-not (Test-Path $launcherPath)) {
+    throw "Expected staged launcher not found: $launcherPath"
 }
-Write-Host "Using Inno Setup compiler: $isccPath"
+$launcherSigned = Invoke-AuthenticodeSign -Path $launcherPath -Label "AlgoFortis.exe"
 
+Write-Host "Compiling installer via ISCC: $OutputBaseFilename.exe"
 & $isccPath "/F$OutputBaseFilename" "$toolsDir\algofortis_installer.iss"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Inno Setup compilation failed with code $LASTEXITCODE"
-    exit 1
+    throw "Inno Setup compilation failed with code $LASTEXITCODE"
 }
 
-# 4. Verify output & apply optional Authenticode signature
 $setupExePath = Join-Path $installerDir "$OutputBaseFilename.exe"
 if (-not (Test-Path $setupExePath)) {
-    Write-Error "Expected installer '$OutputBaseFilename.exe' was not created in $installerDir"
-    exit 1
+    throw "Expected installer was not created: $setupExePath"
+}
+$installerSigned = Invoke-AuthenticodeSign -Path $setupExePath -Label "$OutputBaseFilename.exe"
+
+if ($RequireSignature -and (-not $launcherSigned -or -not $installerSigned)) {
+    throw "SIGNED RELEASE cannot continue without valid launcher and installer signatures."
 }
 
-$installers = @(Get-ChildItem -Path $installerDir -Filter "*.exe")
-Write-Host "Installer directory contents:"
-$installers | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length) bytes)" }
-
-# Optional Authenticode code signing if certificate environment variable is configured
-if ($env:SIGNTOOL_CERT_PATH -and (Test-Path $env:SIGNTOOL_CERT_PATH)) {
-    Write-Host "Signing $setupExePath with Authenticode certificate..."
-    $signtoolArgs = @("sign", "/fd", "SHA256", "/f", $env:SIGNTOOL_CERT_PATH)
-    if ($env:SIGNTOOL_CERT_PASSWORD) {
-        $signtoolArgs += @("/p", $env:SIGNTOOL_CERT_PASSWORD)
-    }
-    if ($env:SIGNTOOL_TIMESTAMP_URL) {
-        $signtoolArgs += @("/tr", $env:SIGNTOOL_TIMESTAMP_URL, "/td", "SHA256")
-    }
-    $signtoolArgs += $setupExePath
-    & signtool.exe @signtoolArgs
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Authenticode signing succeeded for AlgoFortis-Setup.exe"
-    } else {
-        Write-Warning "Authenticode signing failed with exit code $LASTEXITCODE"
-    }
+$hash = Get-FileHash -Algorithm SHA256 -Path $setupExePath
+$artifact = Get-Item $setupExePath
+$manifest = [ordered]@{
+    schema = "AlgoFortisReleaseArtifactEvidence/v1"
+    artifact = $artifact.Name
+    size_bytes = $artifact.Length
+    sha256 = $hash.Hash.ToLowerInvariant()
+    launcher_authenticode_verified = [bool]$launcherSigned
+    installer_authenticode_verified = [bool]$installerSigned
+    require_signature = [bool]$RequireSignature
+    expected_publisher_subject = $ExpectedPublisherSubject
 }
+$manifestPath = "$setupExePath.evidence.json"
+$manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 $manifestPath
 
-Write-Host "=== ALGOFORTIS PRODUCTION INSTALLER BUILD: SUCCESS ==="
+Write-Host "Artifact evidence: $manifestPath"
+if ($RequireSignature) {
+    Write-Host "=== ALGOFORTIS SIGNED RELEASE PACKAGE: VERIFIED ==="
+} else {
+    Write-Host "=== ALGOFORTIS DEVELOPMENT / QUALIFICATION PACKAGE: BUILT (NOT RELEASE-QUALIFIED) ==="
+}
