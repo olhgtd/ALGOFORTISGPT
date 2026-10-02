@@ -81,7 +81,7 @@ def run_installed_app():
     python_exe = install_dir / "runtime" / "python" / "python.exe"
     
     # Check status via installed python controller
-    cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     
     deadline = time.monotonic() + 30
     ready_info = None
@@ -108,16 +108,16 @@ def run_installed_app():
     with opener.open(req_index) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="sentinelx-runtime" content="PRODUCTION"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
         assert "<title>AlgoFortis</title>" in html or "AlgoFortis" in html
-        log("  PASS: Installed production frontend loaded cleanly from Program Files dist with AlgoFortis branding.")
+        log("  PASS: Installed local-private frontend loaded cleanly from Program Files dist with AlgoFortis branding.")
 
     # Test HTTP runtime status
     req_status = Request(f"{url}api/v1/runtime/status")
     with opener.open(req_status) as resp:
         assert resp.status == 200
         status_data = json.loads(resp.read().decode("utf-8"))
-        assert status_data["mode"] == "PRODUCTION"
+        assert status_data["mode"] == "LOCAL_PRIVATE"
         assert status_data["live_execution"] == "DISARMED"
         assert status_data["local_auth_transport"] == "UNAVAILABLE"
         assert status_data["roaming_identity"] == "UNAVAILABLE"
@@ -140,7 +140,7 @@ def run_installed_app():
     assert nifty_parquet.exists(), "NIFTY parquet data directory missing in installation!"
     log("  PASS: Historical parquet dataset verified in installed package.")
 
-    # 3. Production Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
+    # 3. Local-Private Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
     assert localappdata.exists(), f"Production data root {localappdata} was not created!"
     assert (localappdata / "databases" / "security" / "sentinelx_security.sqlite3").exists(), "Security database missing!"
@@ -169,7 +169,7 @@ def run_installed_app():
 
     # 5. Lifecycle A: In-place backend stop & reconnect while GUI remains alive
     log("Testing Lifecycle A: In-place backend stop and reconnect...")
-    stop_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    stop_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
     time.sleep(1)
     res_stopped = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
@@ -178,7 +178,7 @@ def run_installed_app():
 
     # Restart backend through supported RuntimeController mechanism
     log("Restarting backend via RuntimeController mechanism...")
-    start_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "start", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    start_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "start", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     res_restarted = subprocess.run(start_cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True, check=True)
     data_restarted = json.loads(res_restarted.stdout.strip())
     assert data_restarted.get("state") == "READY", f"Backend failed to start: {res_restarted.stdout}"
@@ -192,7 +192,7 @@ def run_installed_app():
         assert resp.status == 200
         status_reconnected = json.loads(resp.read().decode("utf-8"))
         assert status_reconnected["state"] == "READY"
-        assert status_reconnected["mode"] == "PRODUCTION"
+        assert status_reconnected["mode"] == "LOCAL_PRIVATE"
         assert status_reconnected["live_execution"] == "DISARMED"
     log("  PASS: Existing GUI client reconnected successfully to restarted backend.")
 
@@ -239,7 +239,7 @@ def run_installed_app():
     with opener.open(req_index_relaunch) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="sentinelx-runtime" content="PRODUCTION"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
         log("  PASS: Relaunched frontend loaded cleanly from Program Files dist.")
 
     # Gracefully close reopened application and stop backend before uninstallation
