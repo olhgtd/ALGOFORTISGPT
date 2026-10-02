@@ -245,6 +245,7 @@ class TestArchitecturalFoundations(unittest.TestCase):
             "signing_key_id": _TEST_S3_KEY_ID,
             "installer_signer_id": "TEST_ONLY_INSTALLER",
             "installer_signature": _test_s3_sign(dummy_payload, "TEST_ONLY_INSTALLER"),
+            "installer_authenticode_thumbprint": "B" * 40,
             "safe_window_policy_id": "updates/test",
             "safe_window_policy_version": "1",
         }
@@ -255,6 +256,7 @@ class TestArchitecturalFoundations(unittest.TestCase):
         svc = UpdateService(
             manifest_signature_verifier=_test_s3_verify,
             installer_signature_verifier=_test_s3_verify,
+            authenticode_verifier=lambda _payload, thumbprint: thumbprint == "B" * 40,
         )
         m = svc.parse_and_validate_manifest(json.dumps(data))
         self.assertEqual(m.version, "9.1.0")
