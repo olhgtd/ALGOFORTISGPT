@@ -36,6 +36,9 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertIn('"--mode", "LOCAL_PRIVATE"', source)
         self.assertIn('content="LOCAL_PRIVATE"', source)
         self.assertIn('status_data["mode"] == "LOCAL_PRIVATE"', source)
+        self.assertIn('status_data["local_auth_transport"] == "CONFIGURED"', source)
+        self.assertIn('status_data["identity"] == "LOCAL_PRIVATE"', source)
+        self.assertIn('status_data["device_authority"] == "LOCAL_AUTHORITY"', source)
 
     def test_manual_launch_probe_matches_local_private_runtime(self):
         source = self._read("build/tools/test_launch.ps1")
