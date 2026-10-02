@@ -52,7 +52,7 @@ function Invoke-AuthenticodeSign {
             throw "$Label signing required but SIGNTOOL_CERT_PATH is not configured."
         }
         Write-Warning "$Label is UNSIGNED (development/qualification build only)."
-        return $false
+        return ""
     }
 
     $signTool = Find-SignTool
@@ -88,8 +88,12 @@ function Invoke-AuthenticodeSign {
         }
     }
 
-    Write-Host "$Label Authenticode signature VERIFIED."
-    return $true
+    $thumbprint = [string]$signature.SignerCertificate.Thumbprint
+    if (-not $thumbprint) {
+        throw "$Label Authenticode signer thumbprint is unavailable."
+    }
+    Write-Host "$Label Authenticode signature VERIFIED: $thumbprint"
+    return $thumbprint
 }
 
 $isccPath = Find-ISCC
@@ -118,7 +122,8 @@ $launcherPath = Join-Path $stageDir "AlgoFortis.exe"
 if (-not (Test-Path $launcherPath)) {
     throw "Expected staged launcher not found: $launcherPath"
 }
-$launcherSigned = Invoke-AuthenticodeSign -Path $launcherPath -Label "AlgoFortis.exe"
+$launcherSignerThumbprint = Invoke-AuthenticodeSign -Path $launcherPath -Label "AlgoFortis.exe"
+$launcherSigned = [bool]$launcherSignerThumbprint
 
 Write-Host "Compiling installer via ISCC: $OutputBaseFilename.exe"
 & $isccPath "/F$OutputBaseFilename" "$toolsDir\algofortis_installer.iss"
@@ -130,7 +135,8 @@ $setupExePath = Join-Path $installerDir "$OutputBaseFilename.exe"
 if (-not (Test-Path $setupExePath)) {
     throw "Expected installer was not created: $setupExePath"
 }
-$installerSigned = Invoke-AuthenticodeSign -Path $setupExePath -Label "$OutputBaseFilename.exe"
+$installerSignerThumbprint = Invoke-AuthenticodeSign -Path $setupExePath -Label "$OutputBaseFilename.exe"
+$installerSigned = [bool]$installerSignerThumbprint
 
 if ($RequireSignature -and (-not $launcherSigned -or -not $installerSigned)) {
     throw "SIGNED RELEASE cannot continue without valid launcher and installer signatures."
@@ -144,7 +150,9 @@ $manifest = [ordered]@{
     size_bytes = $artifact.Length
     sha256 = $hash.Hash.ToLowerInvariant()
     launcher_authenticode_verified = [bool]$launcherSigned
+    launcher_signer_thumbprint = [string]$launcherSignerThumbprint
     installer_authenticode_verified = [bool]$installerSigned
+    installer_signer_thumbprint = [string]$installerSignerThumbprint
     require_signature = [bool]$RequireSignature
     expected_publisher_subject = $ExpectedPublisherSubject
 }
