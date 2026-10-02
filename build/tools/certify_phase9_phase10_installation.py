@@ -152,10 +152,16 @@ def run_installed_app():
     assert "ORB_STRATEGY_OK" in orb_check.stdout, f"Failed to import installed ORB strategy: {orb_check.stderr}"
     log("  PASS: Institutional ORB strategy verified in installed package.")
 
-    # 2. Historical parquet data cache
-    nifty_parquet = install_dir / "data" / "parquet" / "NIFTY"
-    assert nifty_parquet.exists(), "NIFTY parquet data directory missing in installation!"
-    log("  PASS: Historical parquet dataset verified in installed package.")
+    # 2. Packaged data workspace. Historical market datasets are user/import
+    # inputs and must not be invented by the installer qualification.
+    packaged_data_dirs = (
+        install_dir / "data" / "parquet",
+        install_dir / "data" / "incoming",
+        install_dir / "data" / "quarantine",
+    )
+    for data_dir in packaged_data_dirs:
+        assert data_dir.exists(), f"Packaged data workspace missing: {data_dir}"
+    log("  PASS: Packaged parquet/import/quarantine data workspace verified.")
 
     # 3. Local-Private Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
