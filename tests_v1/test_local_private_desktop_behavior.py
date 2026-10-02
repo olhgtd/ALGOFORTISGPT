@@ -55,6 +55,13 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertNotIn("--mode PRODUCTION", source)
         self.assertIn("--mode LOCAL_PRIVATE", source)
 
+    def test_install_certifies_packaged_data_layout_without_inventing_market_history(self):
+        source = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertNotIn('install_dir / "data" / "parquet" / "NIFTY"', source)
+        self.assertIn('install_dir / "data" / "parquet"', source)
+        self.assertIn('install_dir / "data" / "incoming"', source)
+        self.assertIn('install_dir / "data" / "quarantine"', source)
+
     def test_private_installer_keeps_user_data_outside_program_files(self):
         source = self._read("build/tools/certify_phase9_phase10_installation.py")
         self.assertIn('Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"', source)
