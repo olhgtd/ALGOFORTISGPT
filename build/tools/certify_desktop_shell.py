@@ -16,6 +16,22 @@ python_exe = install_dir / "runtime" / "python" / "python.exe"
 def log(msg):
     print(f"[DESKTOP SHELL CERT] {msg}")
 
+def close_main_window(proc, timeout=35):
+    ps_script = (
+        f"$p = Get-Process -Id {proc.pid} -ErrorAction Stop; "
+        "if (-not $p.CloseMainWindow()) { exit 2 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"CloseMainWindow() failed for PID {proc.pid}: "
+        f"{result.stdout} {result.stderr}"
+    )
+    proc.wait(timeout=timeout)
+
 def test_install():
     log("Step 1: Installing rebuilt AlgoFortis-Setup.exe silently...")
     cmd = [str(setup_exe), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/MERGETASKS=desktopicon"]
@@ -98,13 +114,23 @@ def test_desktop_window_launch():
     assert "EnsureBackendStarted: initial status" in log_content
     log("  PASS: launcher.log audits native window lifecycle and backend coordination.")
 
-    # Terminate shell
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except Exception:
-        pass
-    log("  PASS: Desktop window closed cleanly.")
+    # Exercise the real WinForms close path so MainWindow_FormClosing
+    # must stop the owned LOCAL_PRIVATE backend.
+    close_main_window(proc)
+    deadline = time.monotonic() + 30
+    backend_stopped = False
+    while time.monotonic() < deadline:
+        res = subprocess.run(cmd_status, cwd=str(install_dir), capture_output=True, text=True)
+        if res.returncode == 0:
+            try:
+                if json.loads(res.stdout.strip()).get("state") == "UNAVAILABLE":
+                    backend_stopped = True
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
+    assert backend_stopped, "backend did not stop after GUI close"
+    log("  PASS: Real window close stopped the owned LOCAL_PRIVATE backend.")
 
 def run_uninstall():
     log("Step 3: Cleaning up installation...")
