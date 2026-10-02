@@ -1,57 +1,109 @@
+param(
+    [string]$WebView2Version = "1.0.4258.31",
+    [string]$ExpectedWebView2PackageSha256 = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 $toolsDir = $PSScriptRoot
 $cleanRoot = (Resolve-Path "$toolsDir\..\..").Path
 $stageDir = "$cleanRoot\build\stage"
+$webDist = "$cleanRoot\dashboard\web\dist"
 
-Write-Host "Staging core product files to $stageDir..."
+if (-not (Test-Path $webDist)) {
+    throw "Dashboard production dist is missing. Run npm --prefix dashboard/web run build first."
+}
 
-# Clean any legacy SentinelX artifacts in stage
-Get-ChildItem -Path $stageDir -Filter "*SentinelX*" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-Get-ChildItem -Path $stageDir -Filter "*sentinelx*" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "Creating clean release stage: $stageDir"
+if (Test-Path $stageDir) {
+    Remove-Item -Recurse -Force $stageDir
+}
+New-Item -ItemType Directory -Force $stageDir | Out-Null
 
-# Root launcher and metadata
-Copy-Item "$cleanRoot\START_ALGOFORTIS.pyw" "$stageDir\" -Force
-Copy-Item "$cleanRoot\algofortis.ico" "$stageDir\" -Force
-Copy-Item "$cleanRoot\algofortis_logo.png" "$stageDir\" -Force
-Copy-Item "$cleanRoot\README.md" "$stageDir\" -Force
+Write-Host "Restoring pinned WebView2 build/runtime inputs..."
+$webViewArgs = @(
+    "-ExecutionPolicy", "Bypass",
+    "-File", "$toolsDir\restore_webview2.ps1",
+    "-Version", $WebView2Version
+)
+if ($ExpectedWebView2PackageSha256) {
+    $webViewArgs += @("-ExpectedPackageSha256", $ExpectedWebView2PackageSha256)
+}
+& powershell.exe @webViewArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "WebView2 staging failed with code $LASTEXITCODE"
+}
 
-# Compile latest native AlgoFortis.exe launcher
-& powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\compile_launcher.ps1"
+Write-Host "Packaging exact Python runtime..."
+& powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\package_python.ps1"
+if ($LASTEXITCODE -ne 0) {
+    throw "Packaged Python staging failed with code $LASTEXITCODE"
+}
 
-# Config
-if (Test-Path "$stageDir\config") { Remove-Item -Recurse -Force "$stageDir\config" }
-Copy-Item -Recurse "$cleanRoot\config" "$stageDir\config"
+foreach ($source in @(
+    "$cleanRoot\START_ALGOFORTIS.pyw",
+    "$cleanRoot\algofortis.ico",
+    "$cleanRoot\algofortis_logo.png",
+    "$cleanRoot\README.md"
+)) {
+    if (-not (Test-Path $source)) {
+        throw "Required product file missing: $source"
+    }
+    Copy-Item $source "$stageDir\" -Force
+}
 
-# Data assets
-if (Test-Path "$stageDir\data") { Remove-Item -Recurse -Force "$stageDir\data" }
-Copy-Item -Recurse "$cleanRoot\data" "$stageDir\data"
+foreach ($dirName in @("config", "data", "engine", "strategies")) {
+    $sourceDir = Join-Path $cleanRoot $dirName
+    if (-not (Test-Path $sourceDir)) {
+        throw "Required product directory missing: $sourceDir"
+    }
+    Copy-Item -Recurse $sourceDir (Join-Path $stageDir $dirName)
+}
 
-# Engine
-if (Test-Path "$stageDir\engine") { Remove-Item -Recurse -Force "$stageDir\engine" }
-Copy-Item -Recurse "$cleanRoot\engine" "$stageDir\engine"
-
-# Strategies
-if (Test-Path "$stageDir\strategies") { Remove-Item -Recurse -Force "$stageDir\strategies" }
-Copy-Item -Recurse "$cleanRoot\strategies" "$stageDir\strategies"
-
-# Dashboard
 $stageDashboard = "$stageDir\dashboard"
-if (Test-Path $stageDashboard) { Remove-Item -Recurse -Force $stageDashboard }
 New-Item -ItemType Directory -Force $stageDashboard | Out-Null
-
-Copy-Item "$cleanRoot\dashboard\__init__.py" "$stageDashboard\"
-Copy-Item -Recurse "$cleanRoot\dashboard\backend" "$stageDashboard\backend"
-Copy-Item -Recurse "$cleanRoot\dashboard\runtime" "$stageDashboard\runtime"
-Copy-Item -Recurse "$cleanRoot\dashboard\shared" "$stageDashboard\shared"
-
-# Web dist
+foreach ($dashboardDir in @("backend", "runtime", "shared")) {
+    $sourceDir = "$cleanRoot\dashboard\$dashboardDir"
+    if (-not (Test-Path $sourceDir)) {
+        throw "Required dashboard directory missing: $sourceDir"
+    }
+    Copy-Item -Recurse $sourceDir "$stageDashboard\$dashboardDir"
+}
+Copy-Item "$cleanRoot\dashboard\__init__.py" "$stageDashboard\" -Force
 New-Item -ItemType Directory -Force "$stageDashboard\web\dist" | Out-Null
-Copy-Item -Recurse "$cleanRoot\dashboard\web\dist\*" "$stageDashboard\web\dist\"
+Copy-Item -Recurse "$webDist\*" "$stageDashboard\web\dist\"
 
-# Clean any pycache in stage
-Get-ChildItem -Path $stageDir -Filter "__pycache__" -Recurse -Directory | Remove-Item -Recurse -Force
-Get-ChildItem -Path $stageDir -Filter "*.pyc" -Recurse -File | Remove-Item -Force
+Write-Host "Compiling unsigned launcher from clean staged WebView2 references..."
+& powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\compile_launcher.ps1"
+if ($LASTEXITCODE -ne 0) {
+    throw "Launcher compilation failed with code $LASTEXITCODE"
+}
 
-Write-Host "Staging complete. Verifying stage contents..."
-Get-ChildItem $stageDir | Select-Object Name, Length, Mode
+Get-ChildItem -Path $stageDir -Filter "__pycache__" -Recurse -Directory -ErrorAction SilentlyContinue |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path $stageDir -Filter "*.pyc" -Recurse -File -ErrorAction SilentlyContinue |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+
+$requiredStageFiles = @(
+    "$stageDir\AlgoFortis.exe",
+    "$stageDir\Microsoft.Web.WebView2.Core.dll",
+    "$stageDir\Microsoft.Web.WebView2.WinForms.dll",
+    "$stageDir\WebView2Loader.dll",
+    "$stageDir\runtime\python\python.exe",
+    "$stageDashboard\web\dist\index.html"
+)
+foreach ($required in $requiredStageFiles) {
+    if (-not (Test-Path $required)) {
+        throw "Release stage incomplete: $required"
+    }
+}
+
+$forbidden = Get-ChildItem -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match "SentinelX" -or $_.Name -match "sentinelx" }
+if ($forbidden) {
+    $names = ($forbidden | ForEach-Object { $_.FullName }) -join "; "
+    throw "Legacy-branded stage artifacts are forbidden: $names"
+}
+
+Write-Host "STAGE_APP=PASS"
+Write-Host "STAGE_LIVE_STATE=READ_ONLY/DISARMED"

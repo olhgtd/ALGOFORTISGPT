@@ -1,46 +1,56 @@
 $ErrorActionPreference = "Stop"
+
 $toolsDir = $PSScriptRoot
 $root = (Resolve-Path "$toolsDir\..\..").Path
 $stage = Join-Path $root "build\stage"
 $r1 = Join-Path $stage "Microsoft.Web.WebView2.Core.dll"
 $r2 = Join-Path $stage "Microsoft.Web.WebView2.WinForms.dll"
 $ico = Join-Path $root "algofortis.ico"
-if (-not (Test-Path $ico)) {
-    $ico = Join-Path $root "sentinelx.ico"
-}
 $cs = Join-Path $toolsDir "AlgoFortisLauncher.cs"
 $out = Join-Path $stage "AlgoFortis.exe"
 
-Write-Host "Compiling AlgoFortis.exe to $out (x64) ..."
+foreach ($required in @($r1, $r2, $ico, $cs)) {
+    if (-not (Test-Path $required)) {
+        throw "Launcher build input missing: $required"
+    }
+}
+
+Write-Host "Compiling unsigned AlgoFortis.exe to $out (x64)..."
 $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) {
-    $csc = "csc.exe"
-}
-& $csc /target:winexe /platform:x64 "/win32icon:$ico" "/r:$r1" "/r:$r2" /r:System.Windows.Forms.dll /r:System.Drawing.dll "/out:$out" "$cs"
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Compilation SUCCESS: AlgoFortis.exe"
-    
-    # Optional Authenticode code signing if certificate environment variable is configured
-    if ($env:SIGNTOOL_CERT_PATH -and (Test-Path $env:SIGNTOOL_CERT_PATH)) {
-        Write-Host "Signing $out with Authenticode certificate..."
-        $signtoolArgs = @("sign", "/fd", "SHA256", "/f", $env:SIGNTOOL_CERT_PATH)
-        if ($env:SIGNTOOL_CERT_PASSWORD) {
-            $signtoolArgs += @("/p", $env:SIGNTOOL_CERT_PASSWORD)
-        }
-        if ($env:SIGNTOOL_TIMESTAMP_URL) {
-            $signtoolArgs += @("/tr", $env:SIGNTOOL_TIMESTAMP_URL, "/td", "SHA256")
-        }
-        $signtoolArgs += $out
-        & signtool.exe @signtoolArgs
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "Authenticode signing succeeded for AlgoFortis.exe"
-        } else {
-            Write-Warning "Authenticode signing failed with exit code $LASTEXITCODE"
-        }
+    $resolved = Get-Command "csc.exe" -ErrorAction SilentlyContinue
+    if (-not $resolved) {
+        throw "C# compiler not found."
     }
-    
-    Get-Item $out | Select-Object Name, Length, LastWriteTime
-} else {
-    Write-Error "Compilation FAILED with exit code $LASTEXITCODE"
+    $csc = $resolved.Source
 }
+
+$args = @(
+    "/nologo",
+    "/target:winexe",
+    "/platform:x64",
+    "/optimize+",
+    "/win32icon:$ico",
+    "/r:$r1",
+    "/r:$r2",
+    "/r:System.Windows.Forms.dll",
+    "/r:System.Drawing.dll",
+    "/out:$out",
+    $cs
+)
+& $csc @args
+if ($LASTEXITCODE -ne 0) {
+    throw "AlgoFortis launcher compilation failed with code $LASTEXITCODE"
+}
+if (-not (Test-Path $out)) {
+    throw "Launcher compiler reported success but output is missing: $out"
+}
+
+$signature = Get-AuthenticodeSignature -FilePath $out
+if ($signature.Status -eq "Valid") {
+    throw "Launcher unexpectedly arrived pre-signed. Signing authority belongs only to build_installer.ps1."
+}
+
+Write-Host "LAUNCHER_COMPILE=PASS"
+Write-Host "LAUNCHER_SIGNING_STATE=UNSIGNED_EXPECTED"
+Get-Item $out | Select-Object Name, Length

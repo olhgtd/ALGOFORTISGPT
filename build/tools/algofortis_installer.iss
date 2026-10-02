@@ -1,7 +1,13 @@
 #define MyAppName "AlgoFortis"
-#define MyAppVersion "9.0.0"
-#define MyAppPublisher "AlgoFortis"
-#define MyAppURL "https://app.algofortis.com"
+#ifndef MyAppVersion
+  #define MyAppVersion "9.0.0"
+#endif
+#ifndef MyAppPublisher
+  #define MyAppPublisher "AlgoFortis"
+#endif
+#ifndef MyAppURL
+  #define MyAppURL "https://example.invalid/algofortis"
+#endif
 #define MyAppExeName "AlgoFortis.exe"
 
 [Setup]
@@ -37,7 +43,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\stage\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+#ifdef WebViewBootstrapperPath
+Source: "{#WebViewBootstrapperPath}"; DestDir: "{tmp}"; DestName: "MicrosoftEdgeWebview2Setup.exe"; Flags: deleteafterinstall
+#endif
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\algofortis.ico"
@@ -57,6 +65,18 @@ begin
             RegQueryStringValue(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', pv);
   if Result and (pv = '') then
     Result := False;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+#ifndef WebViewBootstrapperPath
+  if not IsWebView2Installed then
+  begin
+    MsgBox('Microsoft Edge WebView2 Runtime is required. This qualification package does not bundle the runtime bootstrapper.', mbError, MB_OK);
+    Result := False;
+  end;
+#endif
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -79,7 +99,16 @@ begin
   begin
     if not IsWebView2Installed then
     begin
-      Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+#ifdef WebViewBootstrapperPath
+      if not Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+        RaiseException('WebView2 Runtime bootstrapper could not be started.');
+      if ResultCode <> 0 then
+        RaiseException(Format('WebView2 Runtime bootstrapper failed with code %d.', [ResultCode]));
+      if not IsWebView2Installed then
+        RaiseException('WebView2 Runtime is still unavailable after bootstrapper execution.');
+#else
+      RaiseException('WebView2 Runtime is unavailable.');
+#endif
     end;
   end;
 end;
