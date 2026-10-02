@@ -47,6 +47,18 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertIn('Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"', source)
         self.assertIn("User data in LOCALAPPDATA was destroyed by uninstaller", source)
 
+    def test_private_windows_build_workflow_produces_qualified_installer_artifact(self):
+        workflow = ROOT / ".github" / "workflows" / "local-private-desktop.yml"
+        self.assertTrue(workflow.exists(), "Local-private Windows build workflow is missing")
+        source = workflow.read_text(encoding="utf-8")
+        self.assertIn("build/tools/build_installer.ps1", source)
+        self.assertIn("tests_v1/test_local_private_desktop_behavior.py", source)
+        self.assertIn("build/tools/certify_desktop_shell.py", source)
+        self.assertIn("build/tools/certify_phase9_phase10_installation.py", source)
+        self.assertIn("build/installer/AlgoFortis-Setup.exe", source)
+        self.assertIn("actions/upload-artifact@v4", source)
+        self.assertIn("LIVE_STATE=READ_ONLY/DISARMED", source)
+
 
 if __name__ == "__main__":
     unittest.main()
