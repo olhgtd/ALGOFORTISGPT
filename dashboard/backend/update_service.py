@@ -17,7 +17,7 @@ import enum
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
 from dashboard.backend.account_v2.policy_seams import (
@@ -56,6 +56,20 @@ class UpdateApplyDecision:
     allowed: bool
     reason: str
     auto_arm_live: bool = False
+
+
+@dataclass(frozen=True)
+class UpdateTransactionResult:
+    applied: bool
+    rolled_back: bool
+    reason: str
+    auto_arm_live: bool = False
+
+
+RollbackCapture = Callable[[], Any]
+InstallerApply = Callable[[bytes, UpdateManifest], None]
+PostUpdateHealthCheck = Callable[[UpdateManifest], bool]
+RollbackRestore = Callable[[Any], None]
 
 
 class UpdateService:
@@ -222,5 +236,87 @@ class UpdateService:
         return UpdateApplyDecision(
             allowed=decision.allowed,
             reason=decision.reason,
+            auto_arm_live=False,
+        )
+
+    def apply_verified_update(
+        self,
+        manifest: UpdateManifest,
+        policy: UpdateSafeWindowPolicy | None,
+        *,
+        engine_state: str,
+        has_open_positions: bool,
+        installer_bytes: bytes,
+        capture_rollback: RollbackCapture,
+        apply_installer: InstallerApply,
+        post_update_health_check: PostUpdateHealthCheck,
+        restore_rollback: RollbackRestore,
+    ) -> UpdateTransactionResult:
+        """Apply a verified update transaction with automatic rollback.
+
+        The safe-window decision happens before artifact verification or any
+        install callback. A rollback checkpoint must be captured before the
+        installer may mutate the application. Any install or post-update
+        verification failure attempts rollback and never auto-arms Live.
+        """
+        decision = self.evaluate_apply_decision(
+            manifest,
+            policy,
+            engine_state=engine_state,
+            has_open_positions=has_open_positions,
+        )
+        if not decision.allowed:
+            return UpdateTransactionResult(
+                applied=False,
+                rolled_back=False,
+                reason=decision.reason,
+                auto_arm_live=False,
+            )
+
+        try:
+            self.verify_installer_payload(installer_bytes, manifest)
+        except Exception:
+            return UpdateTransactionResult(
+                applied=False,
+                rolled_back=False,
+                reason="UPDATE_ARTIFACT_VERIFICATION_FAILED",
+                auto_arm_live=False,
+            )
+
+        try:
+            rollback_token = capture_rollback()
+        except Exception:
+            return UpdateTransactionResult(
+                applied=False,
+                rolled_back=False,
+                reason="ROLLBACK_CAPTURE_FAILED",
+                auto_arm_live=False,
+            )
+
+        try:
+            apply_installer(installer_bytes, manifest)
+            if not bool(post_update_health_check(manifest)):
+                raise RuntimeError("POST_UPDATE_HEALTH_CHECK_FAILED")
+        except Exception:
+            try:
+                restore_rollback(rollback_token)
+            except Exception:
+                return UpdateTransactionResult(
+                    applied=False,
+                    rolled_back=False,
+                    reason="UPDATE_FAILED_ROLLBACK_FAILED",
+                    auto_arm_live=False,
+                )
+            return UpdateTransactionResult(
+                applied=False,
+                rolled_back=True,
+                reason="UPDATE_FAILED_ROLLED_BACK",
+                auto_arm_live=False,
+            )
+
+        return UpdateTransactionResult(
+            applied=True,
+            rolled_back=False,
+            reason="UPDATE_APPLIED_VERIFIED",
             auto_arm_live=False,
         )
