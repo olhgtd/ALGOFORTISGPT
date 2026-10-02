@@ -6,7 +6,7 @@
   #define MyAppPublisher "AlgoFortis"
 #endif
 #ifndef MyAppURL
-  #define MyAppURL "https://app.algofortis.com"
+  #define MyAppURL "https://example.invalid/algofortis"
 #endif
 #define MyAppExeName "AlgoFortis.exe"
 
