@@ -1,0 +1,204 @@
+name: V2 Phase 10 S3 Technical Release Qualification
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFIED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  dev-smoke-ubuntu:
+    name: S3 development smoke (not G10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$QUALIFIED_HEAD"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile S3 Python
+        run: python -m compileall -q dashboard/backend/update_service.py dashboard/backend/entitlement_service.py dashboard/backend/telemetry_service.py build/tools/check_s3_release_qualification.py build/tools/s3_release_probe.py tests_v1/test_s3_release_qualification.py
+      - name: S3 static release firewall
+        run: python build/tools/check_s3_release_qualification.py
+      - name: S3 focused tests
+        run: |
+          python -m pytest             tests_v1/test_area3_installer_update_lifecycle.py             tests_v1/test_architectural_foundations.py             tests_v1/test_s2_policy_seams.py             tests_v1/test_s3_release_qualification.py -q
+      - name: Deterministic S3 evidence
+        run: python build/tools/s3_release_probe.py
+
+  s3-windows:
+    name: S3 deterministic / ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_HEAD) { throw "Expected $env:QUALIFIED_HEAD but checked out $actual" }
+          Write-Host "S3_TESTED_HEAD=$actual"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+      - name: Install test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: S3 static release firewall
+        run: python build/tools/check_s3_release_qualification.py
+      - name: S3 focused tests
+        shell: pwsh
+        run: |
+          python -m pytest tests_v1/test_area3_installer_update_lifecycle.py tests_v1/test_architectural_foundations.py tests_v1/test_s2_policy_seams.py tests_v1/test_s3_release_qualification.py -q
+      - name: Validate installer build script parses
+        shell: pwsh
+        run: |
+          $null = [scriptblock]::Create((Get-Content build/tools/build_installer.ps1 -Raw))
+          Write-Host "INSTALLER_PS_SYNTAX=PASS"
+      - name: Write deterministic S3 evidence
+        shell: pwsh
+        run: |
+          "S3_TESTED_HEAD=$env:QUALIFIED_HEAD" | Set-Content -Encoding utf8 s3.txt
+          python build/tools/s3_release_probe.py | Add-Content -Encoding utf8 s3.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: s3-${{ matrix.os }}
+          path: s3.txt
+
+  phase10-preservation:
+    name: Phase 0-9 preservation / Windows latest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+      - name: Assert exact implementation head
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:QUALIFIED_HEAD) { throw "Expected $env:QUALIFIED_HEAD but checked out $actual" }
+          Write-Host "PHASE10_PRESERVATION_HEAD=$actual"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile complete Python source tree
+        run: python -m compileall -q engine dashboard build tests_v1 strategies
+      - name: Preserve all current static and safety gates
+        shell: pwsh
+        run: |
+          $guards = @(
+            'build/tools/check_module_boundaries.py',
+            'build/tools/check_phase1_foundation.py',
+            'build/tools/check_phase2_safety_spine.py',
+            'build/tools/check_phase3_data_v2.py',
+            'build/tools/check_phase4_research_backtest.py',
+            'build/tools/check_phase5_paper_recovery.py',
+            'build/tools/check_phase6_live_readonly.py',
+            'build/tools/check_phase7_portfolio_risk.py',
+            'build/tools/check_phase8_ai_shadow.py',
+            'build/tools/check_phase9_product_ops.py',
+            'build/tools/check_live_reunion_boundary.py',
+            'build/tools/check_riskgate_fast_path_boundary.py',
+            'build/tools/check_owner_admin_boundary.py',
+            'build/tools/check_s2_account_gate.py',
+            'build/tools/check_s3_release_qualification.py'
+          )
+          foreach ($guard in $guards) {
+            Write-Host "=== $guard ==="
+            python $guard
+            if ($LASTEXITCODE -ne 0) { throw "$guard failed with exit code $LASTEXITCODE" }
+          }
+      - name: Full Python regression
+        run: python -m pytest tests_v1 -q
+      - name: Existing regression certification
+        run: python build/tools/run_regression_certification.py
+      - name: Preserve deterministic phase probes
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = (Get-Location).Path
+          $probes = @(
+            'build/tools/phase4_probe.py',
+            'build/tools/phase5_probe.py',
+            'build/tools/phase6_probe.py',
+            'build/tools/phase7_probe.py',
+            'build/tools/phase8_ai_probe.py',
+            'build/tools/phase9_product_ops_probe.py',
+            'build/tools/s2_deterministic_probe.py',
+            'build/tools/s3_release_probe.py'
+          )
+          foreach ($probe in $probes) {
+            Write-Host "=== $probe ==="
+            python $probe
+            if ($LASTEXITCODE -ne 0) { throw "$probe failed with exit code $LASTEXITCODE" }
+          }
+      - name: Validate release packaging script syntax
+        shell: pwsh
+        run: |
+          $null = [scriptblock]::Create((Get-Content build/tools/build_installer.ps1 -Raw))
+          Write-Host "INSTALLER_PS_SYNTAX=PASS"
+      - name: Install root Node package
+        run: npm ci
+      - name: Root dependency security audit
+        run: npm audit --audit-level=high
+      - name: Install dashboard package
+        run: npm ci --prefix dashboard/web
+      - name: Dashboard dependency security audit
+        run: npm audit --prefix dashboard/web --audit-level=high
+      - name: Dashboard tests
+        run: npm --prefix dashboard/web run test:user-dashboard
+      - name: Dashboard typecheck
+        run: npm run typecheck
+      - name: Dashboard production build
+        run: npm run build
+
+  compare:
+    name: S3 exact cross-Windows compare (G10 remains blocked)
+    runs-on: ubuntu-latest
+    needs: [s3-windows, phase10-preservation]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: s3-windows-latest
+          path: latest
+      - uses: actions/download-artifact@v4
+        with:
+          name: s3-windows-2022
+          path: win2022
+      - name: Require identical S3 evidence
+        shell: bash
+        run: |
+          diff <(tr -d '\r' < latest/s3.txt) <(tr -d '\r' < win2022/s3.txt)
+          grep -F "S3_TESTED_HEAD=$QUALIFIED_HEAD" latest/s3.txt
+          grep -F "LIVE_STATE=READ_ONLY/DISARMED" latest/s3.txt
+          grep -F "G10_REAL_MONEY_ENABLEMENT=NO" latest/s3.txt
+          echo "S3_CROSS_WINDOWS_COMPARE=PASS"
+          echo "PHASE0_9_PRESERVATION=PASS"
+          echo "G10_RELEASE_GATE=BLOCKED"
