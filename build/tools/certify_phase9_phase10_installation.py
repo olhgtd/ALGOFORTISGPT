@@ -18,6 +18,22 @@ opener = build_opener(ProxyHandler({}))
 def log(msg):
     print(f"[INSTALL CERT] {msg}")
 
+def close_main_window(proc, timeout=35):
+    ps_script = (
+        f"$p = Get-Process -Id {proc.pid} -ErrorAction Stop; "
+        "if (-not $p.CloseMainWindow()) { exit 2 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"CloseMainWindow() failed for PID {proc.pid}: "
+        f"{result.stdout} {result.stderr}"
+    )
+    proc.wait(timeout=timeout)
+
 def check_shortcuts():
     desktop_dirs = [
         Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "Desktop",
@@ -81,7 +97,7 @@ def run_installed_app():
     python_exe = install_dir / "runtime" / "python" / "python.exe"
     
     # Check status via installed python controller
-    cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     
     deadline = time.monotonic() + 30
     ready_info = None
@@ -108,21 +124,22 @@ def run_installed_app():
     with opener.open(req_index) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="sentinelx-runtime" content="PRODUCTION"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
         assert "<title>AlgoFortis</title>" in html or "AlgoFortis" in html
-        log("  PASS: Installed production frontend loaded cleanly from Program Files dist with AlgoFortis branding.")
+        log("  PASS: Installed local-private frontend loaded cleanly from Program Files dist with AlgoFortis branding.")
 
     # Test HTTP runtime status
     req_status = Request(f"{url}api/v1/runtime/status")
     with opener.open(req_status) as resp:
         assert resp.status == 200
         status_data = json.loads(resp.read().decode("utf-8"))
-        assert status_data["mode"] == "PRODUCTION"
+        assert status_data["mode"] == "LOCAL_PRIVATE"
         assert status_data["live_execution"] == "DISARMED"
-        assert status_data["local_auth_transport"] == "UNAVAILABLE"
+        assert status_data["local_auth_transport"] == "CONFIGURED"
         assert status_data["roaming_identity"] == "UNAVAILABLE"
-        assert status_data["identity"] == "LOCAL_WEBAUTHN"
-        log("  PASS: Installed runtime status truthful: PRODUCTION mode, DISARMED execution.")
+        assert status_data["identity"] == "LOCAL_PRIVATE"
+        assert status_data["device_authority"] == "LOCAL_AUTHORITY"
+        log("  PASS: Installed runtime status truthful: LOCAL_PRIVATE mode, DISARMED execution.")
 
     # Phase 10: Installed Functional Smoke
     log("Executing Phase 10 Installed Functional Smoke checks...")
@@ -135,14 +152,20 @@ def run_installed_app():
     assert "ORB_STRATEGY_OK" in orb_check.stdout, f"Failed to import installed ORB strategy: {orb_check.stderr}"
     log("  PASS: Institutional ORB strategy verified in installed package.")
 
-    # 2. Historical parquet data cache
-    nifty_parquet = install_dir / "data" / "parquet" / "NIFTY"
-    assert nifty_parquet.exists(), "NIFTY parquet data directory missing in installation!"
-    log("  PASS: Historical parquet dataset verified in installed package.")
+    # 2. Packaged data workspace. Historical market datasets are user/import
+    # inputs and must not be invented by the installer qualification.
+    packaged_data_dirs = (
+        install_dir / "data" / "parquet",
+        install_dir / "data" / "incoming",
+        install_dir / "data" / "quarantine",
+    )
+    for data_dir in packaged_data_dirs:
+        assert data_dir.exists(), f"Packaged data workspace missing: {data_dir}"
+    log("  PASS: Packaged parquet/import/quarantine data workspace verified.")
 
-    # 3. Production Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
+    # 3. Local-Private Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
-    assert localappdata.exists(), f"Production data root {localappdata} was not created!"
+    assert localappdata.exists(), f"Local-private data root {localappdata} was not created!"
     assert (localappdata / "databases" / "security" / "sentinelx_security.sqlite3").exists(), "Security database missing!"
     assert (localappdata / "databases" / "governance" / "sentinelx_governance.sqlite3").exists(), "Governance database missing!"
     assert (localappdata / "databases" / "core-audit.sqlite3").exists(), "Core audit database missing!"
@@ -165,11 +188,13 @@ def run_installed_app():
     assert data_dup["state"] == "READY"
     assert data_dup["instance_id"] == instance_id, "Instance ID changed on duplicate launch!"
     assert data_dup["pid"] == pid, "Duplicate backend was spawned!"
+    proc2.wait(timeout=5)
+    assert proc2.returncode == 0, "Duplicate launcher invocation did not exit cleanly"
     log("  PASS: Duplicate launch safely detected; existing backend reused.")
 
     # 5. Lifecycle A: In-place backend stop & reconnect while GUI remains alive
     log("Testing Lifecycle A: In-place backend stop and reconnect...")
-    stop_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    stop_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
     time.sleep(1)
     res_stopped = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
@@ -178,7 +203,7 @@ def run_installed_app():
 
     # Restart backend through supported RuntimeController mechanism
     log("Restarting backend via RuntimeController mechanism...")
-    start_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "start", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    start_cmd = [str(python_exe), "-m", "dashboard.runtime.controller", "start", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     res_restarted = subprocess.run(start_cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True, check=True)
     data_restarted = json.loads(res_restarted.stdout.strip())
     assert data_restarted.get("state") == "READY", f"Backend failed to start: {res_restarted.stdout}"
@@ -192,26 +217,30 @@ def run_installed_app():
         assert resp.status == 200
         status_reconnected = json.loads(resp.read().decode("utf-8"))
         assert status_reconnected["state"] == "READY"
-        assert status_reconnected["mode"] == "PRODUCTION"
+        assert status_reconnected["mode"] == "LOCAL_PRIVATE"
         assert status_reconnected["live_execution"] == "DISARMED"
     log("  PASS: Existing GUI client reconnected successfully to restarted backend.")
 
     # 6. Lifecycle B: Full application close and cold relaunch
     log("Testing Lifecycle B: Full application close and cold relaunch...")
-    # Gracefully close the original AlgoFortis GUI process
-    try:
-        proc.terminate()
-        proc.wait(timeout=10)
-    except Exception:
-        pass
+    # Exercise the real WinForms close path. FormClosing must stop the
+    # owned LOCAL_PRIVATE backend without an external controller stop.
+    close_main_window(proc)
     assert proc.poll() is not None, "Original AlgoFortis GUI process did not terminate!"
-    log("  PASS: Original AlgoFortis GUI process closed gracefully.")
-
-    # Stop backend to ensure cold state before relaunch
-    subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
-    time.sleep(1)
-    res_cold = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
-    assert json.loads(res_cold.stdout.strip())["state"] == "UNAVAILABLE"
+    deadline = time.monotonic() + 30
+    backend_stopped = False
+    while time.monotonic() < deadline:
+        res_cold = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
+        if res_cold.returncode == 0:
+            try:
+                if json.loads(res_cold.stdout.strip()).get("state") == "UNAVAILABLE":
+                    backend_stopped = True
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
+    assert backend_stopped, "backend did not stop after GUI close"
+    log("  PASS: Real GUI close stopped the owned LOCAL_PRIVATE backend.")
 
     # Relaunch installed AlgoFortis.exe
     log("Relaunching installed AlgoFortis.exe from cold state...")
@@ -239,18 +268,25 @@ def run_installed_app():
     with opener.open(req_index_relaunch) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="sentinelx-runtime" content="PRODUCTION"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
         log("  PASS: Relaunched frontend loaded cleanly from Program Files dist.")
 
-    # Gracefully close reopened application and stop backend before uninstallation
-    try:
-        proc_reopened.terminate()
-        proc_reopened.wait(timeout=10)
-    except Exception:
-        pass
-    subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
-    time.sleep(1)
-    log("Application closed and backend stopped cleanly before uninstallation.")
+    # Gracefully close reopened application; the window close path owns shutdown.
+    close_main_window(proc_reopened)
+    deadline = time.monotonic() + 30
+    reopened_backend_stopped = False
+    while time.monotonic() < deadline:
+        res_closed = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
+        if res_closed.returncode == 0:
+            try:
+                if json.loads(res_closed.stdout.strip()).get("state") == "UNAVAILABLE":
+                    reopened_backend_stopped = True
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
+    assert reopened_backend_stopped, "backend did not stop after GUI close"
+    log("Application closed and owned backend stopped cleanly before uninstallation.")
 
 def run_uninstall_and_verify():
     log("Testing clean uninstallation...")

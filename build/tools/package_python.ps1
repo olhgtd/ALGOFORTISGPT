@@ -105,10 +105,19 @@ import fastapi, starlette, uvicorn, fido2, cryptography
 print("PACKAGED_PYTHON_VERSION=" + platform.python_version())
 print("ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY")
 "@
-$result = & "$stagePython\python.exe" -c $verifyScript
-Write-Host $result
-if ($LASTEXITCODE -ne 0 -or $result -notmatch "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY") {
-    throw "Packaged Python verification failed"
+$verifyScriptPath = Join-Path $stagePython "verify-packaged-python.py"
+$verifyScript | Set-Content -Encoding utf8 $verifyScriptPath
+try {
+    $result = & "$stagePython\python.exe" $verifyScriptPath
+    $verifyExitCode = $LASTEXITCODE
+    Write-Host $result
+    $verificationMarker = "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY"
+    if ($verifyExitCode -ne 0 -or $result -notcontains $verificationMarker) {
+        throw "Packaged Python verification failed"
+    }
+}
+finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $verifyScriptPath
 }
 
 Get-ChildItem -Path $stagePython -Filter "__pycache__" -Recurse -Directory -ErrorAction SilentlyContinue |

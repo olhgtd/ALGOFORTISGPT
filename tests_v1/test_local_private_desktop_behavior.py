@@ -1,0 +1,92 @@
+"""Regression contract for the private/local AlgoFortis Windows desktop build.
+
+The installed launcher already starts LOCAL_PRIVATE.  All desktop/install
+certification must exercise that exact mode rather than PRODUCTION so the
+qualification matches what the user double-clicks on a personal/family PC.
+"""
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class TestLocalPrivateDesktopBehavior(unittest.TestCase):
+    def _read(self, relative: str) -> str:
+        return (ROOT / relative).read_text(encoding="utf-8")
+
+    def test_launcher_uses_local_private_runtime(self):
+        source = self._read("build/tools/AlgoFortisLauncher.cs")
+        self.assertIn("--mode LOCAL_PRIVATE", source)
+        self.assertIn('RunController("stop")', source)
+        self.assertIn("Global\\\\AlgoFortis_Desktop_App_Instance_Mutex", source)
+
+    def test_installer_lifecycle_targets_local_private(self):
+        source = self._read("build/tools/algofortis_installer.iss")
+        self.assertGreaterEqual(source.count("--mode LOCAL_PRIVATE"), 2)
+
+    def test_desktop_shell_certification_matches_local_private_runtime(self):
+        source = self._read("build/tools/certify_desktop_shell.py")
+        self.assertNotIn('"--mode", "PRODUCTION"', source)
+        self.assertIn('"--mode", "LOCAL_PRIVATE"', source)
+
+    def test_phase9_phase10_install_certification_matches_local_private_runtime(self):
+        source = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertNotIn('"--mode", "PRODUCTION"', source)
+        self.assertIn('"--mode", "LOCAL_PRIVATE"', source)
+        self.assertIn('content="LOCAL_PRIVATE"', source)
+        self.assertIn('status_data["mode"] == "LOCAL_PRIVATE"', source)
+        self.assertIn('status_data["local_auth_transport"] == "CONFIGURED"', source)
+        self.assertIn('status_data["identity"] == "LOCAL_PRIVATE"', source)
+        self.assertIn('status_data["device_authority"] == "LOCAL_AUTHORITY"', source)
+
+    def test_certification_uses_real_window_close_not_force_terminate(self):
+        shell = self._read("build/tools/certify_desktop_shell.py")
+        lifecycle = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertIn("CloseMainWindow()", shell)
+        self.assertIn("CloseMainWindow()", lifecycle)
+        self.assertNotIn("proc.terminate()", shell)
+        self.assertNotIn("proc.terminate()", lifecycle)
+        self.assertNotIn("proc_reopened.terminate()", lifecycle)
+        self.assertIn("backend did not stop after GUI close", lifecycle)
+
+    def test_manual_launch_probe_matches_local_private_runtime(self):
+        source = self._read("build/tools/test_launch.ps1")
+        self.assertNotIn("--mode PRODUCTION", source)
+        self.assertIn("--mode LOCAL_PRIVATE", source)
+
+    def test_install_certifies_packaged_data_layout_without_inventing_market_history(self):
+        source = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertNotIn('install_dir / "data" / "parquet" / "NIFTY"', source)
+        self.assertIn('install_dir / "data" / "parquet"', source)
+        self.assertIn('install_dir / "data" / "incoming"', source)
+        self.assertIn('install_dir / "data" / "quarantine"', source)
+
+    def test_private_installer_keeps_user_data_outside_program_files(self):
+        source = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertIn('Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"', source)
+        self.assertIn("User data in LOCALAPPDATA was destroyed by uninstaller", source)
+
+    def test_private_windows_build_workflow_produces_qualified_installer_artifact(self):
+        workflow = ROOT / ".github" / "workflows" / "local-private-desktop.yml"
+        self.assertTrue(workflow.exists(), "Local-private Windows build workflow is missing")
+        source = workflow.read_text(encoding="utf-8")
+        self.assertIn("build/tools/build_installer.ps1", source)
+        self.assertIn("tests_v1/test_local_private_desktop_behavior.py", source)
+        self.assertIn("build/tools/certify_desktop_shell.py", source)
+        self.assertIn("build/tools/certify_phase9_phase10_installation.py", source)
+        self.assertIn("build/installer/AlgoFortis-Setup.exe", source)
+        self.assertIn("actions/upload-artifact@v4", source)
+        self.assertIn("LIVE_STATE=READ_ONLY/DISARMED", source)
+
+    def test_packaged_python_verification_uses_script_file_not_native_c_quoting(self):
+        source = self._read("build/tools/package_python.ps1")
+        self.assertNotIn('-c $verifyScript', source)
+        self.assertIn("verify-packaged-python.py", source)
+        self.assertIn("Set-Content -Encoding utf8", source)
+        self.assertIn('$result -notcontains $verificationMarker', source)
+        self.assertNotIn('$result -notmatch "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY"', source)
+
+
+if __name__ == "__main__":
+    unittest.main()
