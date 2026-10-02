@@ -27,6 +27,12 @@ jobs:
           python -m pip install -r requirements-test.in
       - name: Static product ops firewall
         run: python build/tools/check_phase9_product_ops.py
+      - name: S3 release firewall
+        run: python build/tools/check_s3_release_qualification.py
+      - name: S3 focused tests
+        run: python -m pytest tests_v1/test_area3_installer_update_lifecycle.py tests_v1/test_architectural_foundations.py tests_v1/test_s2_policy_seams.py tests_v1/test_s3_release_qualification.py -q
+      - name: S3 deterministic evidence
+        run: python build/tools/s3_release_probe.py
       - name: Phase 9 focused tests
         run: python -m pytest tests_v1/test_phase9_*.py -q
       - name: Deterministic development evidence
@@ -58,6 +64,12 @@ jobs:
       - name: Static product ops firewall
         shell: pwsh
         run: python build/tools/check_phase9_product_ops.py
+      - name: S3 release firewall
+        shell: pwsh
+        run: python build/tools/check_s3_release_qualification.py
+      - name: S3 focused tests
+        shell: pwsh
+        run: python -m pytest tests_v1/test_area3_installer_update_lifecycle.py tests_v1/test_architectural_foundations.py tests_v1/test_s2_policy_seams.py tests_v1/test_s3_release_qualification.py -q
       - name: Phase 9 focused tests
         shell: pwsh
         run: |
@@ -69,6 +81,7 @@ jobs:
         run: |
           "G9_TESTED_HEAD=$env:QUALIFIED_HEAD" | Set-Content -Encoding utf8 g9.txt
           python build/tools/phase9_product_ops_probe.py | Add-Content -Encoding utf8 g9.txt
+          python build/tools/s3_release_probe.py | Add-Content -Encoding utf8 g9.txt
       - uses: actions/upload-artifact@v4
         with:
           name: g9-${{ matrix.os }}
@@ -116,7 +129,8 @@ jobs:
             'build/tools/check_live_reunion_boundary.py',
             'build/tools/check_riskgate_fast_path_boundary.py',
             'build/tools/check_owner_admin_boundary.py',
-            'build/tools/check_s2_account_gate.py'
+            'build/tools/check_s2_account_gate.py',
+            'build/tools/check_s3_release_qualification.py'
           )
           foreach ($guard in $guards) {
             Write-Host "=== $guard ==="
@@ -138,7 +152,8 @@ jobs:
             'build/tools/phase7_probe.py',
             'build/tools/phase8_ai_probe.py',
             'build/tools/phase9_product_ops_probe.py',
-            'build/tools/s2_deterministic_probe.py'
+            'build/tools/s2_deterministic_probe.py',
+            'build/tools/s3_release_probe.py'
           )
           foreach ($probe in $probes) {
             Write-Host "=== $probe ==="
@@ -174,6 +189,12 @@ jobs:
         run: |
           diff <(tr -d '\r' < latest/g9.txt) <(tr -d '\r' < win2022/g9.txt)
           grep -F "G9_TESTED_HEAD=$QUALIFIED_HEAD" latest/g9.txt
+          grep -F "S3_SIGNED_UPDATE=PASS" latest/g9.txt
+          grep -F "S3_UPDATE_SAFE_WINDOW=PASS" latest/g9.txt
+          grep -F "S3_ENTITLEMENT_TIME=PASS" latest/g9.txt
+          grep -F "LIVE_STATE=READ_ONLY/DISARMED" latest/g9.txt
           echo 'G9_CROSS_WINDOWS_COMPARE=PASS'
+          echo 'S3_CROSS_WINDOWS_COMPARE=PASS'
+          echo 'G10_RELEASE_GATE=BLOCKED'
           echo 'G9_FULL_REPOSITORY_PRESERVATION=PASS'
           echo 'G9_DASHBOARD_QUALIFICATION=PASS'
