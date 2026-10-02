@@ -21,6 +21,45 @@ from dashboard.runtime.paths import (
 def log(msg):
     print(f"[PHASE 7 ACL] {msg}")
 
+
+def _grant_everyone_access(target: Path, rights: str) -> None:
+    """Inject a deliberate broad ACL rule using the well-known Everyone SID.
+
+    Use the same SID-based, non-interactive PowerShell shape as CurrentUserAcl
+    so certification is independent of localized account-name translation.
+    """
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$target = $env:ALGOFORTIS_ACL_CERT_TARGET
+$rightsName = $env:ALGOFORTIS_ACL_CERT_RIGHTS
+$everyone = [Security.Principal.SecurityIdentifier]'S-1-1-0'
+$rights = [Enum]::Parse([Security.AccessControl.FileSystemRights], $rightsName)
+$inheritance = [Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit'
+$propagation = [Security.AccessControl.PropagationFlags]::None
+$allow = [Security.AccessControl.AccessControlType]::Allow
+$acl = Get-Acl -LiteralPath $target
+$rule = New-Object Security.AccessControl.FileSystemAccessRule($everyone, $rights, $inheritance, $propagation, $allow)
+$acl.AddAccessRule($rule)
+Set-Acl -LiteralPath $target -AclObject $acl
+'''
+    env = {
+        **os.environ,
+        "ALGOFORTIS_ACL_CERT_TARGET": str(target),
+        "ALGOFORTIS_ACL_CERT_RIGHTS": rights,
+    }
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise AssertionError(
+            "failed to inject broad Everyone ACL for certification "
+            f"(exit={result.returncode}, stdout={result.stdout!r}, stderr={result.stderr!r})"
+        )
+
 def test_acl_clean_install_isolated():
     log("Test 1: Testing CurrentUserAcl creation and strict validation in isolated directory...")
     with tempfile.TemporaryDirectory(prefix="sentinelx_acl_test_") as tmp:
@@ -35,13 +74,7 @@ def test_acl_clean_install_isolated():
 
         # Test broad permissions fail-closed
         log("Test 2: Verifying broad permissions fail-closed (Everyone grant)...")
-        broad_script = f"""
-        $acl = Get-Acl -LiteralPath '{target}'
-        $rule = New-Object Security.AccessControl.FileSystemAccessRule('Everyone', 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-        $acl.AddAccessRule($rule)
-        Set-Acl -LiteralPath '{target}' -AclObject $acl
-        """
-        subprocess.run(["powershell.exe", "-NoProfile", "-Command", broad_script], check=True, capture_output=True)
+        _grant_everyone_access(target, "ReadAndExecute")
         assert not acl.validate(target), "ACL validator did not reject broad 'Everyone' grant!"
         log("  PASS: Broad permission (Everyone) rejected fail-closed.")
 
@@ -62,13 +95,7 @@ def test_test_override_cannot_weaken_production():
         assert paths.root.exists()
         
         # Now corrupt the ACL on paths.root with an unauthorized group
-        corrupt_script = f"""
-        $acl = Get-Acl -LiteralPath '{paths.root}'
-        $rule = New-Object Security.AccessControl.FileSystemAccessRule('Everyone', 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-        $acl.AddAccessRule($rule)
-        Set-Acl -LiteralPath '{paths.root}' -AclObject $acl
-        """
-        subprocess.run(["powershell.exe", "-NoProfile", "-Command", corrupt_script], check=True, capture_output=True)
+        _grant_everyone_access(paths.root, "FullControl")
         
         # Now attempt prepare() again with SENTINELX_TEST_ALLOW_INSECURE_ACL=1 still set
         failed = False
