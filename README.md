@@ -1,22 +1,32 @@
-# SentinelX — Algorithmic Trading Platform
+# AlgoFortis — Trading Research & Risk Platform
 
-SentinelX is a professional institutional algorithmic trading and portfolio risk management platform engineered for Windows with fail-closed security and private NTFS ACL runtime isolation.
+AlgoFortis is a Windows-focused trading research, backtest, paper-trading, portfolio-risk, and governance platform with fail-closed safety boundaries and private per-user runtime isolation.
+
+The current product name is **AlgoFortis**. `SentinelX` names that remain in explicitly historical V1 artifacts are retained only for compatibility/history and are not the current product identity.
+
+For document precedence and the current relationship between baseline V2 documents, frozen Owner Decisions/ADRs, historical G8 evidence, and the AI/Laya redesign, see `docs/v2/CANONICAL_DOCUMENT_STATUS.md`.
 
 ## Architecture Layout
 
 - `dashboard/`: FastAPI runtime backend, authenticated owner/user visual control centers, and Vite/React web client.
-- `engine/`: Modular trading engine spanning execution, risk governance, market data feeds, paper trading, and audit reconciliation.
-- `strategies/`: Execution strategies and algorithms.
-- `config/`: System, execution, risk, and paper trading configurations.
-- `data/`: Built-in deterministic market data fixtures and ingestion pipeline root.
-- `docs/`: Product architecture specifications, contracts, and requirements.
+- `engine/`: Modular research/trading engine spanning market data, backtest, paper execution, risk governance, audit, reconciliation, and AI/Laya decision intelligence.
+- `strategies/`: Strategy implementations and research interfaces.
+- `config/`: System, execution, risk, deployment, and paper-trading configurations.
+- `data/`: Deterministic market-data fixtures and ingestion pipeline root.
+- `docs/`: Product architecture specifications, frozen decisions, qualification evidence, contracts, and requirements.
 
-## Starting SentinelX
+## Starting AlgoFortis
 
-In production, run the windowless launcher:
+For the current local Windows product, use the windowless launcher:
 
 ```powershell
-pythonw START_SENTINELX.pyw
+pythonw START_ALGOFORTIS.pyw
 ```
 
-This starts the authoritative local backend with per-user private ACL runtime data in `%LOCALAPPDATA%\SentinelX` and opens the browser interface.
+The launcher prefers the native `AlgoFortis.exe` desktop shell when present and otherwise starts the governed local runtime controller.
+
+## Safety State
+
+- `RiskGateV2` remains the sole `ApprovedOrder` authority.
+- Live remains `READ_ONLY/DISARMED` in the current qualified product.
+- AI/Laya decision intelligence is scoped to research/backtest/paper workflows and does not directly mint executable orders.
