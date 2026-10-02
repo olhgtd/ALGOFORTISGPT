@@ -14,6 +14,10 @@ for marker in (
     "evaluate_update_safe_window",
     "UPDATE_MANIFEST_SIGNATURE_VERIFIER_UNAVAILABLE",
     "UPDATE_INSTALLER_SIGNATURE_VERIFIER_UNAVAILABLE",
+    "UPDATE_AUTHENTICODE_VERIFIER_UNAVAILABLE",
+    "UPDATE_AUTHENTICODE_SIGNATURE_INVALID",
+    "UPDATE_FAILED_ROLLED_BACK",
+    "ROLLBACK_CAPTURE_FAILED",
     "UPDATE_POLICY_REFERENCE_MISMATCH",
     "auto_arm_live: bool = False",
 ):
@@ -30,6 +34,11 @@ for marker in (
 ):
     if marker not in entitlement:
         violations.append(f"entitlement_service.py:MISSING:{marker}")
+
+signature_verification = read("dashboard/backend/signature_verification.py")
+for marker in ("Ed25519KeyringVerifier", "WindowsAuthenticodeVerifier", "Get-AuthenticodeSignature"):
+    if marker not in signature_verification:
+        violations.append(f"signature_verification.py:MISSING:{marker}")
 
 telemetry = read("dashboard/backend/telemetry_service.py")
 for marker in (
@@ -52,6 +61,7 @@ for marker in (
     "Get-AuthenticodeSignature",
     "launcherSigned",
     "installerSigned",
+    "installer_signer_thumbprint",
     "SIGNED RELEASE cannot continue",
     "NOT RELEASE-QUALIFIED",
 ):
