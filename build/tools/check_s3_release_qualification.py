@@ -40,6 +40,16 @@ for marker in ("Ed25519KeyringVerifier", "WindowsAuthenticodeVerifier", "Get-Aut
     if marker not in signature_verification:
         violations.append(f"signature_verification.py:MISSING:{marker}")
 
+rollback_store = read("dashboard/backend/update_rollback_store.py")
+for marker in (
+    "AlgoFortisUpdateRollbackArtifact/v1",
+    "load_verified",
+    "rollback package integrity mismatch",
+    "retain_count",
+):
+    if marker not in rollback_store:
+        violations.append(f"update_rollback_store.py:MISSING:{marker}")
+
 telemetry = read("dashboard/backend/telemetry_service.py")
 for marker in (
     "TelemetryPrivacyPolicy",
@@ -62,6 +72,7 @@ for marker in (
     "launcherSigned",
     "installerSigned",
     "installer_signer_thumbprint",
+    "requirements-dashboard.lock.txt",
     "SIGNED RELEASE cannot continue",
     "NOT RELEASE-QUALIFIED",
 ):
