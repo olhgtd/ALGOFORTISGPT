@@ -16,6 +16,7 @@ import tempfile
 import time
 import sys
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 root_dir = Path(__file__).resolve().parents[1]
@@ -36,7 +37,21 @@ from dashboard.backend.data_sovereignty import assert_can_sync_to_cloud, DATA_AU
 from dashboard.backend.backup_service import AlgoFortisBackupService, BackupSecurityError
 from dashboard.backend.update_service import UpdateService, UpdateChannel
 from dashboard.backend.entitlement_service import EntitlementLeaseManager, EntitlementLease
+from dashboard.backend.account_v2.contracts import EntitlementTimeEvidence
 from dashboard.backend.telemetry_service import TelemetryService
+
+
+class _ManifestVerifier:
+    def verify(self, *, payload: bytes, signature: str, key_id: str) -> bool:
+        return bool(payload) and signature == "VALID_SIGNATURE" and key_id == "test-release-key"
+
+
+class _EntitlementVerifier:
+    def verify(self, *, lease: EntitlementLease) -> bool:
+        return (
+            lease.signing_key_id == "entitlement-key-v1"
+            and lease.lease_signature == "VALID_LEASE_SIGNATURE"
+        )
 
 
 class TestArchitecturalFoundations(unittest.TestCase):
@@ -217,13 +232,15 @@ class TestArchitecturalFoundations(unittest.TestCase):
         self.assertNotIn("password", restored["user_preferences"])
 
     def test_update_service_manifest_and_sha(self):
-        svc = UpdateService()
+        svc = UpdateService(signature_verifier=_ManifestVerifier())
         manifest_json = """{
             "version": "9.1.0",
             "channel": "STABLE",
             "installer_url": "https://updates.algofortis.internal/AlgoFortis-Setup-9.1.0.exe",
             "sha256_checksum": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-            "min_compatible_version": "9.0.0"
+            "min_compatible_version": "9.0.0",
+            "signing_key_id": "test-release-key",
+            "manifest_signature": "VALID_SIGNATURE"
         }"""
         m = svc.parse_and_validate_manifest(manifest_json)
         self.assertEqual(m.version, "9.1.0")
@@ -235,29 +252,47 @@ class TestArchitecturalFoundations(unittest.TestCase):
             svc.verify_installer_payload(b"corrupt", m)
 
     def test_entitlement_lease_manager(self):
-        mgr = EntitlementLeaseManager()
-        now = time.time()
+        issued = datetime(2026, 10, 2, 4, 0, tzinfo=timezone.utc)
+        expires = issued + timedelta(days=7)
         lease = EntitlementLease(
             lease_id="lse_001",
             user_id="usr_001",
             device_id="dev_001",
             tier="ENTERPRISE",
             capabilities=["BACKTEST", "PAPER", "OPTIONS"],
-            issued_at=now - 3600,
-            expires_at=now + 6 * 86400,
-            max_observed_timestamp=now
+            issued_at=issued.timestamp(),
+            expires_at=expires.timestamp(),
+            max_observed_timestamp=issued.timestamp(),
+            signing_key_id="entitlement-key-v1",
+            lease_signature="VALID_LEASE_SIGNATURE",
         )
-        res = mgr.validate_lease(lease, current_device_id="dev_001")
+        mgr = EntitlementLeaseManager(signature_verifier=_EntitlementVerifier())
+        evidence = EntitlementTimeEvidence(
+            server_issued_at=issued,
+            last_successful_server_check_in=issued,
+            lease_expires_at=expires,
+            monotonic_anchor=100.0,
+            monotonic_elapsed_seconds=3600.0,
+            boot_session_id="boot-1",
+        )
+        res = mgr.validate_lease(
+            lease,
+            current_device_id="dev_001",
+            time_evidence=evidence,
+            observed_wall_time=issued + timedelta(hours=1),
+        )
         self.assertTrue(res["valid"])
         self.assertTrue(res["can_execute_risk_management"])
 
-        # Clock rollback test
-        future_mgr = EntitlementLeaseManager(last_known_timestamp=now + 50000)
-        res_rollback = future_mgr.validate_lease(lease, current_device_id="dev_001")
-        self.assertFalse(res_rollback["valid"])
-        self.assertEqual(res_rollback["reason"], "CLOCK_ROLLBACK_DETECTED")
-        # Safety rules always allowed even when invalid
-        self.assertTrue(res_rollback["can_execute_risk_management"])
+        rollback = mgr.validate_lease(
+            lease,
+            current_device_id="dev_001",
+            time_evidence=evidence,
+            observed_wall_time=issued - timedelta(hours=1),
+        )
+        self.assertFalse(rollback["valid"])
+        self.assertEqual(rollback["reason"], "ENTITLEMENT_TIME_UNCERTAIN")
+        self.assertTrue(rollback["can_execute_risk_management"])
 
     def test_telemetry_redaction(self):
         svc = TelemetryService()
