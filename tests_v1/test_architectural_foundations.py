@@ -16,6 +16,10 @@ import tempfile
 import time
 import sys
 import json
+import hashlib
+import hmac
+from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 root_dir = Path(__file__).resolve().parents[1]
@@ -37,6 +41,20 @@ from dashboard.backend.backup_service import AlgoFortisBackupService, BackupSecu
 from dashboard.backend.update_service import UpdateService, UpdateChannel
 from dashboard.backend.entitlement_service import EntitlementLeaseManager, EntitlementLease
 from dashboard.backend.telemetry_service import TelemetryService
+from dashboard.backend.account_v2.contracts import EntitlementTimeEvidence
+from dashboard.backend.account_v2.policy_seams import TelemetryPrivacyPolicy
+
+
+_TEST_S3_KEY = b"algofortis-architectural-test-key"
+_TEST_S3_KEY_ID = "TEST_ONLY_ARCH_KEY_V1"
+
+
+def _test_s3_sign(payload: bytes, key_id: str) -> str:
+    return hmac.new(_TEST_S3_KEY + key_id.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _test_s3_verify(payload: bytes, signature: str, key_id: str) -> bool:
+    return hmac.compare_digest(_test_s3_sign(payload, key_id), signature)
 
 
 class TestArchitecturalFoundations(unittest.TestCase):
@@ -217,47 +235,83 @@ class TestArchitecturalFoundations(unittest.TestCase):
         self.assertNotIn("password", restored["user_preferences"])
 
     def test_update_service_manifest_and_sha(self):
-        svc = UpdateService()
-        manifest_json = """{
+        dummy_payload = b"hello"
+        data = {
             "version": "9.1.0",
             "channel": "STABLE",
-            "installer_url": "https://updates.algofortis.internal/AlgoFortis-Setup-9.1.0.exe",
-            "sha256_checksum": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-            "min_compatible_version": "9.0.0"
-        }"""
-        m = svc.parse_and_validate_manifest(manifest_json)
+            "installer_url": "https://updates.example.invalid/AlgoFortis-Setup-9.1.0.exe",
+            "sha256_checksum": hashlib.sha256(dummy_payload).hexdigest(),
+            "min_compatible_version": "9.0.0",
+            "signing_key_id": _TEST_S3_KEY_ID,
+            "installer_signer_id": "TEST_ONLY_INSTALLER",
+            "installer_signature": _test_s3_sign(dummy_payload, "TEST_ONLY_INSTALLER"),
+            "safe_window_policy_id": "updates/test",
+            "safe_window_policy_version": "1",
+        }
+        data["manifest_signature"] = _test_s3_sign(
+            UpdateService.canonical_manifest_bytes(data),
+            _TEST_S3_KEY_ID,
+        )
+        svc = UpdateService(
+            manifest_signature_verifier=_test_s3_verify,
+            installer_signature_verifier=_test_s3_verify,
+        )
+        m = svc.parse_and_validate_manifest(json.dumps(data))
         self.assertEqual(m.version, "9.1.0")
-
-        dummy_payload = b"hello" # SHA256: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
         self.assertTrue(svc.verify_installer_payload(dummy_payload, m))
-
         with self.assertRaises(ValueError):
             svc.verify_installer_payload(b"corrupt", m)
 
     def test_entitlement_lease_manager(self):
-        mgr = EntitlementLeaseManager()
-        now = time.time()
-        lease = EntitlementLease(
+        now = datetime.now(timezone.utc)
+        issued = now.timestamp() - 3600
+        expires = now.timestamp() + 6 * 86400
+        unsigned = EntitlementLease(
             lease_id="lse_001",
             user_id="usr_001",
             device_id="dev_001",
             tier="ENTERPRISE",
             capabilities=["BACKTEST", "PAPER", "OPTIONS"],
-            issued_at=now - 3600,
-            expires_at=now + 6 * 86400,
-            max_observed_timestamp=now
+            issued_at=issued,
+            expires_at=expires,
+            max_observed_timestamp=now.timestamp(),
+            signing_key_id=_TEST_S3_KEY_ID,
+            signature="",
         )
-        res = mgr.validate_lease(lease, current_device_id="dev_001")
+        lease = replace(
+            unsigned,
+            signature=_test_s3_sign(
+                EntitlementLeaseManager.canonical_lease_bytes(unsigned),
+                _TEST_S3_KEY_ID,
+            ),
+        )
+        mgr = EntitlementLeaseManager(lease_signature_verifier=_test_s3_verify)
+        evidence = EntitlementTimeEvidence(
+            server_issued_at=datetime.fromtimestamp(issued, tz=timezone.utc),
+            last_successful_server_check_in=datetime.fromtimestamp(issued, tz=timezone.utc),
+            lease_expires_at=datetime.fromtimestamp(expires, tz=timezone.utc),
+            monotonic_anchor=100.0,
+            monotonic_elapsed_seconds=3600.0,
+            boot_session_id="boot-1",
+        )
+        res = mgr.validate_lease(
+            lease,
+            current_device_id="dev_001",
+            time_evidence=evidence,
+            observed_wall_time=now,
+        )
         self.assertTrue(res["valid"])
         self.assertTrue(res["can_execute_risk_management"])
 
-        # Clock rollback test
-        future_mgr = EntitlementLeaseManager(last_known_timestamp=now + 50000)
-        res_rollback = future_mgr.validate_lease(lease, current_device_id="dev_001")
-        self.assertFalse(res_rollback["valid"])
-        self.assertEqual(res_rollback["reason"], "CLOCK_ROLLBACK_DETECTED")
-        # Safety rules always allowed even when invalid
-        self.assertTrue(res_rollback["can_execute_risk_management"])
+        rollback = mgr.validate_lease(
+            lease,
+            current_device_id="dev_001",
+            time_evidence=evidence,
+            observed_wall_time=datetime.fromtimestamp(issued - 60, tz=timezone.utc),
+        )
+        self.assertFalse(rollback["valid"])
+        self.assertEqual(rollback["reason"], "ENTITLEMENT_TIME_UNCERTAIN")
+        self.assertTrue(rollback["can_execute_risk_management"])
 
     def test_telemetry_redaction(self):
         svc = TelemetryService()
@@ -270,6 +324,23 @@ class TestArchitecturalFoundations(unittest.TestCase):
         self.assertIn("[REDACTED_USER]", clean)
         self.assertIn("[REDACTED_TOKEN]", clean)
         self.assertIn("[REDACTED_IP]", clean)
+
+    def test_telemetry_requires_explicit_opt_in(self):
+        denied = TelemetryService()
+        with self.assertRaises(PermissionError):
+            denied.build_operational_heartbeat("READY", 128.0)
+
+        policy = TelemetryPrivacyPolicy(
+            policy_id="telemetry/privacy/test-v1",
+            version="1",
+            opt_in=True,
+            allowed_data_classes=frozenset({"operational_health"}),
+        )
+        allowed = TelemetryService(privacy_policy=policy)
+        heartbeat = allowed.build_operational_heartbeat("READY", 128.0)
+        self.assertEqual(heartbeat["runtime_state"], "READY")
+        self.assertEqual(heartbeat["policy_id"], "telemetry/privacy/test-v1")
+        self.assertFalse(heartbeat["crash_reporting_enabled"])
 
 
 if __name__ == "__main__":
