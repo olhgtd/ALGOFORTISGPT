@@ -122,7 +122,7 @@ def run_installed_app():
         assert status_data["local_auth_transport"] == "UNAVAILABLE"
         assert status_data["roaming_identity"] == "UNAVAILABLE"
         assert status_data["identity"] == "LOCAL_WEBAUTHN"
-        log("  PASS: Installed runtime status truthful: PRODUCTION mode, DISARMED execution.")
+        log("  PASS: Installed runtime status truthful: LOCAL_PRIVATE mode, DISARMED execution.")
 
     # Phase 10: Installed Functional Smoke
     log("Executing Phase 10 Installed Functional Smoke checks...")
@@ -142,7 +142,7 @@ def run_installed_app():
 
     # 3. Local-Private Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
-    assert localappdata.exists(), f"Production data root {localappdata} was not created!"
+    assert localappdata.exists(), f"Local-private data root {localappdata} was not created!"
     assert (localappdata / "databases" / "security" / "sentinelx_security.sqlite3").exists(), "Security database missing!"
     assert (localappdata / "databases" / "governance" / "sentinelx_governance.sqlite3").exists(), "Governance database missing!"
     assert (localappdata / "databases" / "core-audit.sqlite3").exists(), "Core audit database missing!"
