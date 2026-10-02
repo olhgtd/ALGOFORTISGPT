@@ -134,6 +134,18 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UPDATE_INSTALLER_SIGNATURE_INVALID"):
             svc.verify_installer_payload(installer, bad_sig_manifest)
 
+    def test_bad_authenticode_thumbprint_fails_closed(self):
+        installer = b"INSTALLER"
+        data = json.loads(_signed_manifest(installer))
+        data["installer_authenticode_thumbprint"] = "B" * 40
+        data["manifest_signature"] = _test_signature(
+            UpdateService.canonical_manifest_bytes(data),
+            _TEST_KEY_ID,
+        )
+        manifest = _service().parse_and_validate_manifest(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "UPDATE_AUTHENTICODE_SIGNATURE_INVALID"):
+            _service().verify_installer_payload(installer, manifest)
+
     def test_update_safe_window_blocks_active_open_position_and_policy_mismatch(self):
         installer = b"INSTALLER"
         svc = _service()
@@ -267,6 +279,39 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         self.assertTrue(result.rolled_back)
         self.assertEqual(result.reason, "UPDATE_FAILED_ROLLED_BACK")
         self.assertEqual(events, ["capture", "apply", "restore"])
+
+    def test_failed_update_with_failed_rollback_stays_failed_closed(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
+        policy = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/test-v1",
+            version="1",
+            allowed_engine_states=("IDLE",),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+
+        result = svc.apply_verified_update(
+            manifest,
+            policy,
+            engine_state="IDLE",
+            has_open_positions=False,
+            installer_bytes=installer,
+            capture_rollback=lambda: "rollback-token",
+            apply_installer=lambda _payload, _manifest: (_ for _ in ()).throw(
+                RuntimeError("simulated installer failure")
+            ),
+            post_update_health_check=lambda _manifest: True,
+            restore_rollback=lambda _token: (_ for _ in ()).throw(
+                RuntimeError("simulated rollback failure")
+            ),
+        )
+        self.assertFalse(result.applied)
+        self.assertFalse(result.rolled_back)
+        self.assertEqual(result.reason, "UPDATE_FAILED_ROLLBACK_FAILED")
+        self.assertFalse(result.auto_arm_live)
 
     def test_unsafe_window_never_invokes_update_callbacks(self):
         installer = b"INSTALLER"
