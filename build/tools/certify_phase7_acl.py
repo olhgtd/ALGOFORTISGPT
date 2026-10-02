@@ -42,10 +42,18 @@ $rule = New-Object Security.AccessControl.FileSystemAccessRule($everyone, $right
 $acl.AddAccessRule($rule)
 Set-Acl -LiteralPath $target -AclObject $acl
 '''
+    win_modules = str(
+        Path(os.environ.get("SystemRoot", r"C:\\Windows"))
+        / "System32"
+        / "WindowsPowerShell"
+        / "v1.0"
+        / "Modules"
+    )
     env = {
         **os.environ,
         "ALGOFORTIS_ACL_CERT_TARGET": str(target),
         "ALGOFORTIS_ACL_CERT_RIGHTS": rights,
+        "PSModulePath": win_modules,
     }
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
