@@ -119,9 +119,10 @@ def run_installed_app():
         status_data = json.loads(resp.read().decode("utf-8"))
         assert status_data["mode"] == "LOCAL_PRIVATE"
         assert status_data["live_execution"] == "DISARMED"
-        assert status_data["local_auth_transport"] == "UNAVAILABLE"
+        assert status_data["local_auth_transport"] == "CONFIGURED"
         assert status_data["roaming_identity"] == "UNAVAILABLE"
-        assert status_data["identity"] == "LOCAL_WEBAUTHN"
+        assert status_data["identity"] == "LOCAL_PRIVATE"
+        assert status_data["device_authority"] == "LOCAL_AUTHORITY"
         log("  PASS: Installed runtime status truthful: LOCAL_PRIVATE mode, DISARMED execution.")
 
     # Phase 10: Installed Functional Smoke
