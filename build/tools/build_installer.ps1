@@ -124,7 +124,7 @@ if (-not $isccPath) {
 }
 
 $effectivePublisher = if ($Publisher) { $Publisher } else { "AlgoFortis" }
-$effectivePublisherUrl = if ($PublisherUrl) { $PublisherUrl } else { "https://app.algofortis.com" }
+$effectivePublisherUrl = if ($PublisherUrl) { $PublisherUrl } else { "https://example.invalid/algofortis" }
 
 $bootstrapperResolved = ""
 $bootstrapperSha = ""
