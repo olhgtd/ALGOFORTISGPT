@@ -32,6 +32,7 @@ class UpdateChannel(str, enum.Enum):
 
 
 SignatureVerifier = Callable[[bytes, str, str], bool]
+AuthenticodeVerifier = Callable[[bytes, str], bool]
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ class UpdateManifest:
     manifest_signature: str
     installer_signer_id: str
     installer_signature: str
+    installer_authenticode_thumbprint: str
     safe_window_policy_id: str
     safe_window_policy_version: str
 
@@ -82,11 +84,13 @@ class UpdateService:
         *,
         manifest_signature_verifier: Optional[SignatureVerifier] = None,
         installer_signature_verifier: Optional[SignatureVerifier] = None,
+        authenticode_verifier: Optional[AuthenticodeVerifier] = None,
     ):
         self.current_version = current_version
         self.channel = channel
         self._manifest_signature_verifier = manifest_signature_verifier
         self._installer_signature_verifier = installer_signature_verifier
+        self._authenticode_verifier = authenticode_verifier
 
     @staticmethod
     def canonical_manifest_bytes(data: dict) -> bytes:
@@ -126,6 +130,7 @@ class UpdateService:
             "manifest_signature",
             "installer_signer_id",
             "installer_signature",
+            "installer_authenticode_thumbprint",
             "safe_window_policy_id",
             "safe_window_policy_version",
         )
@@ -176,6 +181,7 @@ class UpdateService:
             manifest_signature=values["manifest_signature"],
             installer_signer_id=values["installer_signer_id"],
             installer_signature=values["installer_signature"],
+            installer_authenticode_thumbprint=values["installer_authenticode_thumbprint"],
             safe_window_policy_id=values["safe_window_policy_id"],
             safe_window_policy_version=values["safe_window_policy_version"],
         )
@@ -203,6 +209,20 @@ class UpdateService:
             raise ValueError("UPDATE_INSTALLER_SIGNATURE_INVALID") from exc
         if not signature_valid:
             raise ValueError("UPDATE_INSTALLER_SIGNATURE_INVALID")
+
+        if self._authenticode_verifier is None:
+            raise ValueError("UPDATE_AUTHENTICODE_VERIFIER_UNAVAILABLE")
+        try:
+            authenticode_valid = bool(
+                self._authenticode_verifier(
+                    installer_bytes,
+                    manifest.installer_authenticode_thumbprint,
+                )
+            )
+        except Exception as exc:
+            raise ValueError("UPDATE_AUTHENTICODE_SIGNATURE_INVALID") from exc
+        if not authenticode_valid:
+            raise ValueError("UPDATE_AUTHENTICODE_SIGNATURE_INVALID")
         return True
 
     def evaluate_apply_decision(
