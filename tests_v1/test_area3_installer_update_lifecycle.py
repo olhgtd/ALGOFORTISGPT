@@ -192,6 +192,108 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing field"):
             _service().parse_and_validate_manifest(json.dumps({"version": "9.1.0"}))
 
+    def test_failed_update_automatically_rolls_back(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
+        policy = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/test-v1",
+            version="1",
+            allowed_engine_states=("IDLE",),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+        events = []
+
+        def capture():
+            events.append("capture")
+            return "rollback-token"
+
+        def apply(_payload, _manifest):
+            events.append("apply")
+            raise RuntimeError("simulated installer failure")
+
+        def restore(token):
+            self.assertEqual(token, "rollback-token")
+            events.append("restore")
+
+        result = svc.apply_verified_update(
+            manifest,
+            policy,
+            engine_state="IDLE",
+            has_open_positions=False,
+            installer_bytes=installer,
+            capture_rollback=capture,
+            apply_installer=apply,
+            post_update_health_check=lambda _manifest: True,
+            restore_rollback=restore,
+        )
+        self.assertFalse(result.applied)
+        self.assertTrue(result.rolled_back)
+        self.assertEqual(result.reason, "UPDATE_FAILED_ROLLED_BACK")
+        self.assertFalse(result.auto_arm_live)
+        self.assertEqual(events, ["capture", "apply", "restore"])
+
+    def test_post_update_health_failure_rolls_back(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
+        policy = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/test-v1",
+            version="1",
+            allowed_engine_states=("IDLE",),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+        events = []
+
+        result = svc.apply_verified_update(
+            manifest,
+            policy,
+            engine_state="IDLE",
+            has_open_positions=False,
+            installer_bytes=installer,
+            capture_rollback=lambda: events.append("capture") or "rollback-token",
+            apply_installer=lambda _payload, _manifest: events.append("apply"),
+            post_update_health_check=lambda _manifest: False,
+            restore_rollback=lambda _token: events.append("restore"),
+        )
+        self.assertFalse(result.applied)
+        self.assertTrue(result.rolled_back)
+        self.assertEqual(result.reason, "UPDATE_FAILED_ROLLED_BACK")
+        self.assertEqual(events, ["capture", "apply", "restore"])
+
+    def test_unsafe_window_never_invokes_update_callbacks(self):
+        installer = b"INSTALLER"
+        svc = _service()
+        manifest = svc.parse_and_validate_manifest(_signed_manifest(installer))
+        policy = UpdateSafeWindowPolicy(
+            policy_id="updates/safe-window/test-v1",
+            version="1",
+            allowed_engine_states=("IDLE",),
+            allow_open_positions=False,
+            session_calendar_ref="calendar/nse/test-v1",
+            applicability="APPLICABLE",
+        )
+        events = []
+        result = svc.apply_verified_update(
+            manifest,
+            policy,
+            engine_state="ACTIVE",
+            has_open_positions=False,
+            installer_bytes=installer,
+            capture_rollback=lambda: events.append("capture"),
+            apply_installer=lambda _payload, _manifest: events.append("apply"),
+            post_update_health_check=lambda _manifest: events.append("health") or True,
+            restore_rollback=lambda _token: events.append("restore"),
+        )
+        self.assertFalse(result.applied)
+        self.assertFalse(result.rolled_back)
+        self.assertEqual(result.reason, "ENGINE_STATE_NOT_ALLOWED")
+        self.assertEqual(events, [])
+
     def test_uninstall_preserves_localappdata_user_databases(self):
         (self.install_dir / "AlgoFortis.exe").write_bytes(b"launcher")
         (self.install_dir / "app.dll").write_bytes(b"dll")
