@@ -1,4 +1,10 @@
+import base64
 from pathlib import Path
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from dashboard.backend.signature_verification import Ed25519KeyringVerifier
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,3 +61,16 @@ def test_phase10_workflow_qualifies_s3_without_claiming_g10():
     ):
         assert marker in workflow
     assert "G10=PASS" not in workflow
+
+
+def test_ed25519_keyring_verifier_accepts_only_trusted_key_and_payload():
+    private_key = Ed25519PrivateKey.from_private_bytes(bytes(range(1, 33)))
+    public_key = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    verifier = Ed25519KeyringVerifier({"release-ed25519-v1": public_key})
+    payload = b"algofortis-s3-signed-artifact"
+    signature = base64.b64encode(private_key.sign(payload)).decode("ascii")
+
+    assert verifier(payload, signature, "release-ed25519-v1")
+    assert not verifier(payload + b"-tampered", signature, "release-ed25519-v1")
+    assert not verifier(payload, signature, "unknown-key")
+    assert not verifier(payload, "not-base64***", "release-ed25519-v1")
