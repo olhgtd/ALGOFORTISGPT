@@ -59,6 +59,12 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v4", source)
         self.assertIn("LIVE_STATE=READ_ONLY/DISARMED", source)
 
+    def test_packaged_python_verification_uses_script_file_not_native_c_quoting(self):
+        source = self._read("build/tools/package_python.ps1")
+        self.assertNotIn('-c $verifyScript', source)
+        self.assertIn("verify-packaged-python.py", source)
+        self.assertIn("Set-Content -Encoding utf8", source)
+
 
 if __name__ == "__main__":
     unittest.main()
