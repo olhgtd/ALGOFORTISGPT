@@ -18,6 +18,22 @@ opener = build_opener(ProxyHandler({}))
 def log(msg):
     print(f"[INSTALL CERT] {msg}")
 
+def close_main_window(proc, timeout=35):
+    ps_script = (
+        f"$p = Get-Process -Id {proc.pid} -ErrorAction Stop; "
+        "if (-not $p.CloseMainWindow()) { exit 2 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"CloseMainWindow() failed for PID {proc.pid}: "
+        f"{result.stdout} {result.stderr}"
+    )
+    proc.wait(timeout=timeout)
+
 def check_shortcuts():
     desktop_dirs = [
         Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "Desktop",
@@ -166,6 +182,8 @@ def run_installed_app():
     assert data_dup["state"] == "READY"
     assert data_dup["instance_id"] == instance_id, "Instance ID changed on duplicate launch!"
     assert data_dup["pid"] == pid, "Duplicate backend was spawned!"
+    proc2.wait(timeout=5)
+    assert proc2.returncode == 0, "Duplicate launcher invocation did not exit cleanly"
     log("  PASS: Duplicate launch safely detected; existing backend reused.")
 
     # 5. Lifecycle A: In-place backend stop & reconnect while GUI remains alive
@@ -199,20 +217,24 @@ def run_installed_app():
 
     # 6. Lifecycle B: Full application close and cold relaunch
     log("Testing Lifecycle B: Full application close and cold relaunch...")
-    # Gracefully close the original AlgoFortis GUI process
-    try:
-        proc.terminate()
-        proc.wait(timeout=10)
-    except Exception:
-        pass
+    # Exercise the real WinForms close path. FormClosing must stop the
+    # owned LOCAL_PRIVATE backend without an external controller stop.
+    close_main_window(proc)
     assert proc.poll() is not None, "Original AlgoFortis GUI process did not terminate!"
-    log("  PASS: Original AlgoFortis GUI process closed gracefully.")
-
-    # Stop backend to ensure cold state before relaunch
-    subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
-    time.sleep(1)
-    res_cold = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
-    assert json.loads(res_cold.stdout.strip())["state"] == "UNAVAILABLE"
+    deadline = time.monotonic() + 30
+    backend_stopped = False
+    while time.monotonic() < deadline:
+        res_cold = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
+        if res_cold.returncode == 0:
+            try:
+                if json.loads(res_cold.stdout.strip()).get("state") == "UNAVAILABLE":
+                    backend_stopped = True
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
+    assert backend_stopped, "backend did not stop after GUI close"
+    log("  PASS: Real GUI close stopped the owned LOCAL_PRIVATE backend.")
 
     # Relaunch installed AlgoFortis.exe
     log("Relaunching installed AlgoFortis.exe from cold state...")
@@ -243,15 +265,22 @@ def run_installed_app():
         assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
         log("  PASS: Relaunched frontend loaded cleanly from Program Files dist.")
 
-    # Gracefully close reopened application and stop backend before uninstallation
-    try:
-        proc_reopened.terminate()
-        proc_reopened.wait(timeout=10)
-    except Exception:
-        pass
-    subprocess.run(stop_cmd, cwd=str(install_dir), env=clean_env, check=True)
-    time.sleep(1)
-    log("Application closed and backend stopped cleanly before uninstallation.")
+    # Gracefully close reopened application; the window close path owns shutdown.
+    close_main_window(proc_reopened)
+    deadline = time.monotonic() + 30
+    reopened_backend_stopped = False
+    while time.monotonic() < deadline:
+        res_closed = subprocess.run(cmd, cwd=str(install_dir), env=clean_env, capture_output=True, text=True)
+        if res_closed.returncode == 0:
+            try:
+                if json.loads(res_closed.stdout.strip()).get("state") == "UNAVAILABLE":
+                    reopened_backend_stopped = True
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
+    assert reopened_backend_stopped, "backend did not stop after GUI close"
+    log("Application closed and owned backend stopped cleanly before uninstallation.")
 
 def run_uninstall_and_verify():
     log("Testing clean uninstallation...")
