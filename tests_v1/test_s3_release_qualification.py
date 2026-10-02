@@ -1,10 +1,12 @@
 import base64
+import tempfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from dashboard.backend.signature_verification import Ed25519KeyringVerifier
+from dashboard.backend.update_rollback_store import UpdateRollbackStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,3 +76,31 @@ def test_ed25519_keyring_verifier_accepts_only_trusted_key_and_payload():
     assert not verifier(payload + b"-tampered", signature, "release-ed25519-v1")
     assert not verifier(payload, signature, "unknown-key")
     assert not verifier(payload, "not-base64***", "release-ed25519-v1")
+
+
+def test_update_rollback_store_retains_and_detects_tampering():
+    with tempfile.TemporaryDirectory(prefix="af_s3_rollback_") as tmp:
+        root = Path(tmp).resolve()
+        store = UpdateRollbackStore(root, retain_count=2)
+        ref = store.retain(version="9.0.0", installer_bytes=b"KNOWN_GOOD_INSTALLER")
+        assert store.load_verified(ref) == b"KNOWN_GOOD_INSTALLER"
+
+        ref.package_path.write_bytes(b"TAMPERED")
+        try:
+            store.load_verified(ref)
+        except ValueError as exc:
+            assert "integrity" in str(exc).lower() or "size" in str(exc).lower()
+        else:
+            raise AssertionError("tampered rollback package must fail closed")
+
+
+def test_update_rollback_store_prunes_old_packages():
+    with tempfile.TemporaryDirectory(prefix="af_s3_rollback_prune_") as tmp:
+        root = Path(tmp).resolve()
+        store = UpdateRollbackStore(root, retain_count=1)
+        first = store.retain(version="9.0.0", installer_bytes=b"OLD")
+        second = store.retain(version="9.0.1", installer_bytes=b"NEW")
+        assert second.package_path.exists()
+        assert second.metadata_path.exists()
+        assert not first.package_path.exists()
+        assert not first.metadata_path.exists()
