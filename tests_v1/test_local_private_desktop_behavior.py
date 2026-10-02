@@ -40,6 +40,16 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertIn('status_data["identity"] == "LOCAL_PRIVATE"', source)
         self.assertIn('status_data["device_authority"] == "LOCAL_AUTHORITY"', source)
 
+    def test_certification_uses_real_window_close_not_force_terminate(self):
+        shell = self._read("build/tools/certify_desktop_shell.py")
+        lifecycle = self._read("build/tools/certify_phase9_phase10_installation.py")
+        self.assertIn("CloseMainWindow()", shell)
+        self.assertIn("CloseMainWindow()", lifecycle)
+        self.assertNotIn("proc.terminate()", shell)
+        self.assertNotIn("proc.terminate()", lifecycle)
+        self.assertNotIn("proc_reopened.terminate()", lifecycle)
+        self.assertIn("backend did not stop after GUI close", lifecycle)
+
     def test_manual_launch_probe_matches_local_private_runtime(self):
         source = self._read("build/tools/test_launch.ps1")
         self.assertNotIn("--mode PRODUCTION", source)
