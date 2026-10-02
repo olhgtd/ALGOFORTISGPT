@@ -77,6 +77,8 @@ class TestLocalPrivateDesktopBehavior(unittest.TestCase):
         self.assertNotIn('-c $verifyScript', source)
         self.assertIn("verify-packaged-python.py", source)
         self.assertIn("Set-Content -Encoding utf8", source)
+        self.assertIn('$result -notcontains $verificationMarker', source)
+        self.assertNotIn('$result -notmatch "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY"', source)
 
 
 if __name__ == "__main__":
