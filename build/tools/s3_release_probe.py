@@ -42,6 +42,7 @@ def verify_update() -> None:
         "signing_key_id": KEY_ID,
         "installer_signer_id": "TEST_ONLY_INSTALLER",
         "installer_signature": sign(installer, "TEST_ONLY_INSTALLER"),
+        "installer_authenticode_thumbprint": "C" * 40,
         "safe_window_policy_id": "updates/safe-window/test-v1",
         "safe_window_policy_version": "1",
     }
@@ -49,6 +50,7 @@ def verify_update() -> None:
     service = UpdateService(
         manifest_signature_verifier=verify,
         installer_signature_verifier=verify,
+        authenticode_verifier=lambda _payload, thumbprint: thumbprint == "C" * 40,
     )
     manifest = service.parse_and_validate_manifest(json.dumps(data))
     assert service.verify_installer_payload(installer, manifest)
