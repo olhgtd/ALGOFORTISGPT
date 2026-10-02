@@ -30,6 +30,16 @@ def test_s3_release_build_is_fail_closed_for_required_signing():
     assert "C:\\Users\\Ragini Music" not in build
 
 
+def test_qualification_packaging_does_not_infer_pending_production_domain():
+    build = read("build/tools/build_installer.ps1")
+    installer = read("build/tools/algofortis_installer.iss")
+    assert "https://example.invalid/algofortis" in build
+    assert "https://example.invalid/algofortis" in installer
+    assert 'else { "https://app.algofortis.com" }' not in build
+    assert '#define MyAppURL "https://app.algofortis.com"' not in installer
+    assert "SIGNED RELEASE requires explicit publisher identity, publisher URL" in build
+
+
 def test_phase10_status_does_not_false_claim_g10_or_live_authority():
     status = read("docs/v2/phase10/PHASE10_RELEASE_QUALIFICATION_STATUS.md")
     assert "G10: BLOCKED" in status
