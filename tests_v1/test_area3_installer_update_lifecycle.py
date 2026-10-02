@@ -35,6 +35,11 @@ from dashboard.backend.update_service import (
 from dashboard.runtime.paths import RuntimePaths, RuntimeMode
 
 
+class _ManifestVerifier:
+    def verify(self, *, payload: bytes, signature: str, key_id: str) -> bool:
+        return bool(payload) and signature == "VALID_SIGNATURE" and key_id == "test-release-key"
+
+
 class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
 
     def setUp(self):
@@ -87,7 +92,11 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
     # ==========================================
 
     def test_update_manifest_validation(self):
-        svc = UpdateService(current_version="9.0.0", channel=UpdateChannel.STABLE)
+        svc = UpdateService(
+            current_version="9.0.0",
+            channel=UpdateChannel.STABLE,
+            signature_verifier=_ManifestVerifier(),
+        )
 
         # Valid manifest
         dummy_installer = b"MOCK_ALGOFORTIS_SETUP_INSTALLER_V9.1.0_BYTES"
@@ -100,7 +109,9 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
             "sha256_checksum": expected_sha,
             "min_compatible_version": "9.0.0",
             "security_critical": True,
-            "release_notes": "Security hardening update."
+            "release_notes": "Security hardening update.",
+            "signing_key_id": "test-release-key",
+            "manifest_signature": "VALID_SIGNATURE",
         })
 
         manifest = svc.parse_and_validate_manifest(valid_json)
@@ -113,14 +124,19 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         self.assertTrue(svc.verify_installer_payload(dummy_installer, manifest))
 
     def test_update_manifest_tampered_payload_rejected(self):
-        svc = UpdateService(current_version="9.0.0")
+        svc = UpdateService(
+            current_version="9.0.0",
+            signature_verifier=_ManifestVerifier(),
+        )
 
         manifest_json = json.dumps({
             "version": "9.1.0",
             "channel": "STABLE",
             "installer_url": "https://releases.algofortis.io/AlgoFortis-Setup-9.1.0.exe",
             "sha256_checksum": "0000000000000000000000000000000000000000000000000000000000000000",
-            "min_compatible_version": "9.0.0"
+            "min_compatible_version": "9.0.0",
+            "signing_key_id": "test-release-key",
+            "manifest_signature": "VALID_SIGNATURE",
         })
         manifest = svc.parse_and_validate_manifest(manifest_json)
 
@@ -130,7 +146,7 @@ class TestArea3InstallerUpdateLifecycle(unittest.TestCase):
         self.assertIn("INTEGRITY ERROR", str(ctx.exception))
 
     def test_update_manifest_missing_required_fields_rejected(self):
-        svc = UpdateService()
+        svc = UpdateService(signature_verifier=_ManifestVerifier())
         incomplete_json = json.dumps({
             "version": "9.1.0",
             # missing installer_url, sha256_checksum, min_compatible_version

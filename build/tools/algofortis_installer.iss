@@ -1,7 +1,16 @@
 #define MyAppName "AlgoFortis"
-#define MyAppVersion "9.0.0"
-#define MyAppPublisher "AlgoFortis"
-#define MyAppURL "https://app.algofortis.com"
+#ifndef MyAppVersion
+  #error MyAppVersion must be supplied by the governed packaging entrypoint
+#endif
+#ifndef MyAppPublisher
+  #error MyAppPublisher must be supplied by the governed packaging entrypoint
+#endif
+#ifndef MyAppURL
+  #error MyAppURL must be supplied by the governed packaging entrypoint
+#endif
+#ifndef ReleaseEnvironment
+  #error ReleaseEnvironment must be supplied by the governed packaging entrypoint
+#endif
 #define MyAppExeName "AlgoFortis.exe"
 
 [Setup]
@@ -12,6 +21,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+AppComments=AlgoFortis {#ReleaseEnvironment} package
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
