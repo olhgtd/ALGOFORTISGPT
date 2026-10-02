@@ -60,7 +60,7 @@ def test_desktop_window_launch():
     # Launch AlgoFortis.exe directly (simulating double-click)
     proc = subprocess.Popen([str(install_dir / "AlgoFortis.exe")], cwd=str(install_dir))
     
-    cmd_status = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "PRODUCTION", "--install-root", str(install_dir)]
+    cmd_status = [str(python_exe), "-m", "dashboard.runtime.controller", "status", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)]
     deadline = time.monotonic() + 30
     ready_data = None
     while time.monotonic() < deadline:
@@ -109,7 +109,7 @@ def test_desktop_window_launch():
 def run_uninstall():
     log("Step 3: Cleaning up installation...")
     try:
-        subprocess.run([str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "PRODUCTION", "--install-root", str(install_dir)], capture_output=True)
+        subprocess.run([str(python_exe), "-m", "dashboard.runtime.controller", "stop", "--mode", "LOCAL_PRIVATE", "--install-root", str(install_dir)], capture_output=True)
     except Exception:
         pass
     time.sleep(1)
