@@ -19,6 +19,7 @@ from dashboard.runtime.paths import RuntimeMode, RuntimePaths
 _TEST_KEY = b"algofortis-s3-test-only-key"
 _TEST_KEY_ID = "TEST_ONLY_RELEASE_KEY_V1"
 _TEST_INSTALLER_SIGNER = "TEST_ONLY_INSTALLER_SIGNER_V1"
+_TEST_AUTHENTICODE_THUMBPRINT = "A" * 40
 
 
 def _test_signature(payload: bytes, key_id: str) -> str:
@@ -42,6 +43,7 @@ def _signed_manifest(installer: bytes, *, channel: str = "STABLE") -> str:
         "signing_key_id": _TEST_KEY_ID,
         "installer_signer_id": _TEST_INSTALLER_SIGNER,
         "installer_signature": _test_signature(installer, _TEST_INSTALLER_SIGNER),
+        "installer_authenticode_thumbprint": _TEST_AUTHENTICODE_THUMBPRINT,
         "safe_window_policy_id": "updates/safe-window/test-v1",
         "safe_window_policy_version": "1",
     }
@@ -58,6 +60,7 @@ def _service() -> UpdateService:
         channel=UpdateChannel.STABLE,
         manifest_signature_verifier=_test_verifier,
         installer_signature_verifier=_test_verifier,
+        authenticode_verifier=lambda _payload, thumbprint: thumbprint == _TEST_AUTHENTICODE_THUMBPRINT,
     )
 
 
