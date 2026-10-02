@@ -111,7 +111,8 @@ try {
     $result = & "$stagePython\python.exe" $verifyScriptPath
     $verifyExitCode = $LASTEXITCODE
     Write-Host $result
-    if ($verifyExitCode -ne 0 -or $result -notmatch "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY") {
+    $verificationMarker = "ALL_PACKAGED_RUNTIME_DEPENDENCIES_LOADED_SUCCESSFULLY"
+    if ($verifyExitCode -ne 0 -or $result -notcontains $verificationMarker) {
         throw "Packaged Python verification failed"
     }
 }
