@@ -59,7 +59,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }, [lockedWorkspace]);
+  }, []);
 
   const syncUrl = useCallback((nextWs: Workspace) => {
     const target = lockedWorkspace ?? nextWs;
@@ -69,7 +69,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
     url.searchParams.delete("preview");
     url.searchParams.delete("dev");
     window.history.replaceState({}, "", url.toString());
-  }, []);
+  }, [lockedWorkspace]);
 
   const switchWs = useCallback((next: Workspace) => {
     if (lockedWorkspace && next !== lockedWorkspace) return;
