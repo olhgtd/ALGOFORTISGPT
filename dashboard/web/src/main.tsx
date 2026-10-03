@@ -23,6 +23,12 @@ type SurfaceId = "website" | "secure-entry" | "dashboard-v3";
 
 type AuthoritativeSession = AuthoritativeUserResponse;
 
+function desktopAppWorkspace(): Workspace | null {
+  if (typeof window === "undefined") return null;
+  const app = new URLSearchParams(window.location.search).get("app");
+  return app === "owner" || app === "user" ? app : null;
+}
+
 const DASHBOARD_HASHES = new Set([
   "home", "strategies", "trading", "connections", "backtest", "backtesting",
   "paper", "portfolio", "orders", "reports", "security", "account", "help",
@@ -32,11 +38,13 @@ const DASHBOARD_HASHES = new Set([
 
 function AuthorizedDashboard({
   requestedWorkspace,
+  lockedWorkspace,
   authorizationEpoch,
   onDenied,
   onExit,
 }: {
   requestedWorkspace: Workspace;
+  lockedWorkspace?: Workspace;
   authorizationEpoch: number;
   onDenied: () => void;
   onExit: () => void;
@@ -89,10 +97,11 @@ function AuthorizedDashboard({
   }, [authorized, onDenied, resolved]);
 
   if (!resolved || !authorized) return null;
-  return <DashboardV3App initialWorkspace={requestedWorkspace} onExit={onExit} />;
+  return <DashboardV3App initialWorkspace={requestedWorkspace} lockedWorkspace={lockedWorkspace} onExit={onExit} />;
 }
 
 export function App() {
+  const lockedWorkspace = desktopAppWorkspace();
   const [authorizationEpoch, setAuthorizationEpoch] = useState(0);
   const [surface, setSurface] = useState<SurfaceId>(() => {
     if (typeof window !== "undefined") {
@@ -119,6 +128,7 @@ export function App() {
   });
 
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>(() => {
+    if (lockedWorkspace) return lockedWorkspace;
     if (typeof window !== "undefined") {
       const ws = new URLSearchParams(window.location.search).get("workspace");
       if (ws === "owner" || ws === "user") return ws;
@@ -158,13 +168,14 @@ export function App() {
   };
 
   const switchToDashboardV3 = (workspace: Workspace = "user") => {
-    setActiveWorkspace(workspace);
+    const target = lockedWorkspace ?? workspace;
+    setActiveWorkspace(target);
     setSurface("dashboard-v3");
     setAuthorizationEpoch((value) => value + 1);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("surface", "dashboard-v3");
-      url.searchParams.set("workspace", workspace);
+      url.searchParams.set("workspace", target);
       url.searchParams.delete("preview");
       if (url.hash === "#secure-entry" || url.hash === "#website" || url.hash === "#app") url.hash = "";
       window.history.pushState({}, "", url.toString());
@@ -178,7 +189,9 @@ export function App() {
       const ws = new URLSearchParams(window.location.search).get("workspace");
       const rawHash = window.location.hash.replace(/^#/, "");
 
-      if (ws === "owner" || ws === "user") {
+      if (lockedWorkspace) {
+        setActiveWorkspace(lockedWorkspace);
+      } else if (ws === "owner" || ws === "user") {
         setActiveWorkspace(ws);
       }
 
@@ -199,7 +212,7 @@ export function App() {
       window.removeEventListener("popstate", handleNavigation);
       window.removeEventListener("hashchange", handleNavigation);
     };
-  }, []);
+  }, [lockedWorkspace]);
 
   if (surface === "website") {
     return <SentinelXWebsite onLaunchApp={switchToSecureEntry} />;
@@ -219,7 +232,8 @@ export function App() {
 
   return (
     <AuthorizedDashboard
-      requestedWorkspace={activeWorkspace}
+      requestedWorkspace={lockedWorkspace ?? activeWorkspace}
+      lockedWorkspace={lockedWorkspace ?? undefined}
       authorizationEpoch={authorizationEpoch}
       onDenied={switchToSecureEntry}
       onExit={handleExit}
