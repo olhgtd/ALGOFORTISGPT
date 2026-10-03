@@ -73,7 +73,9 @@ $roles=@(
     @{Role="USER";AppName="AlgoFortis User";Launcher="AlgoFortisUser.exe";Output="AlgoFortis-User-Setup";Subdir="User";AppId="{{412C7181-92E6-4315-A958-298F3ADF5BB3}"}
 )
 foreach($cfg in $roles){
-    & powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\stage_role_app.ps1" -Role $cfg.Role -WebView2Version $WebView2Version -ExpectedWebView2PackageSha256 $ExpectedWebView2PackageSha256
+    $stageArgs=@("-ExecutionPolicy","Bypass","-File","$toolsDir\stage_role_app.ps1","-Role",$cfg.Role,"-WebView2Version",$WebView2Version)
+    if($ExpectedWebView2PackageSha256){$stageArgs+=@("-ExpectedWebView2PackageSha256",$ExpectedWebView2PackageSha256)}
+    & powershell.exe @stageArgs
     if($LASTEXITCODE -ne 0){throw "$($cfg.Role) staging failed"}
     $launcherPath=Join-Path $stageDir $cfg.Launcher
     $launcherThumb=Sign-Artifact $launcherPath $cfg.Launcher
