@@ -4,7 +4,7 @@ param (
 )
 
 if ([string]::IsNullOrWhiteSpace($SourceImage)) {
-    $SourceImage = Join-Path $TargetDir "assets\branding\AlgoFortis\AlgoFortis_Logo_Master.png"
+    $SourceImage = Join-Path $TargetDir "assets\branding\AlgoFortis\AlgoFortis_User_Logo.png"
 }
 
 Add-Type -AssemblyName System.Drawing
