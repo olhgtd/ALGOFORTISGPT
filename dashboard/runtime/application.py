@@ -23,6 +23,7 @@ from dashboard.backend.security import SecurityConfiguration, WebAuthnCeremonySe
 from dashboard.backend.identity import local_owner, UnavailableRoamingIdentity
 from dashboard.backend.account_v2.owner_bootstrap import resolve_owner_bootstrap
 from dashboard.backend.account_v2.password_accounts import normalize_legacy_owner_activation
+from dashboard.backend.account_v2.remote_password_identity import roaming_identity_from_environment
 from dashboard.backend.account_v2.password_router import attach_password_account_routes
 from dashboard.backend.owner_admin.router import attach_owner_admin_control_plane
 from dashboard.backend.owner_admin.decision_intelligence_router import attach_owner_decision_intelligence
@@ -87,6 +88,10 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
     # Additive account/Owner/Admin authority layers. Password entry composes the
     # existing security/session/audit authorities; it is not a second identity
     # database or a trading authority.
+    if roaming_identity is None:
+        roaming_identity = roaming_identity_from_environment()
+    app.state.roaming_identity = roaming_identity or UnavailableRoamingIdentity()
+
     attach_password_account_routes(app)
     attach_owner_admin_control_plane(app)
     attach_owner_decision_intelligence(app)
@@ -94,7 +99,6 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
     attach_ai_verification_routes(app)
     app.state.product_ops_service = ProductOpsService(repository=None)
     attach_product_ops_routes(app)
-    app.state.roaming_identity = roaming_identity or UnavailableRoamingIdentity()
 
     def owner_bootstrap_decision():
         """Never infer global Owner absence from an empty local database."""
