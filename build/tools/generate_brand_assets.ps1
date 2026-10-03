@@ -46,9 +46,10 @@ function Write-MultiResIco {
         $bw.Flush()
     } finally { $bw.Dispose(); $fs.Dispose() }
 }
-$master=[System.Drawing.Bitmap]::FromFile((Resolve-Path $SourceImage).Path)
+$resolvedSource=(Resolve-Path $SourceImage).Path
+Copy-Item $resolvedSource (Join-Path $OutputDir "algofortis_logo.png") -Force
+$master=[System.Drawing.Bitmap]::FromFile($resolvedSource)
 try {
-    $master.Save((Join-Path $OutputDir "algofortis_logo.png"),[System.Drawing.Imaging.ImageFormat]::Png)
     Write-MultiResIco $master (Join-Path $OutputDir "algofortis.ico")
 } finally { $master.Dispose() }
 Write-Host "CANONICAL_BRAND=PASS"
