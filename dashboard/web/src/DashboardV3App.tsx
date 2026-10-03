@@ -15,6 +15,7 @@ export type { ThemeMode };
 
 export interface DashboardV3AppProps {
   initialWorkspace?: Workspace;
+  lockedWorkspace?: Workspace;
   initialTheme?: ThemeMode;
   forceMode?: "desktop" | "mobile";
   onExit?: () => void;
@@ -22,11 +23,13 @@ export interface DashboardV3AppProps {
 
 export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
   initialWorkspace = "user",
+  lockedWorkspace,
   initialTheme = "dark",
   forceMode,
   onExit,
 }) => {
   const [ws, setWs] = useState<Workspace>(() => {
+    if (lockedWorkspace) return lockedWorkspace;
     try {
       const p = new URLSearchParams(window.location.search);
       const q = p.get("workspace");
@@ -44,6 +47,10 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
   });
 
   useEffect(() => {
+    if (lockedWorkspace) setWs(lockedWorkspace);
+  }, [lockedWorkspace]);
+
+  useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try {
       localStorage.setItem("sentinelx_theme", theme);
@@ -55,28 +62,36 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
   }, []);
 
   const syncUrl = useCallback((nextWs: Workspace) => {
+    const target = lockedWorkspace ?? nextWs;
     const url = new URL(window.location.href);
     url.searchParams.set("surface", "dashboard-v3");
-    url.searchParams.set("workspace", nextWs);
+    url.searchParams.set("workspace", target);
     url.searchParams.delete("preview");
     url.searchParams.delete("dev");
     window.history.replaceState({}, "", url.toString());
-  }, []);
+  }, [lockedWorkspace]);
 
   const switchWs = useCallback((next: Workspace) => {
-    setWs(next);
-    syncUrl(next);
-  }, [syncUrl]);
+    if (lockedWorkspace && next !== lockedWorkspace) return;
+    const target = lockedWorkspace ?? next;
+    setWs(target);
+    syncUrl(target);
+  }, [lockedWorkspace, syncUrl]);
 
   useEffect(() => {
     const onPop = () => {
+      if (lockedWorkspace) {
+        setWs(lockedWorkspace);
+        syncUrl(lockedWorkspace);
+        return;
+      }
       const p = new URLSearchParams(window.location.search);
       const q = p.get("workspace");
       if (q === "owner" || q === "user") setWs(q);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [lockedWorkspace, syncUrl]);
 
   if (ws === "owner") {
     return (
@@ -84,7 +99,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
         theme={theme}
         toggleTheme={toggleTheme}
         forceMode={forceMode}
-        onSwitchWorkspace={switchWs}
+        onSwitchWorkspace={lockedWorkspace ? undefined : switchWs}
         onExit={onExit}
       />
     );
@@ -95,7 +110,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
       theme={theme}
       toggleTheme={toggleTheme}
       forceMode={forceMode}
-      onSwitchWorkspace={switchWs}
+      onSwitchWorkspace={lockedWorkspace ? undefined : switchWs}
       onExit={onExit}
     />
   );

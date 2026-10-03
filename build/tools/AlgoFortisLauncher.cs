@@ -11,10 +11,22 @@ using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
+#if OWNER_APP
+[assembly: AssemblyTitle("AlgoFortis Owner")]
+[assembly: AssemblyDescription("AlgoFortis Owner — Trading Research & Risk OS")]
+[assembly: AssemblyCompany("AlgoFortis")]
+[assembly: AssemblyProduct("AlgoFortis Owner")]
+#elif USER_APP
+[assembly: AssemblyTitle("AlgoFortis User")]
+[assembly: AssemblyDescription("AlgoFortis User — Trading Research & Risk OS")]
+[assembly: AssemblyCompany("AlgoFortis")]
+[assembly: AssemblyProduct("AlgoFortis User")]
+#else
 [assembly: AssemblyTitle("AlgoFortis")]
 [assembly: AssemblyDescription("AlgoFortis Trading Research & Risk OS")]
 [assembly: AssemblyCompany("AlgoFortis")]
 [assembly: AssemblyProduct("AlgoFortis")]
+#endif
 [assembly: AssemblyCopyright("Copyright (C) 2026 AlgoFortis")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
@@ -31,6 +43,30 @@ namespace AlgoFortis
         private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
         private static Mutex appMutex;
+
+#if OWNER_APP
+        private const string AppRole = "owner";
+        private const string AppDisplayName = "AlgoFortis Owner";
+        private const string AppWindowTitle = "AlgoFortis Owner - Trading Research & Risk OS";
+        private const string AppMutexName = "Global\\AlgoFortis_Owner_App_Instance_Mutex";
+        private const string OtherAppMutexName = "Global\\AlgoFortis_User_App_Instance_Mutex";
+        private const string WebViewProfileName = "AlgoFortisOwner_WebView2";
+#elif USER_APP
+        private const string AppRole = "user";
+        private const string AppDisplayName = "AlgoFortis User";
+        private const string AppWindowTitle = "AlgoFortis User - Trading Research & Risk OS";
+        private const string AppMutexName = "Global\\AlgoFortis_User_App_Instance_Mutex";
+        private const string OtherAppMutexName = "Global\\AlgoFortis_Owner_App_Instance_Mutex";
+        private const string WebViewProfileName = "AlgoFortisUser_WebView2";
+#else
+        private const string AppRole = "";
+        private const string AppDisplayName = "AlgoFortis";
+        private const string AppWindowTitle = "AlgoFortis - Trading Research & Risk OS";
+        private const string AppMutexName = "Global\\AlgoFortis_Desktop_App_Instance_Mutex";
+        private const string OtherAppMutexName = "";
+        private const string WebViewProfileName = "AlgoFortis_WebView2";
+#endif
+
         private string appDir;
         private string pythonExe;
         private string runtimeUrl;
@@ -71,7 +107,7 @@ namespace AlgoFortis
 
         private void InitializeComponents()
         {
-            this.Text = "AlgoFortis - Trading Research & Risk OS";
+            this.Text = AppWindowTitle;
             this.Name = "AlgoFortisMainWindow";
             this.Size = new Size(1366, 850);
             this.MinimumSize = new Size(1024, 700);
@@ -285,7 +321,7 @@ namespace AlgoFortis
                 // WebView2 user data folder in %LOCALAPPDATA%\AlgoFortis_WebView2
                 // Keep separated from %LOCALAPPDATA%\AlgoFortis so Chromium sandbox ACEs don't conflict with backend CurrentUserAcl
                 string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string webViewCache = Path.Combine(localAppData, "AlgoFortis_WebView2");
+                string webViewCache = Path.Combine(localAppData, WebViewProfileName);
                 Directory.CreateDirectory(webViewCache);
                 Log("WebView2 user data folder: " + webViewCache);
 
@@ -335,7 +371,7 @@ namespace AlgoFortis
 
                 statusLabel.Text = "Loading AlgoFortis interface...";
                 Log("Navigating to runtimeUrl: " + this.runtimeUrl);
-                webView.CoreWebView2.Navigate(this.runtimeUrl);
+                webView.CoreWebView2.Navigate(BuildRoleUrl(this.runtimeUrl));
             }
             catch (Exception ex)
             {
@@ -445,6 +481,20 @@ namespace AlgoFortis
             return null;
         }
 
+        private string BuildRoleUrl(string baseUrl)
+        {
+            if (string.IsNullOrEmpty(AppRole)) return baseUrl;
+            return baseUrl.TrimEnd('/') + "/?app=" + AppRole + "&surface=secure-entry";
+        }
+
+        private bool OtherRoleRunning()
+        {
+            if (string.IsNullOrEmpty(OtherAppMutexName)) return false;
+            try { using (Mutex other = Mutex.OpenExisting(OtherAppMutexName)) { return true; } }
+            catch (WaitHandleCannotBeOpenedException) { return false; }
+            catch { return false; }
+        }
+
         private void ShowError(string message)
         {
             if (this.InvokeRequired)
@@ -463,8 +513,15 @@ namespace AlgoFortis
         {
             try
             {
-                Log("MainWindow_FormClosing triggered; stopping backend...");
-                RunController("stop");
+                if (OtherRoleRunning())
+                {
+                    Log("MainWindow_FormClosing: other role app remains open; shared backend retained.");
+                }
+                else
+                {
+                    Log("MainWindow_FormClosing: final role app closing; stopping shared backend.");
+                    RunController("stop");
+                }
             }
             catch { }
         }
@@ -473,14 +530,14 @@ namespace AlgoFortis
         public static void Main(string[] args)
         {
             bool createdNew;
-            appMutex = new Mutex(true, "Global\\AlgoFortis_Desktop_App_Instance_Mutex", out createdNew);
+            appMutex = new Mutex(true, AppMutexName, out createdNew);
 
             if (!createdNew)
             {
-                IntPtr hWnd = FindWindow(null, "AlgoFortis - Trading Research & Risk OS");
+                IntPtr hWnd = FindWindow(null, AppWindowTitle);
                 if (hWnd == IntPtr.Zero)
                 {
-                    hWnd = FindWindow(null, "AlgoFortis");
+                    hWnd = FindWindow(null, AppDisplayName);
                 }
                 if (hWnd != IntPtr.Zero)
                 {
