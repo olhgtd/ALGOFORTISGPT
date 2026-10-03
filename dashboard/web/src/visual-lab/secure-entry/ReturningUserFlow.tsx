@@ -11,6 +11,7 @@ interface ReturningUserFlowProps {
   onVerifyFailure: (error: string) => void;
   onSwitchToAccessGate: () => void;
   onSwitchToOwnerSetup: () => void;
+  ownerSetupAvailable?: boolean;
   onSwitchToRecovery: () => void;
   onEnterWorkspace: (role?: "OWNER" | "USER") => void;
   isMobileLayout?: boolean;
@@ -22,6 +23,8 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
   onVerifySuccess,
   onVerifyFailure,
   onSwitchToAccessGate,
+  onSwitchToOwnerSetup,
+  ownerSetupAvailable = false,
   onSwitchToRecovery,
   onEnterWorkspace,
 }) => {
@@ -151,6 +154,11 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
           <button type="button" className="footer-link-btn" onClick={onSwitchToAccessGate} id="nav-to-first-time-activation">
             First time? Activate User account
           </button>
+          {ownerSetupAvailable && (
+            <button type="button" className="footer-link-btn" onClick={onSwitchToOwnerSetup} id="nav-to-owner-setup">
+              First Owner setup
+            </button>
+          )}
           <button type="button" className="footer-link-btn" onClick={onSwitchToRecovery} id="nav-to-recovery-btn">
             Need help or account recovery?
           </button>
