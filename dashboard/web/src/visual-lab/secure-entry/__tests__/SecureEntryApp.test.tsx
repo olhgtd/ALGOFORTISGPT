@@ -14,9 +14,15 @@ vi.mock("../../../api", () => ({
 vi.mock("../SentinelXCore", () => ({ SentinelXCore: () => <div id="mock-core" /> }));
 vi.mock("../../../../../shared/utilities/V3Chrome", () => ({ GlobalRealTimeClock: () => <div id="mock-clock" /> }));
 vi.mock("../ReturningUserFlow", () => ({
-  ReturningUserFlow: (props: { onSwitchToAccessGate: () => void; onSwitchToRecovery: () => void }) => (
-    <div id="mock-returning">
+  ReturningUserFlow: (props: {
+    onSwitchToAccessGate: () => void;
+    onSwitchToOwnerSetup: () => void;
+    ownerSetupAvailable?: boolean;
+    onSwitchToRecovery: () => void;
+  }) => (
+    <div id="mock-returning" data-owner-setup={props.ownerSetupAvailable ? "yes" : "no"}>
       <button id="mock-activate-switch" onClick={props.onSwitchToAccessGate}>Activate User</button>
+      {props.ownerSetupAvailable && <button id="mock-owner-switch" onClick={props.onSwitchToOwnerSetup}>Owner Setup</button>}
       <button id="mock-recovery-switch" onClick={props.onSwitchToRecovery}>Recovery</button>
     </div>
   ),
@@ -74,7 +80,7 @@ describe("SecureEntryApp canonical routing", () => {
     expect(node.querySelector("#local-login-card")).toBeNull();
   });
 
-  it("fails closed on a fresh second PC when authority cannot prove owner absence", async () => {
+  it("keeps normal Sign In visible when roaming/bootstrap authority is unavailable", async () => {
     vi.mocked(api.ownerBootstrapStatus).mockResolvedValue({
       owner_presence: "UNKNOWN",
       owner_setup_allowed: false,
@@ -83,11 +89,13 @@ describe("SecureEntryApp canonical routing", () => {
       reason: "roaming authority unavailable",
     });
     const node = await mount();
-    expect(node.textContent).toContain("Account authority unavailable");
+    expect(node.querySelector("#mock-returning")).not.toBeNull();
+    expect(node.textContent).not.toContain("Account authority unavailable");
+    expect(node.querySelector("#mock-owner-switch")).toBeNull();
     expect(node.querySelector("#mock-owner-setup")).toBeNull();
   });
 
-  it("renders Owner Setup only when explicitly authorized", async () => {
+  it("keeps Sign In primary and exposes Owner Setup only as an authorized secondary action", async () => {
     vi.mocked(api.ownerBootstrapStatus).mockResolvedValue({
       owner_presence: "ABSENT_CONFIRMED",
       owner_setup_allowed: true,
@@ -96,6 +104,10 @@ describe("SecureEntryApp canonical routing", () => {
       reason: "trusted first bootstrap",
     });
     const node = await mount();
+    expect(node.querySelector("#mock-returning")).not.toBeNull();
+    const ownerSwitch = node.querySelector("#mock-owner-switch") as HTMLButtonElement;
+    expect(ownerSwitch).not.toBeNull();
+    await act(async () => ownerSwitch.click());
     expect(node.querySelector("#mock-owner-setup")).not.toBeNull();
   });
 
