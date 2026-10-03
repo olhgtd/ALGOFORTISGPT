@@ -1,0 +1,87 @@
+name: AlgoFortis Owner-User Windows Packages
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QUALIFIED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  owner-user-windows:
+    runs-on: windows-latest
+    name: Build and install Owner/User packages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFIED_HEAD }}
+
+      - name: Exact head
+        shell: pwsh
+        run: |
+          $actual=git rev-parse HEAD
+          if($actual -ne $env:QUALIFIED_HEAD){throw "Head mismatch"}
+          Write-Host "QUALIFIED_HEAD=$actual"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build prerequisites
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Frontend regression
+        shell: pwsh
+        run: |
+          npm --prefix dashboard/web ci
+          npm --prefix dashboard/web run typecheck
+          npm --prefix dashboard/web run test:user-dashboard
+          npm --prefix dashboard/web run build
+
+      - name: Python split-package contract
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-test.in
+          python -m pytest tests_v1/test_local_private_desktop_behavior.py -q
+
+      - name: Build Owner and User installers
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File build/tools/build_owner_user_installers.ps1
+          if($LASTEXITCODE -ne 0){throw "split installer build failed"}
+          foreach($p in @("build/installer/AlgoFortis-Owner-Setup.exe","build/installer/AlgoFortis-User-Setup.exe")){
+            if(-not(Test-Path $p)){throw "$p missing"}
+          }
+          Write-Host "OWNER_USER_SPLIT=PASS"
+          Write-Host "LIVE_STATE=READ_ONLY/DISARMED"
+
+      - name: Real install launch close uninstall
+        shell: pwsh
+        run: python build/tools/certify_owner_user_installers.py
+
+      - name: Hashes and evidence
+        shell: pwsh
+        run: |
+          Get-FileHash build/installer/AlgoFortis-Owner-Setup.exe -Algorithm SHA256
+          Get-FileHash build/installer/AlgoFortis-User-Setup.exe -Algorithm SHA256
+          Get-Content build/installer/AlgoFortis-Owner-Setup.exe.evidence.json
+          Get-Content build/installer/AlgoFortis-User-Setup.exe.evidence.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlgoFortis-Owner-User-Windows-${{ env.QUALIFIED_HEAD }}
+          path: |
+            build/installer/AlgoFortis-Owner-Setup.exe
+            build/installer/AlgoFortis-Owner-Setup.exe.evidence.json
+            build/installer/AlgoFortis-User-Setup.exe
+            build/installer/AlgoFortis-User-Setup.exe.evidence.json
+          if-no-files-found: error
