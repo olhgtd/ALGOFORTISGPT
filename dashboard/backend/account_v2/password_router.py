@@ -18,6 +18,8 @@ from dashboard.backend.security import SecurityError
 from dashboard.backend.security_store import SecurityStoreError
 
 from .password_accounts import PasswordAccountAuthority, normalize_legacy_owner_activation
+from .remote_password_identity import RemoteAccountAccessUnavailable
+from .repository import AccountAuthorityUnavailable
 
 
 class PasswordActivationRequest(BaseModel):
@@ -175,6 +177,18 @@ def attach_password_account_routes(app: Any) -> Any:
         _require_not_locked(limiter, ip_key, identifier_key)
 
         identity = authority.verify_identity_password(identifier=identifier, password=body.password)
+        if identity is None:
+            roaming = getattr(app.state, "roaming_identity", None)
+            remote_auth = getattr(roaming, "authenticate_password", None)
+            if bool(getattr(roaming, "configured", False)) and callable(remote_auth):
+                try:
+                    identity = remote_auth(identifier=identifier, password=body.password)
+                except RemoteAccountAccessUnavailable:
+                    _record_failure(limiter, ip_key, identifier_key)
+                    raise HTTPException(status_code=403, detail="ACCOUNT_ACCESS_UNAVAILABLE") from None
+                except AccountAuthorityUnavailable:
+                    raise HTTPException(status_code=503, detail="ACCOUNT_AUTHORITY_UNAVAILABLE") from None
+
         if identity is None:
             _record_failure(limiter, ip_key, identifier_key)
             raise HTTPException(status_code=401, detail="INVALID_ID_OR_PASSWORD")
