@@ -2,10 +2,12 @@
 from __future__ import annotations
 import hashlib, json, os, subprocess, time
 from pathlib import Path
+from urllib.request import Request, build_opener, ProxyHandler
 
 ROOT = Path(__file__).resolve().parents[2]
 BRAND = ROOT / "assets" / "branding" / "AlgoFortis" / "AlgoFortis_Logo_Master.png"
 LOCAL_DATA = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
+OPENER = build_opener(ProxyHandler({}))
 PACKAGES = (
     ("OWNER", ROOT / "build" / "installer" / "AlgoFortis-Owner-Setup.exe",
      Path(r"C:\Program Files\AlgoFortis\Owner"), "AlgoFortisOwner.exe", "AlgoFortis User.lnk"),
@@ -67,7 +69,11 @@ def main():
 
         proc=subprocess.Popen([str(exe)],cwd=str(install))
         ready=wait_state(install,"READY")
-        assert ready["mode"]=="LOCAL_PRIVATE"
+        runtime_url=ready["url"]
+        with OPENER.open(Request(runtime_url.rstrip("/") + "/api/v1/runtime/status")) as response:
+            runtime_status=json.loads(response.read().decode("utf-8"))
+        assert runtime_status["mode"]=="LOCAL_PRIVATE"
+        assert runtime_status["live_execution"]=="DISARMED"
         close_window(proc)
         wait_state(install,"UNAVAILABLE")
         uninstall(install)
