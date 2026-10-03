@@ -5,14 +5,16 @@ from pathlib import Path
 from urllib.request import Request, build_opener, ProxyHandler
 
 ROOT = Path(__file__).resolve().parents[2]
-BRAND = ROOT / "assets" / "branding" / "AlgoFortis" / "AlgoFortis_Logo_Master.png"
+BRAND_ROOT = ROOT / "assets" / "branding" / "AlgoFortis"
+OWNER_BRAND = BRAND_ROOT / "AlgoFortis_Owner_Logo.png"
+USER_BRAND = BRAND_ROOT / "AlgoFortis_User_Logo.png"
 LOCAL_DATA = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
 OPENER = build_opener(ProxyHandler({}))
 PACKAGES = (
     ("OWNER", ROOT / "build" / "installer" / "AlgoFortis-Owner-Setup.exe",
-     Path(r"C:\Program Files\AlgoFortis\Owner"), "AlgoFortisOwner.exe", "AlgoFortis User.lnk"),
+     Path(r"C:\Program Files\AlgoFortis\Owner"), "AlgoFortisOwner.exe", OWNER_BRAND),
     ("USER", ROOT / "build" / "installer" / "AlgoFortis-User-Setup.exe",
-     Path(r"C:\Program Files\AlgoFortis\User"), "AlgoFortisUser.exe", "AlgoFortis Owner.lnk"),
+     Path(r"C:\Program Files\AlgoFortis\User"), "AlgoFortisUser.exe", USER_BRAND),
 )
 
 def sha(path: Path) -> str:
@@ -52,8 +54,8 @@ def uninstall(install: Path):
 
 def main():
     print("=== ALGOFORTIS OWNER/USER REAL INSTALL CERT ===")
-    brand_hash=sha(BRAND)
-    for role,setup,install,exe_name,other_shortcut in PACKAGES:
+    for role,setup,install,exe_name,brand_source in PACKAGES:
+        brand_hash=sha(brand_source)
         assert setup.exists(),setup
         r=subprocess.run([str(setup),"/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/MERGETASKS=desktopicon"])
         assert r.returncode==0,(role,r.returncode)
@@ -62,7 +64,9 @@ def main():
         assert not (install/"AlgoFortis.exe").exists(),"generic launcher leaked into role installer"
         other_exe="AlgoFortisUser.exe" if role=="OWNER" else "AlgoFortisOwner.exe"
         assert not (install/other_exe).exists(),"opposite role launcher leaked"
-        assert sha(install/"algofortis_logo.png")==brand_hash,"installed logo is not approved fortress master"
+        assert sha(install/"algofortis_logo.png")==brand_hash,f"{role} installed root logo does not match final role brand"
+        assert sha(install/"dashboard"/"web"/"dist"/"algofortis_logo.png")==brand_hash,f"{role} web logo does not match final role brand"
+        assert sha(install/"dashboard"/"web"/"dist"/"favicon.png")==brand_hash,f"{role} favicon does not match final role brand"
         assert (install/"algofortis.ico").exists()
         assert (install/"dashboard"/"web"/"dist"/"index.html").exists()
         assert (install/"runtime"/"python"/"python.exe").exists()
