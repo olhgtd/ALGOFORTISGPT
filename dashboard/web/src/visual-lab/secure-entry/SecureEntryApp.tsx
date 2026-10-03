@@ -43,24 +43,17 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
       .then(([, bootstrap]) => {
         if (!active) return;
         setOwnerSetupAllowed(bootstrap.owner_setup_allowed === true);
-        switch (bootstrap.recommended_flow) {
-          case "LOCAL_LOGIN":
-          case "RETURNING_USER":
-            // Existing Owner and returning Users use the exact same canonical
-            // password gate. Backend identity determines the workspace.
-            setFlow("RETURNING_USER");
-            return;
-          case "LOCAL_OWNER_SETUP":
-            setFlow(bootstrap.owner_setup_allowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
-            return;
-          default:
-            setFlow("UNAVAILABLE");
-        }
+        // Sign In is always the primary entry surface. Bootstrap authority
+        // controls only whether the optional one-time Owner Setup action is
+        // available; it must never hide the normal ID/email + password gate.
+        setFlow("RETURNING_USER");
       })
       .catch(() => {
         if (active) {
           setOwnerSetupAllowed(false);
-          setFlow("UNAVAILABLE");
+          // Even if bootstrap/roaming status is unavailable, keep the normal
+          // password gate visible so an existing local account can sign in.
+          setFlow("RETURNING_USER");
         }
       });
     return () => { active = false; };
@@ -204,6 +197,7 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
                 onVerifyFailure={() => setVerificationState("VERIFICATION_FAILED")}
                 onSwitchToAccessGate={() => { setFlow("ACCESS_GATE"); setGateStep("ENTER_ACCESS_ID"); }}
                 onSwitchToOwnerSetup={requestOwnerSetup}
+                ownerSetupAvailable={ownerSetupAllowed}
                 onSwitchToRecovery={() => setFlow("HELP_RECOVERY")}
                 onEnterWorkspace={(role) => handleWorkspaceTransition(true, role === "OWNER" ? "owner" : "user")}
                 isMobileLayout={isMobile}
