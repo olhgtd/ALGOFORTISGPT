@@ -69,8 +69,8 @@ if($LASTEXITCODE -ne 0){throw "dashboard npm ci failed"}
 if($LASTEXITCODE -ne 0){throw "dashboard build failed"}
 
 $roles=@(
-    @{Role="OWNER";AppName="AlgoFortis Owner";Launcher="AlgoFortisOwner.exe";Output="AlgoFortis-Owner-Setup";Subdir="Owner";AppId="{EF3180F8-1F78-4E45-81A0-90F7337B207C}"},
-    @{Role="USER";AppName="AlgoFortis User";Launcher="AlgoFortisUser.exe";Output="AlgoFortis-User-Setup";Subdir="User";AppId="{412C7181-92E6-4315-A958-298F3ADF5BB3}"}
+    @{Role="OWNER";AppName="AlgoFortis Owner";Launcher="AlgoFortisOwner.exe";Output="AlgoFortis-Owner-Setup";Subdir="Owner";AppId="{{EF3180F8-1F78-4E45-81A0-90F7337B207C}"},
+    @{Role="USER";AppName="AlgoFortis User";Launcher="AlgoFortisUser.exe";Output="AlgoFortis-User-Setup";Subdir="User";AppId="{{412C7181-92E6-4315-A958-298F3ADF5BB3}"}
 )
 foreach($cfg in $roles){
     & powershell.exe -ExecutionPolicy Bypass -File "$toolsDir\stage_role_app.ps1" -Role $cfg.Role -WebView2Version $WebView2Version -ExpectedWebView2PackageSha256 $ExpectedWebView2PackageSha256
