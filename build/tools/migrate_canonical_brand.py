@@ -63,10 +63,22 @@ def _replace_text_bytes(path: Path) -> bool:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RuntimeError(f"tracked non-UTF8 file contains retired brand token: {path.relative_to(ROOT)}") from exc
-    updated = "".join(_replace_brand_line(line) for line in text.splitlines(keepends=True))
-    if updated == text:
+
+    output: list[str] = []
+    previous_was_brand_changed = False
+    for line in text.splitlines(keepends=True):
+        brand_changed = bool(OLD_RE.search(line))
+        updated = _replace_brand_line(line)
+        if output and updated == output[-1] and (brand_changed or previous_was_brand_changed):
+            previous_was_brand_changed = previous_was_brand_changed or brand_changed
+            continue
+        output.append(updated)
+        previous_was_brand_changed = brand_changed
+
+    updated_text = "".join(output)
+    if updated_text == text:
         return False
-    path.write_bytes(updated.encode("utf-8"))
+    path.write_bytes(updated_text.encode("utf-8"))
     return True
 
 
