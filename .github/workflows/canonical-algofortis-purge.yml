@@ -129,9 +129,24 @@ jobs:
           Write-Host 'LIVE_STATE=READ_ONLY/DISARMED'
           Write-Host 'CANONICAL_BRAND=ALGOFORTIS_ONLY'
 
-      - name: Commit qualified migration directly to main
+      - name: Commit qualified non-workflow migration directly to main
         shell: pwsh
         run: |
+          # GitHub Actions' GITHUB_TOKEN cannot update workflow files without the
+          # workflows permission. They are fully migrated and verified above, but
+          # are restored here so this qualified non-workflow commit can fast-forward
+          # main. The four workflow files are canonicalized immediately afterward
+          # through the connected GitHub write API.
+          $deferredWorkflows = @(
+            '.github/workflows/live-v1-v2-reunion-qualification.yml',
+            '.github/workflows/owner-admin-authoritative.yml',
+            '.github/workflows/riskgate-fast-path-qualification.yml',
+            '.github/workflows/v2-phase0-baseline.yml'
+          )
+          foreach ($workflowPath in $deferredWorkflows) {
+            git restore --source=HEAD -- $workflowPath
+            if ($LASTEXITCODE -ne 0) { throw "Failed to defer workflow path $workflowPath" }
+          }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
