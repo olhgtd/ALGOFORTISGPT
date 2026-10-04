@@ -19,7 +19,6 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONPATH: ${{ github.workspace }}
-      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
       ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
     steps:
       - name: Checkout exact dispatched head
@@ -97,7 +96,6 @@ jobs:
     timeout-minutes: 30
     env:
       PYTHONPATH: ${{ github.workspace }}
-      SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
       ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
     steps:
       - name: Checkout exact dispatched head
