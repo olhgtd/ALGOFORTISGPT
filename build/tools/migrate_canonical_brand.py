@@ -42,6 +42,19 @@ def _canonical_case(match: re.Match[str]) -> str:
     return "AlgoFortis"
 
 
+def _replace_brand_line(line: str) -> str:
+    if not OLD_RE.search(line):
+        return line
+    updated = OLD_RE.sub(_canonical_case, line)
+    if updated.endswith("\r\n"):
+        return updated[:-2].rstrip(" \t") + "\r\n"
+    if updated.endswith("\n"):
+        return updated[:-1].rstrip(" \t") + "\n"
+    if updated.endswith("\r"):
+        return updated[:-1].rstrip(" \t") + "\r"
+    return updated.rstrip(" \t")
+
+
 def _replace_text_bytes(path: Path) -> bool:
     raw = path.read_bytes()
     if OLD_LOWER.encode("ascii") not in raw.lower():
@@ -50,7 +63,7 @@ def _replace_text_bytes(path: Path) -> bool:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RuntimeError(f"tracked non-UTF8 file contains retired brand token: {path.relative_to(ROOT)}") from exc
-    updated = OLD_RE.sub(_canonical_case, text)
+    updated = "".join(_replace_brand_line(line) for line in text.splitlines(keepends=True))
     if updated == text:
         return False
     path.write_bytes(updated.encode("utf-8"))
