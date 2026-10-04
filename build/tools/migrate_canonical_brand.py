@@ -72,6 +72,12 @@ def _install_permanent_guard_test() -> None:
     )
 
 
+def _force_remove(rel: str) -> None:
+    # Files scheduled for removal may already contain intended in-worktree brand
+    # substitutions. -f discards only those deliberate local edits before deletion.
+    subprocess.run(["git", "rm", "-f", "--", rel], cwd=ROOT, check=True)
+
+
 def migrate() -> None:
     tracked = _tracked()
 
@@ -85,7 +91,7 @@ def migrate() -> None:
     # The old classifier becomes misleading after a total purge; the canonical
     # fail-closed guard supersedes it.
     if (ROOT / SUPERSEDED_AUDIT).exists():
-        subprocess.run(["git", "rm", "--", SUPERSEDED_AUDIT], cwd=ROOT, check=True)
+        _force_remove(SUPERSEDED_AUDIT)
 
     # Rename every tracked path carrying the retired token. Process deepest first.
     current = _tracked()
@@ -103,12 +109,12 @@ def migrate() -> None:
         new_path = ROOT / new_rel
         if new_path.exists():
             if old_rel in OBSOLETE_COLLISION_PATHS:
-                subprocess.run(["git", "rm", "--", old_rel], cwd=ROOT, check=True)
+                _force_remove(old_rel)
                 continue
             old_bytes = old_path.read_bytes()
             new_bytes = new_path.read_bytes()
             if old_bytes == new_bytes:
-                subprocess.run(["git", "rm", "--", old_rel], cwd=ROOT, check=True)
+                _force_remove(old_rel)
                 continue
             raise RuntimeError(f"canonical path collision requires manual resolution: {old_rel} -> {new_rel}")
         new_path.parent.mkdir(parents=True, exist_ok=True)
