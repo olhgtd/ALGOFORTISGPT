@@ -8,6 +8,7 @@ import { api, setSessionToken } from "../../../api";
 vi.mock("../../../api", () => ({
   api: { passwordLogin: vi.fn() },
   setSessionToken: vi.fn(),
+  clearSessionToken: vi.fn(),
 }));
 
 let root: Root | null = null;
