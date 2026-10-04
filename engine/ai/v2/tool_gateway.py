@@ -13,6 +13,9 @@ class ToolAccess(str,Enum): READ='READ'; WRITE='WRITE'
 class ToolSideEffect(str,Enum): NONE='NONE'; RESEARCH_ARTIFACT='RESEARCH_ARTIFACT'
 _SEMVER=re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
 _FORBIDDEN_TOOL_PREFIXES=('broker.','live.','credentials.','credential.','kill_switch.','promotion.')
+# Allowlist (fail-closed): a tool id must start with one of these research-only namespaces.
+# The denylist above is kept as defence in depth; the allowlist is the primary control.
+_ALLOWED_TOOL_PREFIXES=('research.','data.read.')
 
 def _txt(v,n):
  if not isinstance(v,str) or not v.strip(): raise ToolGatewayError(f'{n} required')
@@ -71,6 +74,9 @@ class ToolGateway:
   for tid in self._manifests:
    low=tid.lower()
    if low.startswith(_FORBIDDEN_TOOL_PREFIXES) or low.startswith('risk.set') or low.startswith('risk.write'): raise ToolGatewayError('forbidden trading authority tool')
+   if tid!=low or not low.startswith(_ALLOWED_TOOL_PREFIXES): raise ToolGatewayError('tool id outside research-only allowlist')
+  for m in self._manifests.values():
+   if m.access is ToolAccess.WRITE and m.side_effect is not ToolSideEffect.RESEARCH_ARTIFACT: raise ToolGatewayError('write tools must declare RESEARCH_ARTIFACT side effect')
 
  def _path_allowed(self,path:str,m:ToolManifest)->tuple[bool,str]:
   normalized=path.replace('\\','/')

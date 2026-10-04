@@ -1,5 +1,5 @@
 param (
-    [string]$TargetDir = "c:\Users\Ragini Music\Desktop\SentinelX-CLEAN",
+    [string]$TargetDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string]$SourceImage = ""
 )
 

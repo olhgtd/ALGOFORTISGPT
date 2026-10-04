@@ -53,9 +53,9 @@ print("IMPORT_RESOLUTION_PASS: dashboard originates strictly from clean reposito
     assert test_res.returncode == 0, f"Foundations test failed with exit code {test_res.returncode}"
 
     # Optional reference check if external migration repo exists
-    ref_repo = Path(os.environ.get("SENTINELX_REF_REPO", r"C:\Users\Ragini Music\Downloads\SentinelX_AWS_MIGRATION\SentinelX"))
-    ref_test = ref_repo / "tests" / "test_step7_runtime.py"
-    if ref_test.exists():
+    ref_repo_env = os.environ.get("SENTINELX_REF_REPO", "").strip()
+    ref_test = Path(ref_repo_env) / "tests" / "test_step7_runtime.py" if ref_repo_env else None
+    if ref_test is not None and ref_test.exists():
         print(f"Executing optional reference test {ref_test.name}...")
         pytest_res = subprocess.run(["pytest", str(ref_test), "-v"], cwd=str(clean_root), env=env, capture_output=True, text=True)
         print(pytest_res.stdout)

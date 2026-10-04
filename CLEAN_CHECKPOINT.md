@@ -1,7 +1,9 @@
 # SentinelX — Final Clean Product Source Checkpoint
 
-- **Source Repository**: `C:\Users\Ragini Music\Downloads\SentinelX_AWS_MIGRATION\SentinelX`
-- **Clean Target Path**: `C:\Users\Ragini Music\Desktop\SentinelX-CLEAN`
+> **Historical snapshot (2026-09-14).** The product is now named **AlgoFortis**. The exclusion list and test counts below describe that snapshot only; the current repository includes the `tests_v1/` suite and is governed by `docs/v2/CANONICAL_DOCUMENT_STATUS.md`.
+
+- **Source Repository**: `<LOCAL_SOURCE_REPO>`
+- **Clean Target Path**: `<LOCAL_CLEAN_TARGET>`
 - **Creation Date / Time**: 2026-09-14T07:26:28.077909+00:00
 - **Source Branch**: `main`
 - **Source Git HEAD**: `bc8d972bf9d41a72cc51386dfe1e51539f99ffe8`

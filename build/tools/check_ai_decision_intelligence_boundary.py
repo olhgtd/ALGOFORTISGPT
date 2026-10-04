@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_ai_import_allowlist  # noqa: E402  AST-based firewall (replaces regex-only gaps)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -75,6 +79,8 @@ def check_repository() -> list[str]:
         if not item.exists():
             failures.append(f"required reused authority missing: {item.relative_to(ROOT).as_posix()}")
 
+    failures.extend(check_ai_import_allowlist.check_repository(ROOT))
+
     freeze = ROOT / "docs" / "v2" / "phase8" / "PHASE8_DECISION_FREEZE.md"
     if not freeze.exists() or "READ_ONLY / DISARMED" not in freeze.read_text(encoding="utf-8"):
         failures.append("Phase-8 freeze must preserve Live READ_ONLY / DISARMED")
@@ -93,6 +99,7 @@ def main() -> int:
     print("PORTFOLIO_AUTHORITY=ENGINE_PORTFOLIO_ONLY")
     print("IDENTITY_AUTHORITY=S2_DEVICE_SESSION_GATE")
     print("ADMIN_AUTHORITY=EXISTING_OWNER_ADMIN_ONLY")
+    print("AI_IMPORT_ALLOWLIST=PASS")
     print("LIVE_STATE=READ_ONLY/DISARMED")
     return 0
 

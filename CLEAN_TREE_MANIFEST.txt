@@ -1,8 +1,8 @@
 ===============================================================================
 SENTINELX CLEAN PRODUCT TREE MANIFEST
 ===============================================================================
-Source: C:\Users\Ragini Music\Downloads\SentinelX_AWS_MIGRATION\SentinelX
-Target: C:\Users\Ragini Music\Desktop\SentinelX-CLEAN
+Source: <LOCAL_SOURCE_REPO>
+Target: <LOCAL_CLEAN_TARGET>
 Generated: 2026-09-14T07:26:28.078361+00:00
 
 RETAINED TOP-LEVEL ENTRIES:
