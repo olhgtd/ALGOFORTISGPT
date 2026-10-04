@@ -71,7 +71,6 @@ class RuntimeController:
         request = Request(f"http://127.0.0.1:{record['port']}/api/v1/runtime/control/{action}",
                           headers={
                               "X-AlgoFortis-Runtime": record["control_secret"],
-                              "X-SentinelX-Runtime": record["control_secret"],
                               "Host": f"localhost:{record['port']}",
                           },
                           method="POST" if action == "stop" else "GET")
@@ -105,19 +104,15 @@ class RuntimeController:
             command = [sys.executable, "-m", "dashboard.runtime.controller", "serve", "--mode", self.paths.mode.value,
                        "--data-root", str(self.paths.root), "--install-root", str(self.paths.install)]
             env = {key: value for key, value in os.environ.items()
-                   if not key.startswith(("UPSTOX_", "SENTINELX_UPSTOX", "SENTINELX_TEST", "SENTINELX_AUTO_SEED", "ALGOFORTIS_TEST", "ALGOFORTIS_AUTO_SEED"))}
+                   if not key.startswith(("UPSTOX_", "ALGOFORTIS_UPSTOX", "ALGOFORTIS_TEST", "ALGOFORTIS_AUTO_SEED", "ALGOFORTIS_TEST", "ALGOFORTIS_AUTO_SEED"))}
             env.update(
                 ALGOFORTIS_APP_MODE=self.paths.mode.value,
-                SENTINELX_APP_MODE=self.paths.mode.value,
                 ALGOFORTIS_AUTO_SEED="0",
-                SENTINELX_AUTO_SEED="0",
                 ALGOFORTIS_DATA_ROOT=str(self.paths.imports),
-                SENTINELX_DATA_ROOT=str(self.paths.imports),
                 PYTHONPATH=str(self.paths.install),
             )
             expected_instance = str(uuid4())
             env["ALGOFORTIS_RUNTIME_INSTANCE"] = expected_instance
-            env["SENTINELX_RUNTIME_INSTANCE"] = expected_instance
             with (self.paths.logs / "backend.log").open("ab") as log:
                 proc = subprocess.Popen(command, cwd=self.paths.install, env=env, stdin=subprocess.DEVNULL,
                                         stdout=log, stderr=log,
@@ -191,7 +186,7 @@ def serve(paths):
             if not configured_port:
                 atomic_json(network_path, {"version": 1, "port": port})
             origin = f"http://localhost:{port}"
-            instance_id = os.environ.get("ALGOFORTIS_RUNTIME_INSTANCE", os.environ.get("SENTINELX_RUNTIME_INSTANCE", str(uuid4())))
+            instance_id = os.environ.get("ALGOFORTIS_RUNTIME_INSTANCE", os.environ.get("ALGOFORTIS_RUNTIME_INSTANCE", str(uuid4())))
             secret = secrets.token_urlsafe(48)
             app = create_runtime_app(paths, origin, instance_id)
             server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, access_log=False, timeout_graceful_shutdown=5))
@@ -201,7 +196,7 @@ def serve(paths):
             @app.middleware("http")
             async def runtime_control(request: WebRequest, call_next):
                 if request.url.path.startswith("/api/v1/runtime/control/"):
-                    header_secret = request.headers.get("x-algofortis-runtime") or request.headers.get("x-sentinelx-runtime") or ""
+                    header_secret = request.headers.get("x-algofortis-runtime") or request.headers.get("x-algofortis-runtime") or ""
                     if (request.headers.get("origin") not in (None, origin)
                             or request.headers.get("host") != f"localhost:{port}"
                             or not secrets.compare_digest(header_secret, secret)):

@@ -21,7 +21,7 @@ def _event(event_id: str, *, correlation_id: str = "corr-1") -> AuditEvent:
         run_id="run-001",
         environment="paper",
         canonical_configuration_fingerprint="cfg_abc",
-        payload_version="sentinelx-payload/v1",
+        payload_version="algofortis-payload/v1",
         payload_json='{"reason":"startup"}',
     )
 
@@ -44,9 +44,9 @@ def test_chain_is_deterministic_and_links_each_entry() -> None:
     assert len(first.chain_hash) == 64
     assert len(second.chain_hash) == 64
     assert first.versions == (
-        ("audit_envelope", "sentinelx-audit-envelope/v2"),
+        ("audit_envelope", "algofortis-audit-envelope/v2"),
         ("broker_adapter", "paper/v1"),
-        ("payload", "sentinelx-payload/v1"),
+        ("payload", "algofortis-payload/v1"),
         ("risk_rule", "risk-policy/v3"),
     )
     assert verify_audit_chain(chain.entries) is True

@@ -1,8 +1,8 @@
 /**
- * SentinelX Enterprise Control Center & Web Platform – Root Application
+ * AlgoFortis Enterprise Control Center & Web Platform – Root Application
  *
  * Single Canonical Entry Point:
- * - Public Website: SentinelXWebsite (landing page, docs, features)
+ * - Public Website: AlgoFortisWebsite (landing page, docs, features)
  * - Secure Entry Gate: SecureEntryApp (FIDO2/WebAuthn hardware auth, new user setup, recovery)
  * - Dashboard V3: DashboardV3App (canonical trading workstation for User & Owner workspaces)
  *
@@ -13,7 +13,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { SentinelXWebsite } from "./website/SentinelXWebsite";
+import { AlgoFortisWebsite } from "./website/AlgoFortisWebsite";
 import { SecureEntryApp } from "./visual-lab/secure-entry/SecureEntryApp";
 import { RuntimeAvailability } from "./RuntimeAvailability";
 import { DashboardV3App, type Workspace } from "./DashboardV3App";
@@ -215,7 +215,7 @@ export function App() {
   }, [lockedWorkspace]);
 
   if (surface === "website") {
-    return <SentinelXWebsite onLaunchApp={switchToSecureEntry} />;
+    return <AlgoFortisWebsite onLaunchApp={switchToSecureEntry} />;
   }
 
   if (surface === "secure-entry") {

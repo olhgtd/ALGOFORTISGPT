@@ -39,8 +39,8 @@
 ## 3. DATABASE INTEGRITY
 
 - `AppData\Local\AlgoFortis\databases\core-audit.sqlite3`: **OK** (`integrity_check=ok`, `foreign_key_check=0`)
-- `AppData\Local\AlgoFortis\databases\governance\sentinelx_governance.sqlite3`: **OK** (`integrity_check=ok`, `foreign_key_check=0`)
-- `AppData\Local\AlgoFortis\databases\security\sentinelx_security.sqlite3`: **OK** (`integrity_check=ok`, `foreign_key_check=0`)
+- `AppData\Local\AlgoFortis\databases\governance\algofortis_governance.sqlite3`: **OK** (`integrity_check=ok`, `foreign_key_check=0`)
+- `AppData\Local\AlgoFortis\databases\security\algofortis_security.sqlite3`: **OK** (`integrity_check=ok`, `foreign_key_check=0`)
 - **Total Foreign Key Violations Across All Databases:** **0**
 
 ---

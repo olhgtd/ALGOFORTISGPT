@@ -48,7 +48,7 @@ class DependencyDeclaration:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-dependency-declaration/v1",
+            "algofortis-dependency-declaration/v1",
             (("version", self.version), ("dependencies", self.dependencies)),
         )
 
@@ -76,7 +76,7 @@ class RuntimeDependencyClosure:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-runtime-dependency-closure/v1",
+            "algofortis-runtime-dependency-closure/v1",
             (
                 ("policy_version", self.policy_version),
                 ("dependencies", tuple((item.name, item.version) for item in self.dependencies)),
@@ -109,7 +109,7 @@ class ApprovedRuntimeDependencyLock:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-approved-runtime-lock/v1",
+            "algofortis-approved-runtime-lock/v1",
             (("schema_version", self.schema_version),
              ("python_implementation", self.python_implementation),
              ("python_version", self.python_version),

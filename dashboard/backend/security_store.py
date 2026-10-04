@@ -168,20 +168,20 @@ class SQLiteSecurityStore:
             return False
 
         # 2. Explicit environment mode configuration boundaries
-        if os.environ.get("SENTINELX_AUTO_SEED") == "0":
+        if os.environ.get("ALGOFORTIS_AUTO_SEED") == "0":
             return False
-        if os.environ.get("SENTINELX_APP_MODE", "").lower() in {"production", "release_candidate", "live"}:
+        if os.environ.get("ALGOFORTIS_APP_MODE", "").lower() in {"production", "release_candidate", "live"}:
             return False
 
         path_str = str(self.path).replace("\\", "/").lower()
         # 3. Canonical authoritative runtime stores are permanently forbidden from auto-seeding
-        if "sentinelx_security.sqlite3" in path_str and ".sentinelx-dev-data" in path_str and "test" not in path_str:
+        if "algofortis_security.sqlite3" in path_str and ".algofortis-dev-data" in path_str and "test" not in path_str:
             return False
 
         # 4. Explicit test configuration or isolated test fixtures
-        if os.environ.get("SENTINELX_AUTO_SEED") == "1":
+        if os.environ.get("ALGOFORTIS_AUTO_SEED") == "1":
             return True
-        if os.environ.get("SENTINELX_TEST_MODE") == "1" or "pytest" in sys.modules:
+        if os.environ.get("ALGOFORTIS_TEST_MODE") == "1" or "pytest" in sys.modules:
             return True
 
         # 5. Default: Fail closed (zero auto-seeding in normal runtime)
@@ -1355,7 +1355,7 @@ class SQLiteSecurityStore:
                 sx_id = _generate_canonical_sx_id()
                 clean_sx_id = sx_id.strip().upper()
             else:
-                raise SecurityStoreError("Failed to generate a unique SentinelX identifier")
+                raise SecurityStoreError("Failed to generate a unique AlgoFortis identifier")
 
             try:
                 cur.execute(
@@ -1453,7 +1453,7 @@ class SQLiteSecurityStore:
                                 return record, fresh_code
                     raise SecurityStoreError(f"A user with email '{clean_email}' already exists") from err
                 if "sx_id" in err_lower or "idx_users_sx_id" in err_lower:
-                    raise SecurityStoreError(f"A user with SentinelX ID '{clean_sx_id}' already exists") from err
+                    raise SecurityStoreError(f"A user with AlgoFortis ID '{clean_sx_id}' already exists") from err
                 raise SecurityStoreError(f"User identity constraint violation: {err}") from err
 
             if code is not None:

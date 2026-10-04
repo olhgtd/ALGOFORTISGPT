@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   SentinelX Secure Entry — Clean Full-HD Pure Dark System
+   AlgoFortis Secure Entry — Clean Full-HD Pure Dark System
    Governed by OWNER VISUAL SPECIFICATION
    - Minimal first screen with ONLY Access Gate
    - NO outer card border / background / panel box (floating on pure black)
@@ -247,7 +247,7 @@
   text-align: center;
 }
 
-/* ── 4. SentinelX Core Container (Centered Axis Item 3) ── */
+/* ── 4. AlgoFortis Core Container (Centered Axis Item 3) ── */
 .core-display-container {
   display: flex;
   align-items: center;
@@ -257,7 +257,7 @@
   min-height: 0;
 }
 
-.sentinelx-core-wrapper {
+.algofortis-core-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -592,8 +592,8 @@
     margin: -4px 0 4px 0;
   }
 
-  .sentinelx-core-wrapper,
-  .sentinelx-core-wrapper canvas {
+  .algofortis-core-wrapper,
+  .algofortis-core-wrapper canvas {
     width: min(58vw, 200px) !important;
     height: min(58vw, 200px) !important;
   }

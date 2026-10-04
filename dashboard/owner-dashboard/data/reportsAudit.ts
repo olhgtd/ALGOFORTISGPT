@@ -1,5 +1,5 @@
 /**
- * SentinelX Owner Dashboard — Regulatory Reports Registry & D16 Immutable Audit Oversight
+ * AlgoFortis Owner Dashboard — Regulatory Reports Registry & D16 Immutable Audit Oversight
  */
 import type { Truth, ReportItem } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, prototypeFixtureStorage, safeGetJson, safeSetJson } from "../../shared/data/storage";

@@ -11,7 +11,7 @@ to a real brokerage.
 WHAT IS REUSED, NOT REDEFINED
 -----------------------------
 The canonical broker-boundary result types already exist in
-``engine.execution.paper_broker`` and already carry SentinelX canonical types
+``engine.execution.paper_broker`` and already carry AlgoFortis canonical types
 only, so they are re-exported here instead of duplicated:
 
 * :class:`BrokerSubmissionResult`
@@ -117,14 +117,14 @@ __all__ = [
 # Contract identity / canonical evidence schemas
 # ======================================================================
 
-BROKER_ADAPTER_CONTRACT_VERSION = "sentinelx-broker-adapter-contract/v1"
+BROKER_ADAPTER_CONTRACT_VERSION = "algofortis-broker-adapter-contract/v1"
 
-FILL_FRAGMENT_SCHEMA = "sentinelx-broker-fill-fragment/v1"
-STATUS_OBSERVATION_SCHEMA = "sentinelx-broker-status-observation/v1"
-ORDER_SNAPSHOT_SCHEMA = "sentinelx-broker-order-snapshot/v1"
-FUNDS_SNAPSHOT_SCHEMA = "sentinelx-broker-funds-snapshot/v1"
-POSITION_SNAPSHOT_SCHEMA = "sentinelx-broker-position-snapshot/v1"
-MODIFY_RESULT_SCHEMA = "sentinelx-broker-modify-result/v1"
+FILL_FRAGMENT_SCHEMA = "algofortis-broker-fill-fragment/v1"
+STATUS_OBSERVATION_SCHEMA = "algofortis-broker-status-observation/v1"
+ORDER_SNAPSHOT_SCHEMA = "algofortis-broker-order-snapshot/v1"
+FUNDS_SNAPSHOT_SCHEMA = "algofortis-broker-funds-snapshot/v1"
+POSITION_SNAPSHOT_SCHEMA = "algofortis-broker-position-snapshot/v1"
+MODIFY_RESULT_SCHEMA = "algofortis-broker-modify-result/v1"
 
 
 # ======================================================================
@@ -332,7 +332,7 @@ class BrokerFillFragment:
     path.
 
     ``dedup_key`` is the adapter-ONLY fill dedup tuple mandated by §127.6 /
-    OD-5: ``(broker_order_identity, broker_fill_id)``. The SentinelX internal
+    OD-5: ``(broker_order_identity, broker_fill_id)``. The AlgoFortis internal
     ``order_id`` and ``broker_order_identity`` remain authoritative for order
     identity; ``broker_fill_id`` is never promoted to an order identity.
     """
@@ -758,7 +758,7 @@ class BrokerAdapter(Protocol):
 
     Contract obligations for every implementation:
 
-    * Return only SentinelX canonical or adapter-boundary types defined here.
+    * Return only AlgoFortis canonical or adapter-boundary types defined here.
       Vendor payload models must not cross this boundary.
     * Never bypass the core order lifecycle or core risk gates.
     * Order identity comes from :func:`broker_order_identity` — implementations

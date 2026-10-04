@@ -216,7 +216,7 @@ export const BacktestingScreen: React.FC<BacktestingScreenProps> = ({
   // Historical Runs State
   const [historicalRuns, setHistoricalRuns] = useState<DetailedBacktestRun[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("sentinelx_historical_backtests_v3");
+      const saved = localStorage.getItem("algofortis_historical_backtests_v3");
       return saved ? JSON.parse(saved) : [];
     }
     return [];
@@ -451,7 +451,7 @@ export const BacktestingScreen: React.FC<BacktestingScreenProps> = ({
   // Sync to localStorage only in inspection preview or offline mode
   useEffect(() => {
     if (isInspectionPreview || !isBackendEnabled()) {
-      localStorage.setItem("sentinelx_historical_backtests_v3", JSON.stringify(historicalRuns));
+      localStorage.setItem("algofortis_historical_backtests_v3", JSON.stringify(historicalRuns));
     }
   }, [historicalRuns, isInspectionPreview]);
 

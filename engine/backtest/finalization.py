@@ -230,8 +230,8 @@ class FinalizationEvidenceBundle:
             raise ValueError("direct Bootstrap evidence and randomized collection are contradictory")
 
 
-EXECUTION_EVIDENCE_SCHEMA_V1 = "sentinelx-execution-evidence/v1"
-EXECUTION_EVIDENCE_SCHEMA_V2 = "sentinelx-execution-evidence/v2"
+EXECUTION_EVIDENCE_SCHEMA_V1 = "algofortis-execution-evidence/v1"
+EXECUTION_EVIDENCE_SCHEMA_V2 = "algofortis-execution-evidence/v2"
 
 
 def _execution_identity(result: "OrchestrationResult") -> str:
@@ -258,7 +258,7 @@ def _execution_activation_component(item) -> tuple:
 
 
 def _execution_identity_v2(result: "OrchestrationResult") -> str:
-    """sentinelx-execution-evidence/v2 — activation-aware binding.
+    """algofortis-execution-evidence/v2 — activation-aware binding.
 
     Preserves every v1-bound field in the same order and appends an explicit
     activation component for every execution.  Historical v1 fingerprints
@@ -293,14 +293,14 @@ def _accounting_identity(result: "OrchestrationResult") -> str:
          item.resulting_snapshot.cash, item.resulting_snapshot.equity)
         for item in result.accounting
     ), key=lambda item: (item[1], item[0], str(item[2]))))
-    return CanonicalCodec.fingerprint("sentinelx-accounting-evidence/v1", (("accounting", values),))
+    return CanonicalCodec.fingerprint("algofortis-accounting-evidence/v1", (("accounting", values),))
 
 
 def _trade_identity(result: "OrchestrationResult") -> str:
     values = tuple(sorted((item.trade_id, item.account_id, item.opening_event_key.run_id,
                            item.opening_event_key.accounting_sequence, item.closing_event_key.accounting_sequence)
                           for item in result.trades))
-    return CanonicalCodec.fingerprint("sentinelx-trade-ledger-evidence/v1", (("trades", values),))
+    return CanonicalCodec.fingerprint("algofortis-trade-ledger-evidence/v1", (("trades", values),))
 
 
 def _reconciliation(result: "OrchestrationResult") -> dict[str, int]:

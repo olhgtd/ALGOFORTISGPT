@@ -10,9 +10,9 @@ print("Root exists:", paths.root.exists())
 script = r'''
 $ErrorActionPreference = 'Stop'
 $target = $env:ALGOFORTIS_ACL_TARGET
-if (-not $target) { $target = $env:SENTINELX_ACL_TARGET }
+if (-not $target) { $target = $env:ALGOFORTIS_ACL_TARGET }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-if ($env:ALGOFORTIS_ACL_CREATE -eq '1' -or $env:SENTINELX_ACL_CREATE -eq '1') {
+if ($env:ALGOFORTIS_ACL_CREATE -eq '1' -or $env:ALGOFORTIS_ACL_CREATE -eq '1') {
   [IO.Directory]::CreateDirectory($target) | Out-Null
   $acl = New-Object Security.AccessControl.DirectorySecurity
   $acl.SetAccessRuleProtection($true, $false)
@@ -42,7 +42,7 @@ Write-Host "ALL_PASSED_SUCCESSFULLY"
 '''
 
 win_modules = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "Modules")
-env = {**os.environ, "SENTINELX_ACL_TARGET": str(paths.root), "SENTINELX_ACL_CREATE": "0", "PSModulePath": win_modules}
+env = {**os.environ, "ALGOFORTIS_ACL_TARGET": str(paths.root), "ALGOFORTIS_ACL_CREATE": "0", "PSModulePath": win_modules}
 res = subprocess.run(
     ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
     env=env,

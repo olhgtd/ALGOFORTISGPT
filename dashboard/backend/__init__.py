@@ -1,1 +1,1 @@
-"""FastAPI service and narrow adapters for the SentinelX control center."""
+"""FastAPI service and narrow adapters for the AlgoFortis control center."""

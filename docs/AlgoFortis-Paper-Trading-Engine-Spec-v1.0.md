@@ -1,6 +1,6 @@
-# SentinelX — Paper Trading Engine Specification (v1.0 OWNER_APPROVED)
+# AlgoFortis — Paper Trading Engine Specification (v1.0 OWNER_APPROVED)
 
-> Scope: Layer 3, Box 2 ("Paper Trading Engine") from SentinelX High-Level System Diagram.
+> Scope: Layer 3, Box 2 ("Paper Trading Engine") from AlgoFortis High-Level System Diagram.
 > Goal: Live-market, virtual-money simulation that is execution-realistic — not a naive "fill at LTP" toy.
 > Status: **OWNER_APPROVED** — Phase 5 architecture and completion gate refrozen per OD-1 through OD-7.
 > Refreeze date: 2026-08-19
@@ -127,7 +127,7 @@ This architecture is frozen. Implementation is a future Phase 5 implementation s
 
 Option Selector is a **BLOCKING DEPENDENCY** for Phase 5 VERIFIED_COMPLETE.
 
-SentinelX Phase 5 target is **automated OPTIONS paper trading**. Therefore Phase 5 cannot be
+AlgoFortis Phase 5 target is **automated OPTIONS paper trading**. Therefore Phase 5 cannot be
 declared VERIFIED_COMPLETE until the system can automatically resolve, using frozen
 strategy/configuration rules:
 

@@ -11,11 +11,11 @@ import { WebsiteSections } from "./WebsiteSections";
 import { DocsModal } from "./DocsModal";
 import "./website.css";
 
-interface SentinelXWebsiteProps {
+interface AlgoFortisWebsiteProps {
   onLaunchApp: () => void;
 }
 
-export const SentinelXWebsite: React.FC<SentinelXWebsiteProps> = ({ onLaunchApp }) => {
+export const AlgoFortisWebsite: React.FC<AlgoFortisWebsiteProps> = ({ onLaunchApp }) => {
   const [utcTime, setUtcTime] = useState<string>("");
   const [isDocsOpen, setIsDocsOpen] = useState<boolean>(false);
 

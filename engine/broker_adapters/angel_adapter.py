@@ -129,10 +129,10 @@ class AngelOneBrokerAdapter(BaseBrokerAdapter):
 
     def _get_headers(self) -> dict[str, str]:
         token = getattr(self.credentials, "jwt_token", None) or getattr(self.credentials, "access_token", None)
-        api_key = getattr(self.credentials, "api_key", None) or "sentinelx_key"
+        api_key = getattr(self.credentials, "api_key", None) or "algofortis_key"
         if isinstance(self.credentials, dict):
             token = self.credentials.get("jwt_token") or self.credentials.get("access_token")
-            api_key = self.credentials.get("api_key", "sentinelx_key")
+            api_key = self.credentials.get("api_key", "algofortis_key")
         return {
             "Authorization": f"Bearer {token or ''}",
             "X-PrivateKey": str(api_key),

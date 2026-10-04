@@ -29,8 +29,8 @@ from pathlib import Path
 from engine.data.feeds.importer_reporting import IMPORT_REPORT_ROOT, ImportManifest
 from engine.reproducibility.codec import CanonicalCodec
 
-ACQUISITION_CONTRACT_VERSION = "sentinelx-acquisition/v1"
-PARSER_IDENTITY = "sentinelx.importer_orchestrator/v1"
+ACQUISITION_CONTRACT_VERSION = "algofortis-acquisition/v1"
+PARSER_IDENTITY = "algofortis.importer_orchestrator/v1"
 
 
 # ------------------------------------------------------------------
@@ -90,7 +90,7 @@ def compute_import_fingerprint(
     if mapping_config_fingerprint is not None:
         fields.append(("mapping_config_fingerprint", mapping_config_fingerprint))
     return CanonicalCodec.fingerprint(
-        "sentinelx-import-fingerprint/v1",
+        "algofortis-import-fingerprint/v1",
         tuple(fields),
     )
 

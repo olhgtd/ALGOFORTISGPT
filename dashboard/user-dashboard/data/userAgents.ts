@@ -1,5 +1,5 @@
 /**
- * SentinelX User Dashboard — Agents V2 Dev Prototype Data
+ * AlgoFortis User Dashboard — Agents V2 Dev Prototype Data
  */
 export interface AgentItem {
   id: string;

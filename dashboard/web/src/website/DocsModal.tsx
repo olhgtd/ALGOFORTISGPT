@@ -87,7 +87,7 @@ DRAFT
     uint32_t quantity;
     double   limit_price;
     uint8_t  state_flags;   /* FAIL_CLOSED, RISK_ARMED */
-} sentinelx_order_event_t;`}
+} algofortis_order_event_t;`}
               </div>
             </div>
           )}

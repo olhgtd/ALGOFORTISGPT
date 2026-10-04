@@ -1,5 +1,5 @@
 /**
- * SentinelX User Dashboard — User Security Preview & Passkeys
+ * AlgoFortis User Dashboard — User Security Preview & Passkeys
  */
 export interface SecuritySession {
   id: string;

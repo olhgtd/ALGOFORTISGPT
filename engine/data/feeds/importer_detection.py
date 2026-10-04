@@ -176,7 +176,7 @@ def detect_source_format(data: pd.DataFrame) -> str:
     Returns one of the frozen format concepts:
     - FO_UDIFF_V1: NSE UDiFF F&O bhavcopy (post 08-Jul-2024)
     - FO_BHAVCOPY_LEGACY: NSE legacy F&O bhavcopy
-    - GENERIC: generic CSV with standard SentinelX metadata columns
+    - GENERIC: generic CSV with standard AlgoFortis metadata columns
     - UNKNOWN: unrecognized header schema (quarantine candidate)
     """
     columns = {col.casefold() for col in data.columns}
@@ -187,7 +187,7 @@ def detect_source_format(data: pd.DataFrame) -> str:
     original_columns = {col for col in data.columns}
     if "SYMBOL" in original_columns and "INSTRUMENT" in original_columns:
         return SOURCE_FORMAT_BHAVCOPY_LEGACY
-    # Generic: has standard SentinelX metadata columns
+    # Generic: has standard AlgoFortis metadata columns
     if "instrument" in columns or "market" in columns:
         return SOURCE_FORMAT_GENERIC
     return SOURCE_FORMAT_UNKNOWN

@@ -1,6 +1,6 @@
 # AlgoFortis — Complete Project History: V1 to V2
 
-**Purpose:** Durable A-to-Z historical record of how the project evolved from the SentinelX/V1 baseline into AlgoFortis V2, including what was actually verified, what was only planned, what was deliberately deferred, what V2 preserved, what V2 hardened, and what remains future work.  
+**Purpose:** Durable A-to-Z historical record of how the project evolved from the AlgoFortis/V1 baseline into AlgoFortis V2, including what was actually verified, what was only planned, what was deliberately deferred, what V2 preserved, what V2 hardened, and what remains future work.
 **Snapshot date:** 2026-09-26  
 **Repository:** `olhgtd/ALGOFORTISGPT`  
 **Current branch while this record was written:** `v2-phase5-paper-recovery`  
@@ -26,16 +26,16 @@ When old V1 plans conflict with later V2 requirements, later frozen V2 decisions
 
 ---
 
-# 1. Project identity: SentinelX to AlgoFortis
+# 1. Project identity: AlgoFortis to AlgoFortis
 
-## 1.1 SentinelX origin
+## 1.1 AlgoFortis origin
 
-The repository began as **SentinelX**, a Windows-focused algorithmic trading platform with a local backend, modular engine, owner/user dashboard, Paper trading, risk controls, broker abstractions, audit/reconciliation, local runtime data, and a strong fail-closed posture.
+The repository began as **AlgoFortis**, a Windows-focused algorithmic trading platform with a local backend, modular engine, owner/user dashboard, Paper trading, risk controls, broker abstractions, audit/reconciliation, local runtime data, and a strong fail-closed posture.
 
 Legacy repository material still reflects that identity:
 
-- `README.md` still presents “SentinelX — Algorithmic Trading Platform”.
-- Legacy launcher/path names such as `START_SENTINELX.pyw`, `%LOCALAPPDATA%\SentinelX`, SentinelX database names, environment variables and older tests remain in the tree.
+- `README.md` still presents “AlgoFortis — Algorithmic Trading Platform”.
+- Legacy launcher/path names such as `START_ALGOFORTIS.pyw`, `%LOCALAPPDATA%\AlgoFortis`, AlgoFortis database names, environment variables and older tests remain in the tree.
 - These names are historical/backward-compatibility artifacts; they are not the current product identity.
 
 ## 1.2 AlgoFortis identity
@@ -54,8 +54,8 @@ The migration policy deliberately avoided a destructive mass rename. Existing in
 For current work:
 
 - **AlgoFortis** is the current project/product name.
-- **SentinelX** refers to legacy history, old paths, older launcher/runtime identifiers, old documentation or compatibility contracts.
-- A file retaining “SentinelX” in its name should not be assumed obsolete without checking dependencies/tests.
+- **AlgoFortis** refers to legacy history, old paths, older launcher/runtime identifiers, old documentation or compatibility contracts.
+- A file retaining “AlgoFortis” in its name should not be assumed obsolete without checking dependencies/tests.
 
 ---
 
@@ -228,7 +228,7 @@ These prohibitions strongly influenced V2’s local-first architecture.
 
 # 4. V1 implementation plan — what it planned, not what it automatically proved
 
-`ALGOfORTIS_IMPLEMENTATION_PLAN_V1.md` is explicitly marked **PLAN ONLY — FROZEN SPECIFICATION — DO NOT EXECUTE**. It described a 13-stage journey from the SentinelX baseline to a productized AlgoFortis V1. Future readers must not read all 13 stages as automatically completed.
+`ALGOfORTIS_IMPLEMENTATION_PLAN_V1.md` is explicitly marked **PLAN ONLY — FROZEN SPECIFICATION — DO NOT EXECUTE**. It described a 13-stage journey from the AlgoFortis baseline to a productized AlgoFortis V1. Future readers must not read all 13 stages as automatically completed.
 
 ## Stage 1 — Compatibility inventory
 
@@ -238,7 +238,7 @@ Planned mapping of:
 - schema IDs;
 - environment variables;
 - persisted state;
-- legacy SentinelX compatibility.
+- legacy AlgoFortis compatibility.
 
 Goal: migrate branding/product structure without losing audit/history/state compatibility.
 
@@ -1110,7 +1110,7 @@ The project did **not** jump directly from a prototype to V2.
 
 It evolved through three broad eras:
 
-1. **SentinelX engineering era:** a large Windows-local trading platform accumulated dashboard, security, risk, Paper, broker, database, reconciliation and product workflow capabilities.
+1. **AlgoFortis engineering era:** a large Windows-local trading platform accumulated dashboard, security, risk, Paper, broker, database, reconciliation and product workflow capabilities.
 2. **AlgoFortis V1 product/safety freeze:** architecture/branding/security/product decisions were formalized, a clean source baseline was certified with 3761 passing tests and Live remained deliberately locked.
 3. **AlgoFortis V2 incremental hardening:** the V1 foundation was preserved while contracts, data provenance, deterministic research, single risk authority, Paper isolation, recovery, host safety, alert independence, failure injection and cross-Windows evidence were added phase by phase.
 

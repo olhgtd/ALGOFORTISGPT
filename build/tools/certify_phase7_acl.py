@@ -1,4 +1,4 @@
-"""Phase 7 NTFS ACL & Symlink/Junction/Reparse Certification for SentinelX."""
+"""Phase 7 NTFS ACL & Symlink/Junction/Reparse Certification for AlgoFortis."""
 import os
 import sys
 import tempfile
@@ -70,8 +70,8 @@ Set-Acl -LiteralPath $target -AclObject $acl
 
 def test_acl_clean_install_isolated():
     log("Test 1: Testing CurrentUserAcl creation and strict validation in isolated directory...")
-    with tempfile.TemporaryDirectory(prefix="sentinelx_acl_test_") as tmp:
-        target = Path(tmp) / "SentinelX_Data"
+    with tempfile.TemporaryDirectory(prefix="algofortis_acl_test_") as tmp:
+        target = Path(tmp) / "AlgoFortis_Data"
         acl = CurrentUserAcl()
         created = acl._run(target, create=True)
         assert created, "Failed to create directory with private ACL"
@@ -87,15 +87,15 @@ def test_acl_clean_install_isolated():
         log("  PASS: Broad permission (Everyone) rejected fail-closed.")
 
 def test_test_override_cannot_weaken_production():
-    log("Test 3: Verifying SENTINELX_TEST_ALLOW_INSECURE_ACL=1 CANNOT weaken PRODUCTION mode...")
-    with tempfile.TemporaryDirectory(prefix="sentinelx_override_test_") as tmp:
+    log("Test 3: Verifying ALGOFORTIS_TEST_ALLOW_INSECURE_ACL=1 CANNOT weaken PRODUCTION mode...")
+    with tempfile.TemporaryDirectory(prefix="algofortis_override_test_") as tmp:
         appdata = Path(tmp) / "AppData" / "Local"
         appdata.mkdir(parents=True)
         
         # Point to production mode
         env = {
             "LOCALAPPDATA": str(appdata),
-            "SENTINELX_TEST_ALLOW_INSECURE_ACL": "1"
+            "ALGOFORTIS_TEST_ALLOW_INSECURE_ACL": "1"
         }
         # In production mode, prepare must STILL validate or enforce ACL, and fail if ACL is corrupted
         paths = RuntimePaths.resolve(RuntimeMode.PRODUCTION, install_root=clean_root, environ=env)
@@ -105,18 +105,18 @@ def test_test_override_cannot_weaken_production():
         # Now corrupt the ACL on paths.root with an unauthorized group
         _grant_everyone_access(paths.root, "FullControl")
         
-        # Now attempt prepare() again with SENTINELX_TEST_ALLOW_INSECURE_ACL=1 still set
+        # Now attempt prepare() again with ALGOFORTIS_TEST_ALLOW_INSECURE_ACL=1 still set
         failed = False
         try:
             paths.prepare()
         except PermissionError:
             failed = True
-        assert failed, "PRODUCTION mode allowed corrupted ACL when SENTINELX_TEST_ALLOW_INSECURE_ACL=1 was set!"
-        log("  PASS: SENTINELX_TEST_ALLOW_INSECURE_ACL=1 cannot bypass PRODUCTION ACL.")
+        assert failed, "PRODUCTION mode allowed corrupted ACL when ALGOFORTIS_TEST_ALLOW_INSECURE_ACL=1 was set!"
+        log("  PASS: ALGOFORTIS_TEST_ALLOW_INSECURE_ACL=1 cannot bypass PRODUCTION ACL.")
 
 def test_symlink_and_junction_rejection():
     log("Test 4: Verifying leaf symlink rejection...")
-    with tempfile.TemporaryDirectory(prefix="sentinelx_symlink_test_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="algofortis_symlink_test_") as tmp:
         real_dir = Path(tmp) / "real_dir"
         real_dir.mkdir()
         link_dir = Path(tmp) / "link_leaf"
@@ -163,7 +163,7 @@ def test_symlink_and_junction_rejection():
 
 def test_install_directory_cannot_be_data_root():
     log("Test 7: Verifying install directory cannot be production data root...")
-    install = Path(r"C:\Program Files\SentinelX")
+    install = Path(r"C:\Program Files\AlgoFortis")
     env = {"LOCALAPPDATA": str(install)}
     failed = False
     try:

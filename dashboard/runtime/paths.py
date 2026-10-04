@@ -67,9 +67,9 @@ class CurrentUserAcl:
         script = r'''
 $ErrorActionPreference = 'Stop'
 $target = $env:ALGOFORTIS_ACL_TARGET
-if (-not $target) { $target = $env:SENTINELX_ACL_TARGET }
+if (-not $target) { $target = $env:ALGOFORTIS_ACL_TARGET }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-if ($env:ALGOFORTIS_ACL_CREATE -eq '1' -or $env:SENTINELX_ACL_CREATE -eq '1') {
+if ($env:ALGOFORTIS_ACL_CREATE -eq '1' -or $env:ALGOFORTIS_ACL_CREATE -eq '1') {
   [IO.Directory]::CreateDirectory($target) | Out-Null
   $acl = New-Object Security.AccessControl.DirectorySecurity
   $acl.SetAccessRuleProtection($true, $false)
@@ -103,9 +103,7 @@ foreach ($item in $items) {
         env = {
             **os.environ,
             "ALGOFORTIS_ACL_TARGET": str(root),
-            "SENTINELX_ACL_TARGET": str(root),
             "ALGOFORTIS_ACL_CREATE": "1" if create else "0",
-            "SENTINELX_ACL_CREATE": "1" if create else "0",
             "PSModulePath": win_modules,
         }
         result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
@@ -140,7 +138,7 @@ class RuntimePaths:
             
             # Primary production root is %LOCALAPPDATA%\AlgoFortis
             raw_production = raw_local / "AlgoFortis"
-            legacy_production = raw_local / "SentinelX"
+            legacy_production = raw_local / "AlgoFortis"
             
             if data_root is not None:
                 raw_data_root = Path(data_root)
@@ -153,10 +151,10 @@ class RuntimePaths:
                 
             check_no_symlink_or_reparse(unresolved_root)
             production = raw_local.resolve() / "AlgoFortis"
-            legacy_resolved = raw_local.resolve() / "SentinelX"
+            legacy_resolved = raw_local.resolve() / "AlgoFortis"
             root = unresolved_root.resolve()
             
-            # Accept primary AlgoFortis, legacy SentinelX path, or test isolated temp data_root
+            # Accept primary AlgoFortis, legacy AlgoFortis path, or test isolated temp data_root
             if data_root is not None:
                 temp_dir = Path(tempfile.gettempdir()).resolve()
                 if root != production and root != legacy_resolved and not root.is_relative_to(temp_dir):
@@ -175,14 +173,14 @@ class RuntimePaths:
                 raise ValueError("TEST data must be isolated in the system temporary directory")
         else:
             raw_data_root = Path(data_root or install / ".algofortis-dev-data")
-            if not raw_data_root.exists() and (install / ".sentinelx-dev-data").exists() and data_root is None:
-                raw_data_root = install / ".sentinelx-dev-data"
+            if not raw_data_root.exists() and (install / ".algofortis-dev-data").exists() and data_root is None:
+                raw_data_root = install / ".algofortis-dev-data"
             check_no_symlink_or_reparse(raw_data_root)
             unresolved_root = raw_data_root
             root = raw_data_root.resolve()
 
         production_resolved = raw_local.resolve() / "AlgoFortis" if raw_local else None
-        legacy_resolved = raw_local.resolve() / "SentinelX" if raw_local else None
+        legacy_resolved = raw_local.resolve() / "AlgoFortis" if raw_local else None
         
         for p_res in (production_resolved, legacy_resolved):
             if p_res is not None:
@@ -225,11 +223,11 @@ class RuntimePaths:
             if is_symlink_or_reparse(path):
                 raise ValueError(f"Runtime root cannot traverse a symlink or junction: {path}")
                 
-        # Deterministic legacy migration from %LOCALAPPDATA%\SentinelX if migrating
+        # Deterministic legacy migration from %LOCALAPPDATA%\AlgoFortis if migrating
         if self.mode in (RuntimeMode.PRODUCTION, RuntimeMode.LOCAL_PRIVATE) and not self.root.exists():
             local = os.environ.get("LOCALAPPDATA")
             if local:
-                legacy_root = Path(local) / "SentinelX"
+                legacy_root = Path(local) / "AlgoFortis"
                 if legacy_root.exists() and not is_symlink_or_reparse(legacy_root):
                     # Copy existing databases and configuration to %LOCALAPPDATA%\AlgoFortis
                     acl = CurrentUserAcl()
@@ -249,7 +247,7 @@ class RuntimePaths:
                 if not acl._run(self.root, create=True):
                     if self.mode is RuntimeMode.TEST and (
                         os.environ.get("ALGOFORTIS_TEST_ALLOW_INSECURE_ACL") == "1" or
-                        os.environ.get("SENTINELX_TEST_ALLOW_INSECURE_ACL") == "1"
+                        os.environ.get("ALGOFORTIS_TEST_ALLOW_INSECURE_ACL") == "1"
                     ):
                         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
                     else:
@@ -258,7 +256,7 @@ class RuntimePaths:
             if not acl.validate(self.root):
                 if self.mode is RuntimeMode.TEST and (
                     os.environ.get("ALGOFORTIS_TEST_ALLOW_INSECURE_ACL") == "1" or
-                    os.environ.get("SENTINELX_TEST_ALLOW_INSECURE_ACL") == "1"
+                    os.environ.get("ALGOFORTIS_TEST_ALLOW_INSECURE_ACL") == "1"
                 ):
                     pass
                 else:

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { SentinelXCore } from "./SentinelXCore";
+import { AlgoFortisCore } from "./AlgoFortisCore";
 import { ReturningUserFlow } from "./ReturningUserFlow";
 import { FirstTimeCustomerFlow } from "./FirstTimeCustomerFlow";
 import { LocalOwnerSetupCard } from "./LocalOwnerSetupCard";
@@ -92,7 +92,7 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
     return () => { active = false; };
   }, [appRole]);
 
-  const [sentinelxId, setSentinelxId] = useState("");
+  const [algofortisId, setAlgoFortisId] = useState("");
   const [accessId, setAccessId] = useState("");
 
   // 0.0s - 5.0s Intro Sequence Timing — defaults to settled for instant stability.
@@ -194,7 +194,7 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
           </div>
 
           <div className="core-display-container">
-            <SentinelXCore size={coreSize} verificationState={verificationState} introPhase={introPhase} introElapsed={introElapsed} />
+            <AlgoFortisCore size={coreSize} verificationState={verificationState} introPhase={introPhase} introElapsed={introElapsed} />
           </div>
 
           <div className={`intro-identity-reveal ${isCardVisible ? "revealed" : ""}`} style={{ width: "100%" }}>
@@ -233,8 +233,8 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
 
             {flow === "RETURNING_USER" && (
               <ReturningUserFlow
-                sentinelxId={sentinelxId}
-                onIdChange={setSentinelxId}
+                algofortisId={algofortisId}
+                onIdChange={setAlgoFortisId}
                 verificationState={verificationState}
                 onStartVerification={() => setVerificationState("CHALLENGE_ACTIVE")}
                 onVerifySuccess={() => setVerificationState("VERIFICATION_SUCCESS")}

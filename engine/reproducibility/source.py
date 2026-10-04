@@ -31,7 +31,7 @@ class SourceIdentity:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-source-identity/v1",
+            "algofortis-source-identity/v1",
             (("policy_version", self.policy_version), ("files", tuple((item.relative_path, item.content_fingerprint) for item in self.files))),
         )
 
@@ -85,7 +85,7 @@ class SourceIdentityPolicy:
             raise ValueError("source mutation detected during identity capture")
         relative = _canonical_path(project_root, path)
         content_fingerprint = CanonicalCodec.fingerprint(
-            "sentinelx-source-file/v1", (("path", relative), ("content", content))
+            "algofortis-source-file/v1", (("path", relative), ("content", content))
         )
         return SourceFileIdentity(relative, content_fingerprint)
 

@@ -45,7 +45,7 @@ Authentication in AlgoFortis is built on FIDO2/WebAuthn hardware-bound public-ke
 
 ### 2.3 Appliance Bootstrap & Owner Authority
 - **`[IMPLEMENTED TODAY]` Terminal Bootstrap Key Ceremony:**
-  - One-time appliance initialization using CLI/console bootstrap secret header `x-sentinelx-bootstrap`.
+  - One-time appliance initialization using CLI/console bootstrap secret header `x-algofortis-bootstrap`.
   - Irreversible consumption of bootstrap token upon Primary Owner credential registration.
   - Immediate promotion to `Role.OWNER` with full governance privileges.
 - **`[FROZEN FOR FUTURE IMPLEMENTATION]` M-of-N Multi-Owner Governance:**

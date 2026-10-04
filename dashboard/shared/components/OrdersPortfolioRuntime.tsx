@@ -59,7 +59,7 @@ export const OrdersPortfolioRuntime: React.FC<{ owner?: boolean; initialTab?: Ta
   };
   useEffect(() => { void refresh(); return () => { generation.current++; }; }, [owner, mode]);
   useEffect(() => { setTab(initialTab); setSelected(null); }, [initialTab]);
-  const authoritative = snapshot?.availability === "AVAILABLE" && (snapshot.source === "PERSISTED_PAPER_RUNTIME" || snapshot.source === "SENTINELX_SHADOW_RUNTIME");
+  const authoritative = snapshot?.availability === "AVAILABLE" && (snapshot.source === "PERSISTED_PAPER_RUNTIME" || snapshot.source === "ALGOFORTIS_SHADOW_RUNTIME");
   const accounts = snapshot?.accounts ?? [];
   const matching = (rows: RuntimeEvidence[]) => rows.filter(row =>
     !search || Object.values(row).some(v => String(v ?? "").toLowerCase().includes(search.toLowerCase())));

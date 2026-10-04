@@ -47,4 +47,4 @@ Current design permits optional `0..N` AI providers and optional Laya as a first
 
 ## Historical product naming
 
-The current product name is **AlgoFortis**. `SentinelX` may remain in explicitly historical V1 artifacts, compatibility seams, old evidence identifiers, or legacy filenames where renaming would destroy provenance or compatibility. New current-product documentation and user-facing instructions should use AlgoFortis.
+The current product name is **AlgoFortis**. `AlgoFortis` may remain in explicitly historical V1 artifacts, compatibility seams, old evidence identifiers, or legacy filenames where renaming would destroy provenance or compatibility. New current-product documentation and user-facing instructions should use AlgoFortis.

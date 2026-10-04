@@ -1,4 +1,4 @@
-# SentinelX — Runtime Latency and Performance Requirements
+# AlgoFortis — Runtime Latency and Performance Requirements
 
 **Status:** Owner-approved mandatory future architecture contract.  
 **Scope:** Paper Trading, Live deployment, broker orchestration, and the runtime
@@ -34,7 +34,7 @@ concrete order ready → broker-adapter submission invoked
 Performance evidence must distinguish, and must not combine, these separate
 latencies:
 
-1. **SentinelX internal latency:** receipt through internal decision/order
+1. **AlgoFortis internal latency:** receipt through internal decision/order
    preparation.
 2. **Broker/network/API latency:** time after the adapter submission boundary
    attributable to transport and broker API processing.
@@ -71,7 +71,7 @@ Future runtime instrumentation must capture this ordered measurement chain:
 
 | Timestamp | Boundary |
 |---|---|
-| T0 | Market event received by SentinelX |
+| T0 | Market event received by AlgoFortis |
 | T1 | Normalized event ready |
 | T2 | Strategy evaluation complete |
 | T3 | Risk/authorization complete |
@@ -86,7 +86,7 @@ are insufficient for benchmarking.
 
 ## 6. Benchmark establishment and acceptance gates
 
-No hard millisecond threshold is approved yet. SentinelX must not invent a
+No hard millisecond threshold is approved yet. AlgoFortis must not invent a
 10 ms, 100 ms, one-second, or other latency target without realistic Paper
 Trading evidence.
 
@@ -145,7 +145,7 @@ same-timestamp evidence, and unsafe shared mutable strategy state.
 
 ## 9. Benchmark provenance and future UI
 
-Benchmark evidence should retain CPU, RAM, OS, Python version, SentinelX
+Benchmark evidence should retain CPU, RAM, OS, Python version, AlgoFortis
 version/commit or build fingerprint, strategy set/version, number of
 symbols/timeframes, and benchmark configuration. GPU hardware is not mandatory
 for deterministic core execution.

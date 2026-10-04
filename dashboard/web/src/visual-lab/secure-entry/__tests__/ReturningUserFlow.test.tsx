@@ -24,7 +24,7 @@ async function mount(requiredRole?: "OWNER" | "USER") {
   await act(async () => {
     root?.render(
       <ReturningUserFlow
-        sentinelxId=""
+        algofortisId=""
         onIdChange={() => {}}
         verificationState="ID_ENTRY"
         onStartVerification={() => {}}
@@ -74,7 +74,7 @@ afterEach(async () => {
 describe("ReturningUserFlow shared password login", () => {
   it("enables User ID/email and password fields", async () => {
     const { node } = await mount();
-    expect((node.querySelector("#sentinelx-id-input") as HTMLInputElement).disabled).toBe(false);
+    expect((node.querySelector("#algofortis-id-input") as HTMLInputElement).disabled).toBe(false);
     expect((node.querySelector("#returning-password-input") as HTMLInputElement).disabled).toBe(false);
     expect(node.textContent).not.toContain("Password login is disabled");
   });
@@ -89,7 +89,7 @@ describe("ReturningUserFlow shared password login", () => {
       workspace_eligibility: { owner: true, user: true },
     });
     const { onEnterWorkspace } = await mount();
-    await setValue("#sentinelx-id-input", "owner@example.com");
+    await setValue("#algofortis-id-input", "owner@example.com");
     await setValue("#returning-password-input", "OwnerPassword123!");
     await submit();
 
@@ -108,7 +108,7 @@ describe("ReturningUserFlow shared password login", () => {
       workspace_eligibility: { owner: false, user: true },
     });
     const { onEnterWorkspace } = await mount();
-    await setValue("#sentinelx-id-input", "AF-U-ABCD-2345");
+    await setValue("#algofortis-id-input", "AF-U-ABCD-2345");
     await setValue("#returning-password-input", "UserPassword123!");
     await submit();
 
@@ -127,7 +127,7 @@ describe("ReturningUserFlow shared password login", () => {
       workspace_eligibility: { owner: true, user: true },
     });
     const { node, onEnterWorkspace } = await mount("USER");
-    await setValue("#sentinelx-id-input", "owner@example.com");
+    await setValue("#algofortis-id-input", "owner@example.com");
     await setValue("#returning-password-input", "OwnerPassword123!");
     await submit();
 
@@ -139,7 +139,7 @@ describe("ReturningUserFlow shared password login", () => {
   it("renders generic invalid credentials and cooldown failures", async () => {
     vi.mocked(api.passwordLogin).mockRejectedValueOnce(new Error("AlgoFortis request failed (401 INVALID_ID_OR_PASSWORD)"));
     const { node } = await mount();
-    await setValue("#sentinelx-id-input", "user@example.com");
+    await setValue("#algofortis-id-input", "user@example.com");
     await setValue("#returning-password-input", "WrongPassword123!");
     await submit();
     expect(node.textContent).toContain("INVALID_ID_OR_PASSWORD");

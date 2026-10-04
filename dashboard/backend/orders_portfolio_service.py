@@ -39,7 +39,7 @@ class OrdersPortfolioService:
         result: dict[str, Any] = {
             "execution_mode": mode,
             "availability": "AVAILABLE" if mode in ("PAPER", "SHADOW") else "UNAVAILABLE",
-            "source": "PERSISTED_PAPER_RUNTIME" if mode == "PAPER" else ("SENTINELX_SHADOW_RUNTIME" if mode == "SHADOW" else None),
+            "source": "PERSISTED_PAPER_RUNTIME" if mode == "PAPER" else ("ALGOFORTIS_SHADOW_RUNTIME" if mode == "SHADOW" else None),
             "accounts": [], "positions": [], "orders": [], "events": [],
             "aggregate_exposure": None,
             "limitations": [
@@ -83,7 +83,7 @@ class OrdersPortfolioService:
                     "status": rec.get("status", "SHADOW_READY"),
                     "rejection_reason": "; ".join(r.get("detail", r.get("code", "")) for r in rec.get("reasons", [])) if rec.get("reasons") else None,
                     "data_source_mode": "SHADOW_DRY_RUN",
-                    "source": "SENTINELX_SHADOW_RUNTIME",
+                    "source": "ALGOFORTIS_SHADOW_RUNTIME",
                     "created_at_utc": rec.get("checked_at"),
                     "filled_at_utc": None,
                     "protective_id": None,
@@ -96,7 +96,7 @@ class OrdersPortfolioService:
                     "execution_mode": "SHADOW",
                     "event_time": rec.get("checked_at"),
                     "status": rec.get("status", "SHADOW_READY"),
-                    "source": "SENTINELX_SHADOW_PIPELINE",
+                    "source": "ALGOFORTIS_SHADOW_PIPELINE",
                     "detail": f"Status: {rec.get('status')} | Idempotency: {rec.get('idempotency_key', order_id)} | Reasons: {[r.get('code') for r in rec.get('reasons', [])]}",
                 })
             return result

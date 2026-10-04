@@ -1,19 +1,19 @@
-# SentinelX V1 — Authoritative Authentication, Access & Service Entitlement Contract
+# AlgoFortis V1 — Authoritative Authentication, Access & Service Entitlement Contract
 
-> **Document Status**: `FROZEN — SENTINELX V1 AUTH / ACCESS BEHAVIORAL CONTRACT`  
-> **Scope**: SentinelX V1 Production Authentication, Access Registry, Service Entitlements, Credential Lifecycle, Device Quotas, Recovery Workflows & Governance Authority  
+> **Document Status**: `FROZEN — ALGOFORTIS V1 AUTH / ACCESS BEHAVIORAL CONTRACT`
+> **Scope**: AlgoFortis V1 Production Authentication, Access Registry, Service Entitlements, Credential Lifecycle, Device Quotas, Recovery Workflows & Governance Authority
 > **Precedence Level**: Mandatory System Contract (Overrides generic AI assumptions; governs all subsequent backend/database/API implementations)
 
 ---
 
 ## 1. Executive Summary & Core Principles
 
-This document constitutes the authoritative specification for identity, authentication, access control, credential lifecycles, service entitlements, recovery procedures, and governance authority in SentinelX V1.
+This document constitutes the authoritative specification for identity, authentication, access control, credential lifecycles, service entitlements, recovery procedures, and governance authority in AlgoFortis V1.
 
 ### 1.1 Fundamental Security Invariants
-1. **Zero-Knowledge User Secrets**: The SentinelX platform, database, and Owner must never store, view, log, or transmit plaintext passwords, passkey private keys, or recovery code values.
+1. **Zero-Knowledge User Secrets**: The AlgoFortis platform, database, and Owner must never store, view, log, or transmit plaintext passwords, passkey private keys, or recovery code values.
 2. **Three Independent State Axes**: The system strictly separates (1) **Activation Credential State** (`DRAFT`, `INVITED`, `REDEEMED`, `EXPIRED`, `REVOKED`), (2) **Account Access State** (`PENDING`, `ACTIVE`, `SUSPENDED`, `REVOKED`), and (3) **Service Entitlement State** (`NOT_STARTED`, `ACTIVE`, `EXPIRED`).
-3. **Immutable Account Identification**: A user's permanent SentinelX ID (`SX-U-XXXX-XXXX`) is assigned at account creation, is non-secret and searchable, and **never changes** across reissuances, renewals, credential resets, or recovery flows.
+3. **Immutable Account Identification**: A user's permanent AlgoFortis ID (`SX-U-XXXX-XXXX`) is assigned at account creation, is non-secret and searchable, and **never changes** across reissuances, renewals, credential resets, or recovery flows.
 4. **Single-Use 24-Hour Activation**: Activation codes (`SX-ACT-XXXX-XXXX-XXXX`) are strictly single-use, valid for exactly 24 hours from issuance, and immediately consumed upon successful account initialization.
 5. **Fail-Closed Governance**: Reissuing an activation credential or renewing a service entitlement can never silently bypass an account suspension or restore a permanently revoked account.
 6. **Protective Supervision Invariant**: Service entitlement expiration disables new trading activity but **never** abruptly dismantles live risk/protective controls for existing market exposure.
@@ -25,15 +25,15 @@ This document constitutes the authoritative specification for identity, authenti
 
 ## 2. Core Identity & Credential Model
 
-SentinelX V1 defines three distinct identifier/credential types, each distinguished by a strict, unambiguous prefix.
+AlgoFortis V1 defines three distinct identifier/credential types, each distinguished by a strict, unambiguous prefix.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               SENTINELX V1 IDENTITY MODEL                              │
+│                               ALGOFORTIS V1 IDENTITY MODEL                              │
 ├──────────────────────────┬───────────────────────────┬─────────────────────────────────┤
 │ Identifier / Credential  │ Canonical Format          │ Lifecycle & Storage Semantics   │
 ├──────────────────────────┼───────────────────────────┼─────────────────────────────────┤
-│ SentinelX ID             │ SX-U-XXXX-XXXX            │ Permanent, non-secret,          │
+│ AlgoFortis ID             │ SX-U-XXXX-XXXX            │ Permanent, non-secret,          │
 │                          │                           │ searchable. Stored in plaintext.│
 ├──────────────────────────┼───────────────────────────┼─────────────────────────────────┤
 │ Activation Code          │ SX-ACT-XXXX-XXXX-XXXX     │ One-time, 24h fixed expiry.     │
@@ -44,11 +44,11 @@ SentinelX V1 defines three distinct identifier/credential types, each distinguis
 └──────────────────────────┴───────────────────────────┴─────────────────────────────────┘
 ```
 
-### 2.1 SentinelX ID (`SX-U-XXXX-XXXX`)
+### 2.1 AlgoFortis ID (`SX-U-XXXX-XXXX`)
 - **Nature**: Permanent account reference and lookup identifier.
 - **Prefix**: `SX-U-` followed by two 4-character alphanumeric blocks (Base32/Crockford: `2-9`, `A-Z` excluding ambiguous `0`, `O`, `1`, `I`).
 - **Mutability**: Immutable. Never modified, replaced, or regenerated.
-- **Authentication Value**: None. A SentinelX ID alone **never** authenticates a request or unlocks sessions.
+- **Authentication Value**: None. A AlgoFortis ID alone **never** authenticates a request or unlocks sessions.
 
 ### 2.2 Activation Code (`SX-ACT-XXXX-XXXX-XXXX`)
 - **Nature**: Single-use onboarding credential issued by the Owner to an invited user.
@@ -65,7 +65,7 @@ SentinelX V1 defines three distinct identifier/credential types, each distinguis
 
 ### 2.4 Normal User Authentication
 - **Primary Method**: High-entropy Password or FIDO2/WebAuthn Passkey.
-- **Ceremony**: Client submits login assertion (`SentinelX ID` / bound email + password / passkey signature). Server verifies against hashed verifier/public key.
+- **Ceremony**: Client submits login assertion (`AlgoFortis ID` / bound email + password / passkey signature). Server verifies against hashed verifier/public key.
 - **Session Output**: Cryptographically signed, secure, HTTP-only session token.
 
 ---
@@ -79,7 +79,7 @@ SentinelX V1 defines three distinct identifier/credential types, each distinguis
 | **OD-AUTH-03** | **Multi-Path Recovery Hierarchy** | Account recovery is not solely dependent on the Owner. It supports self-service via recovery codes and verified communication channels, with Owner-assisted recovery as the ultimate fallback. |
 | **OD-AUTH-04** | **Distinct Credential Formats** | Credential types must use unambiguous, distinct prefixes: `SX-U-` (Permanent ID), `SX-ACT-` (Activation Code), and `SX-RCV-` (Recovery Code). |
 | **OD-AUTH-05** | **Session Invalidation on Credential Reset** | Account recovery or password reset following credential loss immediately terminates all active user sessions across all devices. A normal authenticated password change preserves the current active session while revoking all other concurrent sessions. |
-| **OD-AUTH-06** | **Single Super Owner Authority (V1)** | SentinelX V1 operates under a single Super Owner authority model. No multi-owner hierarchy or quorum is implemented in V1. All administrative actions must record the executing actor (`OWNER-001`). |
+| **OD-AUTH-06** | **Single Super Owner Authority (V1)** | AlgoFortis V1 operates under a single Super Owner authority model. No multi-owner hierarchy or quorum is implemented in V1. All administrative actions must record the executing actor (`OWNER-001`). |
 | **OD-AUTH-07** | **Active Device Quota (Max 3)** | Users may register a maximum of **3 active registered devices**. Silent auto-revocation of older devices is prohibited; users or the Owner must explicitly revoke an active device to free quota. |
 | **OD-AUTH-08** | **High-Assurance Recovery Device Purge** | Successful execution of high-assurance account recovery revokes all active trusted devices and active sessions. Historical device records are preserved for audit purposes and do not consume active device quota. |
 | **OD-AUTH-09** | **Step-Up Guard on Recovery Code Regeneration** | Generating a new set of recovery codes requires step-up authentication (re-entering password/passkey), except when performed inside the 10-minute Recovery Assurance Window. |
@@ -93,8 +93,8 @@ SentinelX V1 defines three distinct identifier/credential types, each distinguis
 | **OD-AUTH-17** | **Single Owner Risk Acceptance** | The single Super Owner model in V1 is an explicitly accepted operational single point of authority (SPOA). If the Owner is unavailable, assisted recovery and manual reissuance are delayed until Owner availability. |
 | **OD-AUTH-18** | **Owner Recovery Metadata Visibility** | The Owner may view high-level recovery health status (`HEALTHY` [3-8 codes], `LOW` [1-2 codes], `NONE` [0 codes]) and last-regenerated timestamps, but **never** plaintext code values. |
 | **OD-AUTH-19** | **Owner-Controlled Service Term** | The Owner assigns a service duration at creation (1 Month, 3 Months, 6 Months, 12 Months, Lifetime, or Custom duration in days/months). Duration begins at **successful first activation**, not invitation creation. Lifetime entitlements remain subject to Owner suspension/revocation. |
-| **OD-AUTH-20** | **Automatic Service Expiry Lifecycle** | Service Entitlement is tracked via `ServiceEntitlementStatus` (`NOT_STARTED`, `ACTIVE`, `EXPIRED`). Expiry does not delete the user, revoke the account, or change the SentinelX ID; the user receives an access-expired state. |
-| **OD-AUTH-21** | **Service Renewal & Extension** | The Owner may extend an `ACTIVE` entitlement from its current expiry, or renew an `EXPIRED` entitlement from the renewal date. Renewal retains the permanent SentinelX ID and account, does not require re-activation, and does not issue a new activation code. |
+| **OD-AUTH-20** | **Automatic Service Expiry Lifecycle** | Service Entitlement is tracked via `ServiceEntitlementStatus` (`NOT_STARTED`, `ACTIVE`, `EXPIRED`). Expiry does not delete the user, revoke the account, or change the AlgoFortis ID; the user receives an access-expired state. |
+| **OD-AUTH-21** | **Service Renewal & Extension** | The Owner may extend an `ACTIVE` entitlement from its current expiry, or renew an `EXPIRED` entitlement from the renewal date. Renewal retains the permanent AlgoFortis ID and account, does not require re-activation, and does not issue a new activation code. |
 | **OD-AUTH-22** | **Service Expiry Safe Enforcement** | Service expiry fails closed for new activity (new backtests, paper sessions, live sessions, strategy executions). If live exposure exists, protective supervision (stops, risk enforcement, position reduction) remains active in a reduce-only/protection-only state. |
 | **OD-AUTH-23** | **Suspension Does Not Pause Service Term** | Account suspension does not pause, freeze, or extend the user's service entitlement clock. Restoring a suspended account does not grant replacement time or auto-renew an entitlement that expired while suspended. |
 | **OD-AUTH-24** | **Exact Service-Term Time Semantics** | Month-based terms (1, 3, 6, 12 Months) use exact calendar-month arithmetic anchored at `service_started_at` preserving time-of-day, clamping to month-end when the target day does not exist (e.g. 31 Jan + 1m -> 28 Feb non-leap; 31 Jan + 3m -> 30 Apr). Custom day terms use exact 24-hour periods. Server-authoritative UTC wall-clock determines expiry (`authoritative_utc_now >= service_expires_at` -> `EXPIRED`). Lifetime has no time expiry (`service_expires_at = null`). |
@@ -103,7 +103,7 @@ SentinelX V1 defines three distinct identifier/credential types, each distinguis
 
 ## 4. The Three Independent State Axes & Effective Access Rule
 
-SentinelX V1 models user access across three strictly decoupled state axes. These must never be collapsed into a single generic status field.
+AlgoFortis V1 models user access across three strictly decoupled state axes. These must never be collapsed into a single generic status field.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -167,7 +167,7 @@ SentinelX V1 models user access across three strictly decoupled state axes. Thes
 
 ### 4.3 Effective Access Rule (Derived Decision)
 
-Protected SentinelX access is permitted only when **all** of the following conditions are simultaneously met:
+Protected AlgoFortis access is permitted only when **all** of the following conditions are simultaneously met:
 1. `AccountAccessStatus === "ACTIVE"`
 2. `ServiceEntitlementStatus === "ACTIVE"`
 3. User presents valid, uncompromised credentials (password / passkey / active session) passing all rate-limit and authentication gates.
@@ -178,7 +178,7 @@ Protected SentinelX access is permitted only when **all** of the following condi
 ┌─────────────────────────┬──────────────────────────┬─────────────────────────────┬────────────────────────────────────────────────────────┐
 │ AccountAccessStatus     │ ServiceEntitlementStatus │ Effective Access Decision   │ Explanation & System Behavior                          │
 ├─────────────────────────┼──────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
-│ ACTIVE                  │ ACTIVE                   │ ✓ PERMITTED                 │ Full authenticated access to SentinelX workspace.      │
+│ ACTIVE                  │ ACTIVE                   │ ✓ PERMITTED                 │ Full authenticated access to AlgoFortis workspace.      │
 ├─────────────────────────┼──────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
 │ ACTIVE                  │ EXPIRED                  │ ✗ BLOCKED (SERVICE EXPIRED) │ Login allowed; new operations blocked; protect-only.   │
 ├─────────────────────────┼──────────────────────────┼─────────────────────────────┼────────────────────────────────────────────────────────┤
@@ -347,11 +347,11 @@ Every activation issuance attempt is preserved as an immutable historical record
 
 ## 8. Account Recovery Architecture
 
-SentinelX V1 implements four tiered recovery mechanisms to guarantee availability while preventing account takeover.
+AlgoFortis V1 implements four tiered recovery mechanisms to guarantee availability while preventing account takeover.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                    SENTINELX V1 RECOVERY FLOW HIERARCHY                   │
+│                    ALGOFORTIS V1 RECOVERY FLOW HIERARCHY                   │
 ├───────────────────────────────────┬───────────────────────────────────────┤
 │ Tier 1: Verified Email OTP        │ Primary verified self-service channel.│
 ├───────────────────────────────────┼───────────────────────────────────────┤
@@ -389,7 +389,7 @@ Upon completing high-assurance recovery:
 
 ## 9. Rate Limiting & Progressive Abuse Mitigation
 
-SentinelX V1 enforces deterministic, flow-isolated rate limits to prevent brute-force attacks while protecting account availability from denial-of-service attempts.
+AlgoFortis V1 enforces deterministic, flow-isolated rate limits to prevent brute-force attacks while protecting account availability from denial-of-service attempts.
 
 ### 9.1 Flow-Isolated Rate Limit Table
 
@@ -455,10 +455,10 @@ SentinelX V1 enforces deterministic, flow-isolated rate limits to prevent brute-
 
 ## 12. Contract Governance & Freeze Criteria
 
-This document represents the frozen, authoritative SentinelX V1 Authentication, Access & Service Entitlement behavioral specification.
+This document represents the frozen, authoritative AlgoFortis V1 Authentication, Access & Service Entitlement behavioral specification.
 
 ### 12.1 Freeze Verification Checklist
-- [x] Permanent SentinelX ID format: `SX-U-XXXX-XXXX`
+- [x] Permanent AlgoFortis ID format: `SX-U-XXXX-XXXX`
 - [x] Single-use Activation Code format: `SX-ACT-XXXX-XXXX-XXXX` (Fixed 24-hour expiration)
 - [x] Recovery Code format: `SX-RCV-XXXX-XXXX-XXXX` (8 initial codes, user-only visibility)
 - [x] Three independent state axes: `ActivationStatus`, `AccountAccessStatus`, `ServiceEntitlementStatus`
@@ -476,4 +476,4 @@ This document represents the frozen, authoritative SentinelX V1 Authentication, 
 
 ---
 
-*This document is **FROZEN** as the authoritative SentinelX V1 Authentication, Access & Service Entitlement behavioral contract.*
+*This document is **FROZEN** as the authoritative AlgoFortis V1 Authentication, Access & Service Entitlement behavioral contract.*

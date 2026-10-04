@@ -1,4 +1,4 @@
-# SentinelX V1 — Step 7 runtime foundation
+# AlgoFortis V1 — Step 7 runtime foundation
 
 This step introduces a relocatable Windows runtime foundation. It does not build
 an installer, connect a broker, or complete roaming identity. Approved production
@@ -6,7 +6,7 @@ HTTPS WebAuthn transport is still required before production sign-in can work.
 
 ## Runtime entry and paths
 
-`START_SENTINELX.pyw` is the windowless entry point for a future Windows shortcut.
+`START_ALGOFORTIS.pyw` is the windowless entry point for a future Windows shortcut.
 It locates resources relative to itself, starts or reuses the private backend,
 waits for readiness, and opens the returned local application URL. There are no
 user-entered ports, npm commands, or uvicorn commands in this flow. A compatible
@@ -15,23 +15,23 @@ must currently be present; supplying those in a final package is deferred.
 
 `dashboard.runtime.paths.RuntimePaths` is the authoritative runtime layout.
 It reuses the existing sensitive SQLite storage validator and the engine's
-`SENTINELX_DATA_ROOT` configuration boundary. No engine path code was changed.
+`ALGOFORTIS_DATA_ROOT` configuration boundary. No engine path code was changed.
 
 | Mode | Mutable root | Rules |
 | --- | --- | --- |
-| DEVELOPMENT | Installation-relative `.sentinelx-dev-data`, or an explicit development root | Existing manual development composition retained; no auto-seeding in the runtime launcher. |
+| DEVELOPMENT | Installation-relative `.algofortis-dev-data`, or an explicit development root | Existing manual development composition retained; no auto-seeding in the runtime launcher. |
 | TEST | Explicit absolute directory below system temporary storage | Cannot overlap production data; launcher composition remains vacant; fixture runners own separate temporary databases. |
-| PRODUCTION | `%LOCALAPPDATA%/SentinelX` | No data-root override, source-tree writes, developer preview, automatic records, or sample fallback. |
+| PRODUCTION | `%LOCALAPPDATA%/AlgoFortis` | No data-root override, source-tree writes, developer preview, automatic records, or sample fallback. |
 
 The production layout is:
 
 ```text
 <install>/dashboard/web/dist/         immutable built frontend
 <install>/dashboard/, engine/         application Python resources
-%LOCALAPPDATA%/SentinelX/
+%LOCALAPPDATA%/AlgoFortis/
   databases/
-    security/sentinelx_security.sqlite3
-    governance/sentinelx_governance.sqlite3
+    security/algofortis_security.sqlite3
+    governance/algofortis_governance.sqlite3
     core-audit.sqlite3
   config/
     identity.json                    reserved bootstrap subject, not a user record
@@ -117,8 +117,8 @@ local store and refuse unverified remote claims. `/api/v1/identity/roaming/verif
 returns 503. No Gmail/OTP/cloud identity service, account synchronization,
 credential migration, or successful roaming login is simulated.
 
-Production WebAuthn continues to require the approved `sentinelx.com` and
-`sentinelx-recovery.com` HTTPS origins and existing mTLS policy. A local HTTP server
+Production WebAuthn continues to require the approved `algofortis.com` and
+`algofortis-recovery.com` HTTPS origins and existing mTLS policy. A local HTTP server
 cannot impersonate those origins. Production runtime status truthfully reports
 `local_auth_transport=UNAVAILABLE`, and production WebAuthn endpoints return 503
 until an approved HTTPS transport/provider is integrated. TEST and DEVELOPMENT
@@ -174,7 +174,7 @@ through loading, an actual backend stop, unavailable state and recovery.
 
 The browser fixture runner now uses temporary databases and artifact paths. The
 three later trading evidence verifiers also place their databases under system
-temporary storage. Canonical `.sentinelx-dev-data` is not seeded or moved.
+temporary storage. Canonical `.algofortis-dev-data` is not seeded or moved.
 
 Final exact results, changed files and canonical counts are recorded in
 `STEP7_FINAL_REPORT.md`. No installer, Step 8, broker integration or real-money

@@ -6,7 +6,7 @@ import "../../user-dashboard/user-dashboard.css";
 import "../../owner-dashboard/owner-dashboard.css";
 
 /* ════════════════════════════════════════════════════════════
-   SentinelX Dashboard V3 — Master Workspace Dispatcher
+   AlgoFortis Dashboard V3 — Master Workspace Dispatcher
    Strict User / Owner Workspace Separation
    ════════════════════════════════════════════════════════════ */
 
@@ -40,7 +40,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
 
   const [theme, setTheme] = useState<ThemeMode>(() => {
     try {
-      const stored = localStorage.getItem("sentinelx_theme");
+      const stored = localStorage.getItem("algofortis_theme");
       if (stored === "light" || stored === "dark") return stored;
     } catch {}
     return initialTheme;
@@ -53,7 +53,7 @@ export const DashboardV3App: React.FC<DashboardV3AppProps> = ({
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     try {
-      localStorage.setItem("sentinelx_theme", theme);
+      localStorage.setItem("algofortis_theme", theme);
     } catch {}
   }, [theme]);
 

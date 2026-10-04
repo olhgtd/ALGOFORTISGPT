@@ -16,7 +16,7 @@
 
 Use this for **how the project got here**:
 
-- SentinelX → AlgoFortis history;
+- AlgoFortis → AlgoFortis history;
 - V1 architecture and frozen decisions;
 - V1 plan versus actually verified work;
 - V1 certified checkpoint and regression evidence;
@@ -74,7 +74,7 @@ The two master files above are context-restoration maps. Underlying code, tests,
 
 These are intentionally repeated here because they are cross-version safety invariants rather than mutable progress details:
 
-- Current product name is **AlgoFortis**; SentinelX names are legacy/compatibility/history.
+- Current product name is **AlgoFortis**; AlgoFortis names are legacy/compatibility/history.
 - V2 is incremental hardening of V1, not a big-bang rewrite.
 - Backtest, Paper and Live remain mode-isolated.
 - RiskGate is the V2 executable-order authority.

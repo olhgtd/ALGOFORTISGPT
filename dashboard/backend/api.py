@@ -436,7 +436,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
                artifact_root: Path | None = None,
                auth_policy: AuthPolicyManager | None = None) -> FastAPI:
     """Create an app that is secure-by-default and has no password endpoint."""
-    app = FastAPI(title="SentinelX Control Center API", version="9.0.0")
+    app = FastAPI(title="AlgoFortis Control Center API", version="9.0.0")
     @app.exception_handler(StrategyProjectionPending)
     async def strategy_projection_pending(request: Request, exc: StrategyProjectionPending):
         return JSONResponse(status_code=503, content={"detail": exc.detail})
@@ -683,7 +683,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
 
     @app.get("/health")
     def health() -> dict[str, object]:
-        return {"service": "sentinelx-control-center", "status": "OK", "safe_mode": app.state.safe_mode.enabled}
+        return {"service": "algofortis-control-center", "status": "OK", "safe_mode": app.state.safe_mode.enabled}
 
     # ── Phase BI-1: Read-only integration endpoints ──
 
@@ -798,7 +798,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             credential_id, rp_id = ceremony_service().complete_authentication(
                 user=user, challenge_id=body.challenge_id, response=body.response,
             )
-            route = AccessRoute.BREAK_GLASS if rp_id == "sentinelx-recovery.com" else AccessRoute.NORMAL
+            route = AccessRoute.BREAK_GLASS if rp_id == "algofortis-recovery.com" else AccessRoute.NORMAL
             session = session_service.issue(
                 user=user, route=route,
                 mtls_verified=_verified_mtls(request),
@@ -861,13 +861,13 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
 
     @app.post("/api/v1/auth/webauthn/bootstrap-registration/options")
     def webauthn_bootstrap_registration_options(body: WebAuthnOptionsRequest,
-                                                x_sentinelx_bootstrap: str | None = Header(default=None)) -> dict[str, object]:
+                                                x_algofortis_bootstrap: str | None = Header(default=None)) -> dict[str, object]:
         """Consumes no authority itself; a trusted-host-created token is required."""
-        if not x_sentinelx_bootstrap:
+        if not x_algofortis_bootstrap:
             raise HTTPException(status_code=401, detail="bootstrap authorization required")
         try:
             mandatory_audit("WEBAUTHN_BOOTSTRAP_VALIDATION")
-            issued = ceremony_service().issue_bootstrap_registration(user=configured_owner, bootstrap_token=x_sentinelx_bootstrap, rp_id=body.rp_id or ceremony_service().normal_rp_id())
+            issued = ceremony_service().issue_bootstrap_registration(user=configured_owner, bootstrap_token=x_algofortis_bootstrap, rp_id=body.rp_id or ceremony_service().normal_rp_id())
             issued.pop("bootstrap_token", None)
             return issued
         except (SecurityError, SecurityStoreError) as exc:
@@ -3738,8 +3738,8 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
 
 def _create_unconfigured_sentinel_app() -> FastAPI:
     sentinel = FastAPI(
-        title="SentinelX — Unconfigured Direct API Entrypoint",
-        description="Direct invocation of dashboard.backend.api:app is not an authoritative SentinelX runtime. "
+        title="AlgoFortis — Unconfigured Direct API Entrypoint",
+        description="Direct invocation of dashboard.backend.api:app is not an authoritative AlgoFortis runtime. "
                     "Use dashboard.runtime.application.create_runtime_app or dashboard.backend.dev_app.",
     )
 
@@ -3749,7 +3749,7 @@ def _create_unconfigured_sentinel_app() -> FastAPI:
             status_code=503,
             detail={
                 "error": "UNCONFIGURED_ENTRYPOINT",
-                "message": "dashboard.backend.api:app is not a runnable SentinelX server. "
+                "message": "dashboard.backend.api:app is not a runnable AlgoFortis server. "
                            "Production runtime must use create_runtime_app via RuntimeController. "
                            "Development must use dashboard.backend.dev_app.",
                 "state": "UNCONFIGURED",

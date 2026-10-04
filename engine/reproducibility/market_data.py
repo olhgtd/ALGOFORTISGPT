@@ -42,7 +42,7 @@ class MarketDataPolicy:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-market-data-policy/v1",
+            "algofortis-market-data-policy/v1",
             (("version", self.version), ("normalization", self.normalization_identity), ("interpretation", self.interpretation_identity)),
         )
 
@@ -78,7 +78,7 @@ class MarketDataStream:
             for bar in self.bars
         )
         return CanonicalCodec.fingerprint(
-            "sentinelx-market-data-stream/v1",
+            "algofortis-market-data-stream/v1",
             (("stream", tuple(value for _, value in _instrument_fields(self.stream))), ("policy", self.policy.fingerprint), ("bars", bars)),
         )
 
@@ -104,6 +104,6 @@ class MarketDataSnapshot:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-market-data-snapshot/v1",
+            "algofortis-market-data-snapshot/v1",
             (("policy", self.policy.fingerprint), ("streams", tuple(item.fingerprint for item in self.streams))),
         )

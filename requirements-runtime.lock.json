@@ -38,6 +38,6 @@
     "implementation": "CPython",
     "version": "3.13.14"
   },
-  "schema_version": "sentinelx-approved-runtime-lock/v1"
+  "schema_version": "algofortis-approved-runtime-lock/v1"
 }
 

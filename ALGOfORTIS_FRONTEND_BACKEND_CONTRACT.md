@@ -191,7 +191,7 @@
 - **Status:** `ACTIVE / USED TODAY`
 - **Purpose:** Appliance first-run bootstrap to enroll the master platform Owner.
 - **Calling Screen(s):** Owner Setup Flow (`OwnerSetupFlow.tsx`).
-- **Request Header:** `x-sentinelx-bootstrap: <bootstrap_token>`.
+- **Request Header:** `x-algofortis-bootstrap: <bootstrap_token>`.
 - **Response Fields:** `{ "credential_id": "cred_owner_1", "registered": true, "security_setup": "COMPLETED" }`.
 
 ---

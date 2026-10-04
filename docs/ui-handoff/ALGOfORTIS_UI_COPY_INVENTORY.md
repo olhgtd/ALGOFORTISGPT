@@ -100,6 +100,6 @@ All strings in this inventory are tagged with an authoritative design governance
 
 | Legacy Copy String | Current Location | Classification | Migration Instruction |
 |---|---|---|---|
-| `"SentinelX Enterprise Control Center"` | Legacy headers / comments | `[LEGACY / REMOVE IN REDESIGN]` | Replace with `"AlgoFortis Trading Research & Risk OS"`. |
+| `"AlgoFortis Enterprise Control Center"` | Legacy headers / comments | `[LEGACY / REMOVE IN REDESIGN]` | Replace with `"AlgoFortis Trading Research & Risk OS"`. |
 | `"Enter password"` | Legacy mock prototypes | `[LEGACY / REMOVE IN REDESIGN]` | Remove completely; product uses WebAuthn exclusively. |
 | `"Simulated Sentinel Engine v1"` | Footer comment | `[LEGACY / REMOVE IN REDESIGN]` | Replace with `"AlgoFortis Core Engine v1"`. |

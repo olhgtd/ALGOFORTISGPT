@@ -16,7 +16,7 @@ class CanonicalEncodingError(ValueError):
 class CanonicalCodec:
     """Small explicit codec; callers own their schemas and field ordering."""
 
-    schema_version = "sentinelx-canonical-codec/v1"
+    schema_version = "algofortis-canonical-codec/v1"
 
     @classmethod
     def fingerprint(cls, schema: str, fields: Sequence[tuple[str, object]]) -> str:

@@ -87,7 +87,7 @@ def derive_seed(root_seed: int, kind: "RandomizedAnalysisKind", identity: str) -
     if not isinstance(root_seed, int) or isinstance(root_seed, bool) or root_seed < 0:
         raise ValueError("root_seed must be a non-negative integer")
     digest = CanonicalCodec.fingerprint(
-        "sentinelx-randomized-derived-seed/v2",
+        "algofortis-randomized-derived-seed/v2",
         (("root_seed", root_seed), ("analysis_kind", RandomizedAnalysisKind(kind)),
          ("stable_identity", _text(identity, "identity"))),
     )
@@ -251,7 +251,7 @@ class ResolvedEmbargoMap:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-resolved-embargo-map/v2",
+            "algofortis-resolved-embargo-map/v2",
             (("version", self.version), ("default", _embargo_identity_value(self.default)),
              ("overrides", tuple((scope, _embargo_identity_value(policy)) for scope, policy in self.overrides.items()))),
         )
@@ -280,7 +280,7 @@ class WalkForwardPolicy:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-walk-forward-policy/v2",
+            "algofortis-walk-forward-policy/v2",
             (("model", self.model), ("training_length", _duration_parts(self.training_length)),
              ("test_length", _duration_parts(self.test_length)), ("step", _duration_parts(self.step)),
              ("embargo_map", self.embargo_map.fingerprint),
@@ -451,7 +451,7 @@ class SelectedParameterConfiguration:
     @property
     def configuration_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-selected-parameter-configuration/v1",
+            "algofortis-selected-parameter-configuration/v1",
             (("schema", self.schema_version), ("candidate", self.selected_candidate_fingerprint),
              ("parameters", tuple(value.canonical_tuple for value in self.parameters)),
              ("window", self.window_identity), ("selection", self.selection_identity)),
@@ -485,7 +485,7 @@ class SensitivityParameterDomain:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-sensitivity-parameter-domain/v1",
+            "algofortis-sensitivity-parameter-domain/v1",
             (("schema", self.schema_version), ("name", self.parameter_name), ("type", self.parameter_type),
              ("values", self.values), ("provenance", self.provenance)),
         )
@@ -526,7 +526,7 @@ class SensitivityPolicy:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-sensitivity-policy/v1",
+            "algofortis-sensitivity-policy/v1",
             (("schema", self.schema_version), ("method", self.method_identity), ("form", self.form),
              ("domains", tuple(value.fingerprint for value in self.domains)),
              ("max_evaluated_points", self.max_evaluated_points), ("no_rng", True)),
@@ -563,7 +563,7 @@ class SelectedTrainingBaselineEvidence:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-selected-training-baseline-evidence/v1",
+            "algofortis-selected-training-baseline-evidence/v1",
             (("schema", self.schema_version), ("window", self.window_identity),
              ("candidate", self.selected_candidate_fingerprint), ("configuration", self.selected_configuration_fingerprint),
              ("selection", self.selection_identity), ("training", self.training_identity),
@@ -592,7 +592,7 @@ class SensitivityPoint:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-sensitivity-point/v1",
+            "algofortis-sensitivity-point/v1",
             (("schema", self.schema_version), ("window", self.window_identity), ("policy", self.policy_fingerprint),
              ("configuration", self.configuration.configuration_fingerprint), ("role", "NEIGHBOR")),
         )
@@ -638,7 +638,7 @@ class SensitivityPointEvidence:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-sensitivity-point-evidence/v1",
+            "algofortis-sensitivity-point-evidence/v1",
             (("point", self.point.fingerprint), ("status", self.status), ("reason", self.reason),
              ("metrics", self.metrics_evidence_id), ("failure", self.failure_fingerprint),
              ("trade_count", self.trade_count), ("expectancy", self.expectancy),
@@ -696,12 +696,12 @@ class SensitivityEvidence:
 
     @property
     def window_identity(self) -> str:
-        return CanonicalCodec.fingerprint("sentinelx-validation-window/v1", (("window_id", self.window.window_id), ("train_start", self.window.train_start), ("train_end", self.window.train_end), ("embargo_start", self.window.embargo_start), ("embargo_end", self.window.embargo_end), ("oos_start", self.window.oos_start), ("oos_end", self.window.oos_end)))
+        return CanonicalCodec.fingerprint("algofortis-validation-window/v1", (("window_id", self.window.window_id), ("train_start", self.window.train_start), ("train_end", self.window.train_end), ("embargo_start", self.window.embargo_start), ("embargo_end", self.window.embargo_end), ("oos_start", self.window.oos_start), ("oos_end", self.window.oos_end)))
 
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-sensitivity-evidence/v1",
+            "algofortis-sensitivity-evidence/v1",
             (("schema", self.schema_version), ("window", self.window_identity), ("parameter_plan", self.parameter_plan_identity),
              ("selection", self.selection_identity), ("configuration", self.selected_configuration_fingerprint),
              ("training", self.training_identity), ("policy", self.policy_fingerprint),
@@ -737,7 +737,7 @@ class AggregateSensitivityEvidence:
 
     @property
     def fingerprint(self) -> str:
-        return CanonicalCodec.fingerprint("sentinelx-aggregate-sensitivity-evidence/v1", (("schema", self.schema_version), ("schedule", tuple(value.window_id for value in self.required_windows)), ("evidence", tuple(value.fingerprint for value in self.evidence)), ("policy", self.policy_fingerprint), ("status", self.status), ("reason", self.reason)))
+        return CanonicalCodec.fingerprint("algofortis-aggregate-sensitivity-evidence/v1", (("schema", self.schema_version), ("schedule", tuple(value.window_id for value in self.required_windows)), ("evidence", tuple(value.fingerprint for value in self.evidence)), ("policy", self.policy_fingerprint), ("status", self.status), ("reason", self.reason)))
 
 
 @dataclass(frozen=True)
@@ -788,7 +788,7 @@ class OOSTradeEvidence:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-oos-trade-evidence/v2" if self.schema_version.endswith("/v2") else "sentinelx-oos-trade-evidence/v1",
+            "algofortis-oos-trade-evidence/v2" if self.schema_version.endswith("/v2") else "algofortis-oos-trade-evidence/v1",
             (("schema_version", self.schema_version), ("trade_id", self.trade_id),
              ("market", self.instrument.market), ("instrument", self.instrument.instrument),
              ("segment", self.instrument.segment), ("underlying", self.instrument.underlying),
@@ -921,7 +921,7 @@ class BootstrapPolicy:
     def fingerprint(self) -> str:
         """D4 identity for the complete explicit Bootstrap policy."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-policy/v1",
+            "algofortis-bootstrap-policy/v1",
             (("method_version", self.method_version), ("sample_count", self.sample_count),
              ("confidence_level", self.confidence_level), ("block_length", self.block_length),
              ("root_seed", self.root_seed)),
@@ -1059,7 +1059,7 @@ class SynchronizedEconomicEpisode:
     @property
     def identity(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-synchronized-economic-episode/v2",
+            "algofortis-synchronized-economic-episode/v2",
             (("validation_run_id", self.validation_run_id),
              ("validation_identity", self.validation_identity), ("window_id", self.window_id),
              ("portfolio_observation_time", self.portfolio_observation_time),
@@ -1132,7 +1132,7 @@ def _bootstrap_observation_identity(value: OOSTradeEvidence) -> str:
     if value.net_realized_pnl.is_finite():
         return value.fingerprint
     return CanonicalCodec.fingerprint(
-        "sentinelx-bootstrap-non-finite-oos-observation/v1",
+        "algofortis-bootstrap-non-finite-oos-observation/v1",
         (("trade_id", value.trade_id), ("instrument", _instrument_fields(value.instrument)),
          ("window_id", value.window_id), ("closed_at", value.closed_at),
          ("currency", value.currency), ("source_kind", value.source_kind),
@@ -1203,7 +1203,7 @@ class BootstrapEvidence:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-evidence/v1",
+            "algofortis-bootstrap-evidence/v1",
             (("schema_version", self.schema_version), ("source_primary_oos", self.source_primary_oos_identity),
              ("validation_scope", self.validation_scope_identity),
              ("instrument", _instrument_fields(self.instrument)), ("instrument_scope", self.instrument_scope_identity),
@@ -1310,7 +1310,7 @@ class MC1Evidence:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-mc1-evidence/v1",
+            "algofortis-mc1-evidence/v1",
             (("schema_version", self.schema_version), ("source", self.source_primary_oos_identity),
              ("validation_scope", self.validation_scope_identity), ("instrument", _instrument_fields(self.instrument)),
              ("instrument_scope", self.instrument_scope_identity), ("policy", self.mc1_policy_fingerprint),
@@ -1447,7 +1447,7 @@ class MC2Evidence:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-mc2-evidence/v1",
+            "algofortis-mc2-evidence/v1",
             (("schema_version", self.schema_version), ("source", self.source_primary_oos_identity),
              ("validation_scope", self.validation_scope_identity), ("instrument", _instrument_fields(self.instrument)),
              ("instrument_scope", self.instrument_scope_identity), ("policy", self.mc2_policy_fingerprint),
@@ -1575,35 +1575,35 @@ class BootstrapAnalyzer:
             # normal D4 trade fingerprint.  Preserve deterministic D7 binding
             # without serializing the non-finite payload itself.
             aggregate_identity = CanonicalCodec.fingerprint(
-                "sentinelx-bootstrap-invalid-aggregate-source/v1",
+                "algofortis-bootstrap-invalid-aggregate-source/v1",
                 (("manifest", aggregate.manifest_fingerprint),
                  ("schedule", tuple(value.window_id for value in aggregate.schedule)),
                  ("selection", aggregate.selection_identity.fingerprint),
                  ("observations", tuple(_bootstrap_observation_identity(value) for value in aggregate.canonical_oos_trades))),
             )
         validation_scope_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-validation-scope/v1",
+            "algofortis-bootstrap-validation-scope/v1",
             (("successful_windows", successful_pairs),),
         )
         scoped = tuple(value for value in aggregate.canonical_oos_trades if value.instrument == instrument)
         source_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-primary-oos-source/v1",
+            "algofortis-bootstrap-primary-oos-source/v1",
             (("aggregate", aggregate_identity), ("instrument", _instrument_fields(instrument)),
              ("trades", tuple(_bootstrap_observation_identity(value) for value in scoped)),
              ("successful_windows", successful_pairs)),
         )
         instrument_scope_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-instrument-scope/v1",
+            "algofortis-bootstrap-instrument-scope/v1",
             (("source", source_identity), ("instrument", _instrument_fields(instrument))),
         )
         method_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-method/v1", (("method_version", policy.method_version),),
+            "algofortis-bootstrap-method/v1", (("method_version", policy.method_version),),
         )
         root_seed_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-root-seed/v1", (("root_seed", policy.root_seed),),
+            "algofortis-bootstrap-root-seed/v1", (("root_seed", policy.root_seed),),
         )
         derived_seed_identity = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-derived-seed/v1",
+            "algofortis-bootstrap-derived-seed/v1",
             (("root_seed", root_seed_identity), ("kind", RandomizedAnalysisKind.BOOTSTRAP),
              ("source", source_identity), ("validation_scope", validation_scope_identity),
              ("policy", policy.fingerprint), ("method", method_identity)),
@@ -1646,7 +1646,7 @@ class BootstrapAnalyzer:
         for index, value in enumerate(canonical):
             if not value.net_realized_pnl.is_finite():
                 failure_evidence = CanonicalCodec.fingerprint(
-                    "sentinelx-bootstrap-source-non-finite/v1",
+                    "algofortis-bootstrap-source-non-finite/v1",
                     (("source", source_identity), ("trade", _bootstrap_observation_identity(value)), ("source_index", index),
                      ("field", "net_realized_pnl"), ("reason", _non_finite_reason(value.net_realized_pnl))),
                 )
@@ -1660,7 +1660,7 @@ class BootstrapAnalyzer:
             outcome = ValidationStatistics.bootstrap_expectancy(canonical, policy, derived_seed_identity)
         except _BootstrapNonFiniteReplicate as error:
             failure_evidence = CanonicalCodec.fingerprint(
-                "sentinelx-bootstrap-replicate-non-finite/v1",
+                "algofortis-bootstrap-replicate-non-finite/v1",
                 (("source", source_identity), ("policy", policy.fingerprint), ("method", method_identity),
                  ("derived_seed", derived_seed_identity), ("replicate_index", error.index),
                  ("reason", error.reason_code)),
@@ -1755,7 +1755,7 @@ class BootstrapAnalyzer:
         if not values:
             return RandomizedResult(RandomizedAnalysisKind.MC1, ValidationStatus.INSUFFICIENT_DATA, seed, None, reason="no synchronized episodes")
         scoped_identity = CanonicalCodec.fingerprint(
-            "sentinelx-aggregate-mc1-scope/v2",
+            "algofortis-aggregate-mc1-scope/v2",
             (("scope_identity", _text(identity, "identity")),
              ("episodes", tuple(value.identity for value in values))),
         )
@@ -1777,7 +1777,7 @@ class BootstrapAnalyzer:
         if reason is not None:
             return RandomizedResult(RandomizedAnalysisKind.MC2, ValidationStatus.INVALID, seed, None, reason=reason)
         scoped_identity = CanonicalCodec.fingerprint(
-            "sentinelx-aggregate-mc2-scope/v2",
+            "algofortis-aggregate-mc2-scope/v2",
             (("scope_identity", _text(identity, "identity")), ("block_unit", policy.block_unit),
              ("episodes", tuple(value.identity for value in values))),
         )
@@ -1801,7 +1801,7 @@ class MC1Analyzer:
         if value.net_realized_pnl.is_finite():
             return value.fingerprint
         return CanonicalCodec.fingerprint(
-            "sentinelx-mc1-non-finite-oos-observation/v1",
+            "algofortis-mc1-non-finite-oos-observation/v1",
             (("trade_id", value.trade_id), ("instrument", _instrument_fields(value.instrument)),
              ("window_id", value.window_id), ("closed_at", value.closed_at),
              ("currency", value.currency), ("validation_identity", value.validation_identity)),
@@ -1834,7 +1834,7 @@ class MC1Analyzer:
             canonical = ()
         scoped = tuple(value for value in canonical if value.instrument == instrument)
         aggregate_identity = CanonicalCodec.fingerprint(
-            "sentinelx-primary-oos-aggregate-source/v1",
+            "algofortis-primary-oos-aggregate-source/v1",
             (("manifest", aggregate.manifest_fingerprint),
              ("schedule", tuple(value.window_id for value in aggregate.schedule)),
              ("selection", aggregate.selection_identity.fingerprint),
@@ -1842,16 +1842,16 @@ class MC1Analyzer:
              ("observations", tuple(cls._observation_identity(value) for value in canonical))),
         )
         validation_scope = CanonicalCodec.fingerprint(
-            "sentinelx-primary-oos-validation-scope/v1", (("successful_windows", successful_pairs),),
+            "algofortis-primary-oos-validation-scope/v1", (("successful_windows", successful_pairs),),
         )
         source = CanonicalCodec.fingerprint(
-            "sentinelx-primary-oos-instrument-source/v1",
+            "algofortis-primary-oos-instrument-source/v1",
             (("aggregate", aggregate_identity), ("instrument", _instrument_fields(instrument)),
              ("trades", tuple(cls._observation_identity(value) for value in scoped)),
              ("successful_windows", successful_pairs)),
         )
         instrument_scope = CanonicalCodec.fingerprint(
-            "sentinelx-primary-oos-instrument-scope/v1",
+            "algofortis-primary-oos-instrument-scope/v1",
             (("source", source), ("instrument", _instrument_fields(instrument))),
         )
         return _PrimaryOOSInstrumentScope(aggregate_identity, instrument, scoped, validation_scope, source, instrument_scope)
@@ -1883,7 +1883,7 @@ class MC1Analyzer:
             raise TypeError("policy must be MC1Policy")
         scope = cls._scope(aggregate, instrument)
         root_seed_identity = CanonicalCodec.fingerprint(
-            "sentinelx-mc1-root-seed/v1", (("root_seed", policy.root_seed),),
+            "algofortis-mc1-root-seed/v1", (("root_seed", policy.root_seed),),
         )
         if len(scope.trades) < 2:
             return cls._evidence(scope, policy, root_seed_identity, None, None, ValidationStatus.INSUFFICIENT_DATA,
@@ -1891,7 +1891,7 @@ class MC1Analyzer:
         for index, trade in enumerate(scope.trades):
             if not trade.net_realized_pnl.is_finite():
                 evidence = CanonicalCodec.fingerprint(
-                    "sentinelx-mc1-source-non-finite/v1",
+                    "algofortis-mc1-source-non-finite/v1",
                     (("source", scope.source_identity), ("trade", cls._observation_identity(trade)),
                      ("source_index", index), ("field", "net_realized_pnl"),
                      ("reason", _non_finite_reason(trade.net_realized_pnl))),
@@ -1899,9 +1899,9 @@ class MC1Analyzer:
                 return StructuredFailureResult("structured-failure/v1", aggregate.manifest_fingerprint,
                                                MC1FailureStage.MC1_ANALYSIS.value,
                                                MC1FailureCode.MC1_NON_FINITE_EVIDENCE, evidence, policy.fingerprint)
-        method_identity = CanonicalCodec.fingerprint("sentinelx-mc1-method/v1", (("method", policy.method_identity),))
+        method_identity = CanonicalCodec.fingerprint("algofortis-mc1-method/v1", (("method", policy.method_identity),))
         derived_identity = CanonicalCodec.fingerprint(
-            "sentinelx-mc1-derived-seed/v1",
+            "algofortis-mc1-derived-seed/v1",
             (("root_seed", root_seed_identity), ("kind", RandomizedAnalysisKind.MC1),
              ("source", scope.source_identity), ("validation_scope", scope.validation_scope_identity),
              ("instrument_scope", scope.instrument_scope_identity), ("policy", policy.fingerprint),
@@ -1919,14 +1919,14 @@ class MC1Analyzer:
                 trials.append((trial_index, tuple(indices), drawdown))
         except _MC1NonFinitePath as error:
             evidence = CanonicalCodec.fingerprint(
-                "sentinelx-mc1-generated-non-finite/v1",
+                "algofortis-mc1-generated-non-finite/v1",
                 (("source", scope.source_identity), ("policy", policy.fingerprint), ("method", method_identity),
                  ("derived_seed", derived_identity), ("trial_index", error.trial_index),
                  ("path_index", error.position), ("field", error.field), ("reason", error.reason_code))),
             return StructuredFailureResult("structured-failure/v1", aggregate.manifest_fingerprint,
                                            MC1FailureStage.MC1_ANALYSIS.value,
                                            MC1FailureCode.MC1_NON_FINITE_EVIDENCE, evidence, policy.fingerprint)
-        distribution = CanonicalCodec.fingerprint("sentinelx-mc1-trial-distribution/v1", (("trials", tuple(trials)),))
+        distribution = CanonicalCodec.fingerprint("algofortis-mc1-trial-distribution/v1", (("trials", tuple(trials)),))
         ordered = tuple(sorted(value[2] for value in trials))
         quantiles = tuple((value, ordered[cls._quantile_index(value, policy.trial_count)]) for value in policy.requested_drawdown_quantiles)
         return cls._evidence(scope, policy, root_seed_identity, seed, derived_identity, ValidationStatus.PASS, None,
@@ -1959,7 +1959,7 @@ class MC2Analyzer:
         for window in successes:
             values = tuple(value for value in scope.trades if value.window_id == window.window.window_id)
             source = CanonicalCodec.fingerprint(
-                "sentinelx-mc2-window-source/v1",
+                "algofortis-mc2-window-source/v1",
                 (("aggregate_source", scope.source_identity), ("window_id", window.window.window_id),
                  ("validation_identity", window.validation_evidence.validation_identity),
                  ("trades", tuple(MC1Analyzer._observation_identity(value) for value in values))),
@@ -2000,7 +2000,7 @@ class MC2Analyzer:
         trade: OOSTradeEvidence, global_index: int, local_index: int,
     ) -> StructuredFailureResult:
         evidence = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-source-non-finite/v1",
+            "algofortis-mc2-source-non-finite/v1",
             (("subtype", "SOURCE_OBSERVATION_NON_FINITE"), ("source", scope.source_identity),
              ("window_id", window.window_id), ("trade", MC1Analyzer._observation_identity(trade)),
              ("source_index", global_index), ("window_local_source_index", local_index),
@@ -2018,7 +2018,7 @@ class MC2Analyzer:
     ) -> StructuredFailureResult:
         window_id, block_ordinal, block_start, local_position, global_position = references[error.position]
         evidence = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-generated-non-finite/v1",
+            "algofortis-mc2-generated-non-finite/v1",
             (("subtype", "GENERATED_PATH_NON_FINITE"), ("source", scope.source_identity),
              ("policy", policy.fingerprint), ("method", method_identity), ("derived_seed", derived_identity),
              ("trial_index", error.trial_index), ("window_id", window_id),
@@ -2037,7 +2037,7 @@ class MC2Analyzer:
             raise TypeError("policy must be MC2Policy")
         scope, windows = cls._scope(aggregate, instrument)
         root_seed_identity = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-root-seed/v1", (("root_seed", policy.root_seed),),
+            "algofortis-mc2-root-seed/v1", (("root_seed", policy.root_seed),),
         )
         if len(scope.trades) < 2:
             return cls._evidence(scope, windows, policy, root_seed_identity, None, None,
@@ -2053,10 +2053,10 @@ class MC2Analyzer:
                         aggregate, scope, policy, window, trade, global_indices[id(trade)], local_index,
                     )
         method_identity = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-method/v1", (("method", policy.method_identity),),
+            "algofortis-mc2-method/v1", (("method", policy.method_identity),),
         )
         derived_identity = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-derived-seed/v1",
+            "algofortis-mc2-derived-seed/v1",
             (("root_seed", root_seed_identity), ("kind", RandomizedAnalysisKind.MC2),
              ("source", scope.source_identity), ("validation_scope", scope.validation_scope_identity),
              ("instrument_scope", scope.instrument_scope_identity), ("policy", policy.fingerprint),
@@ -2101,11 +2101,11 @@ class MC2Analyzer:
                     aggregate, scope, policy, method_identity, derived_identity, error, tuple(references),
                 )
             path_identity = CanonicalCodec.fingerprint(
-                "sentinelx-mc2-trial-path/v1", (("trial_index", trial_index), ("windows", tuple(window_records))),
+                "algofortis-mc2-trial-path/v1", (("trial_index", trial_index), ("windows", tuple(window_records))),
             )
             trials.append((trial_index, tuple(window_records), path_identity, drawdown))
         distribution = CanonicalCodec.fingerprint(
-            "sentinelx-mc2-trial-distribution/v1", (("trials", tuple(trials)),),
+            "algofortis-mc2-trial-distribution/v1", (("trials", tuple(trials)),),
         )
         ordered = tuple(sorted(value[3] for value in trials))
         quantiles = tuple(
@@ -2356,7 +2356,7 @@ class ValidationRunEvidence:
     @property
     def universe_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-validation-universe/v1",
+            "algofortis-validation-universe/v1",
             (("instruments", tuple(_instrument_fields(value.instrument) for value in self.universe)),),
         )
 
@@ -2374,7 +2374,7 @@ class ValidationRunEvidence:
             else self.regime_evidence.evidence_fingerprint
         )
         return CanonicalCodec.fingerprint(
-            "sentinelx-validation-run-evidence/v2",
+            "algofortis-validation-run-evidence/v2",
             (("schema_version", self.schema_version), ("purpose", self.purpose),
              ("source_run_id", self.source_run_id), ("account_id", self.account_id),
              ("configuration_fingerprint", self.configuration_fingerprint),
@@ -2439,7 +2439,7 @@ class PromotionPolicy:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-promotion-policy/v1",
+            "algofortis-promotion-policy/v1",
             (("schema", self.schema_version), ("minimum_complete_windows", self.minimum_complete_windows),
              ("normal_sample_trade_count", self.normal_sample_trade_count),
              ("mc1_quantile", self.mc1_quantile), ("mc1_limit_ratio", self.mc1_max_drawdown_limit_ratio),
@@ -2487,7 +2487,7 @@ class PromotionGateResult:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-promotion-gate-result/v1",
+            "algofortis-promotion-gate-result/v1",
             (("schema", self.schema_version), ("gate", self.gate_kind.value), ("applicable", self.applicable),
              ("sources", self.source_identities), ("policy", self.policy_identity), ("status", self.status),
              ("reasons", self.reason_codes), ("measurements", self.measurements)),
@@ -2539,7 +2539,7 @@ class PromotionDecisionEvidence:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-promotion-decision-evidence/v1",
+            "algofortis-promotion-decision-evidence/v1",
             (("schema", self.schema_version), ("policy", self.policy_fingerprint),
              ("manifest", self.manifest_fingerprint), ("validation_scope", self.validation_scope_identity),
              ("instrument", _instrument_fields(self.instrument)), ("instrument_scope", self.instrument_scope_identity),
@@ -2602,21 +2602,21 @@ class PromotionEvaluator:
         except AttributeError:
             successful_pairs = ()
         primary_validation_scope = CanonicalCodec.fingerprint(
-            "sentinelx-primary-oos-validation-scope/v1", (("successful_windows", successful_pairs),),
+            "algofortis-primary-oos-validation-scope/v1", (("successful_windows", successful_pairs),),
         )
         bootstrap_validation_scope = CanonicalCodec.fingerprint(
-            "sentinelx-bootstrap-validation-scope/v1", (("successful_windows", successful_pairs),),
+            "algofortis-bootstrap-validation-scope/v1", (("successful_windows", successful_pairs),),
         )
         try:
             primary_aggregate_source = CanonicalCodec.fingerprint(
-                "sentinelx-primary-oos-aggregate-source/v1",
+                "algofortis-primary-oos-aggregate-source/v1",
                 (("manifest", aggregate_manifest), ("schedule", tuple(value.window_id for value in schedule)),
                  ("selection", aggregate_walk_forward.selection_identity.fingerprint),
                  ("successful_windows", successful_pairs),
                  ("observations", tuple(value.fingerprint for value in aggregate_trades))),
             )
             expected_primary_source = CanonicalCodec.fingerprint(
-                "sentinelx-primary-oos-instrument-source/v1",
+                "algofortis-primary-oos-instrument-source/v1",
                 (("aggregate", primary_aggregate_source), ("instrument", _instrument_fields(instrument)),
                  ("trades", tuple(value.fingerprint for value in canonical_trades)),
                  ("successful_windows", successful_pairs)),
@@ -2739,7 +2739,7 @@ class PromotionEvaluator:
                          if gate.status in (ValidationStatus.INVALID, ValidationStatus.INSUFFICIENT_DATA, ValidationStatus.FAIL))
         return PromotionDecisionEvidence(policy.fingerprint, manifest.manifest_fingerprint,
                                          primary_validation_scope, instrument,
-                                         source or CanonicalCodec.fingerprint("sentinelx-promotion-empty-instrument-scope/v1", (("instrument", _instrument_fields(instrument)),)),
+                                         source or CanonicalCodec.fingerprint("algofortis-promotion-empty-instrument-scope/v1", (("instrument", _instrument_fields(instrument)),)),
                                          aggregate_identity if isinstance(aggregate_identity, str) and aggregate_identity else "PROMOTION_INVALID_AGGREGATE",
                                          source, gates, blockers, overall, overall is ValidationStatus.PASS)
 

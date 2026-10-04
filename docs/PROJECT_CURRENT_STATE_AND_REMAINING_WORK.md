@@ -39,7 +39,7 @@ When records disagree, use this order:
 3. canonical V2 requirements/architecture/implementation/test plans;
 4. phase designs/implementation plans/evidence reports;
 5. V1 frozen architecture and certified checkpoint for historical/carry-forward behavior;
-6. old README/SentinelX-era presentation as historical reference only.
+6. old README/AlgoFortis-era presentation as historical reference only.
 
 Phase-5 decision reconciliation is complete: root `ALGOFORTIS_V2_OWNER_DECISIONS.md` now records OD-V2-19 and OD-V2-24 as **FROZEN**, consistent with `docs/v2/phase5/PHASE5_OWNER_DECISION_FREEZE.md`, ADR-013 and ADR-014. Future changes to either decision require a new dated decision-log entry rather than an exception note.
 
@@ -133,7 +133,7 @@ Important naming note:
 Purpose:
 
 - product branding/static assets.
-- current product identity is AlgoFortis even where legacy SentinelX artifacts remain.
+- current product identity is AlgoFortis even where legacy AlgoFortis artifacts remain.
 
 ## `build/`
 
@@ -1368,7 +1368,7 @@ Use measured/frozen versioned policy.
 
 ## 9.6 Legacy names are not automatic cleanup targets
 
-Old SentinelX names may be referenced by:
+Old AlgoFortis names may be referenced by:
 
 - compatibility paths;
 - database identifiers;
@@ -1531,7 +1531,7 @@ Required before G10:
 Future documentation work should:
 
 - keep `ALGOFORTIS_V2_OWNER_DECISIONS.md` synchronized with any future dated Owner Decision amendments/ADRs;
-- update stale SentinelX README presentation without breaking compatibility references;
+- update stale AlgoFortis README presentation without breaking compatibility references;
 - update these master docs after meaningful phase/merge/gate changes;
 - keep technical qualification, merge, Owner approval and soak status separate;
 - preserve historical evidence rather than deleting old proof when cleaning names/structure.

@@ -3,7 +3,7 @@
 PURPOSE
 -------
 The smallest offline wiring needed to PROVE the broker-independent boundary
-preserves SentinelX authority end-to-end.  It composes EXISTING canonical
+preserves AlgoFortis authority end-to-end.  It composes EXISTING canonical
 components in the FROZEN order and adds no authority of its own:
 
     existing RiskGate.evaluate_pre_order  →  MockBrokerAdapter.submit
@@ -15,7 +15,7 @@ AUTHORITY PRESERVATION (frozen properties)
   never reaches the adapter (the adapter cannot see rejected candidates).
 * The approved gate quantity is frozen: submitting an order whose quantity
   differs from the gate-approved sizing fails closed (§73 lock preserved).
-* ``entry_intent_identity`` remains the SentinelX-owned submission/dedup
+* ``entry_intent_identity`` remains the AlgoFortis-owned submission/dedup
   identity (§127.4 / OD-3); the supervisor ledger reuses it verbatim.
 * Full-fill projection exists ONLY at exact full quantity and produces the
   existing canonical ``ExecutionResult`` FILLED shape — nothing new is
@@ -73,7 +73,7 @@ __all__ = [
 ]
 
 
-MOCK_PIPELINE_VERSION = "sentinelx-mock-pipeline/v1"
+MOCK_PIPELINE_VERSION = "algofortis-mock-pipeline/v1"
 
 # Parity label recorded on projected execution evidence so reviewers can
 # distinguish pipeline-projected fills from live execution paths in logs.

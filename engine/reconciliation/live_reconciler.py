@@ -1,7 +1,7 @@
 """Live Broker Reconciliation & Restart Recovery Engine.
 
 Provides deterministic state synchronization between live broker accounts
-and SentinelX local persistence upon system startup / recovery.
+and AlgoFortis local persistence upon system startup / recovery.
 
 Features:
 1. Broker State Query: Synchronously queries open orders, positions, and funds
@@ -40,7 +40,7 @@ from engine.orchestration.signal_intake import SignalIntent, signal_intent_ident
 from engine.protective.runtime import ProtectiveExit, ProtectiveExitBook, ProtectiveExitState
 from engine.portfolio.model import PositionKey
 
-logger = logging.getLogger("sentinelx.reconciliation.live")
+logger = logging.getLogger("algofortis.reconciliation.live")
 
 
 class BrokerTruthUnavailable(RuntimeError):

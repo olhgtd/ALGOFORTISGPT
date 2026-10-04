@@ -1,4 +1,4 @@
-# SentinelX — Final Clean Product Source Checkpoint
+# AlgoFortis — Final Clean Product Source Checkpoint
 
 > **Historical snapshot (2026-09-14).** The product is now named **AlgoFortis**. The exclusion list and test counts below describe that snapshot only; the current repository includes the `tests_v1/` suite and is governed by `docs/v2/CANONICAL_DOCUMENT_STATUS.md`.
 

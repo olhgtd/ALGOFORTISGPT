@@ -26,7 +26,7 @@ import {
   type ServiceEntitlementStatus,
   type ServiceTermType,
   type CustomServiceTerm,
-  generatePrototypeSentinelxId,
+  generatePrototypeAlgoFortisId,
   generatePrototypeActivationCode,
   maskEmail,
 } from "../../sampleData";
@@ -70,7 +70,7 @@ export const AccessRegistryScreen: React.FC = () => {
   const [serviceTermChoice, setServiceTermChoice] = useState<ServiceTermType>("3_MONTHS");
   const [customValue, setCustomValue] = useState<number>(30);
   const [customUnit, setCustomUnit] = useState<"DAYS" | "MONTHS">("DAYS");
-  const [generatedSxId, setGeneratedSxId] = useState(() => generatePrototypeSentinelxId());
+  const [generatedSxId, setGeneratedSxId] = useState(() => generatePrototypeAlgoFortisId());
   const [generatedActivationCode, setGeneratedActivationCode] = useState(() => generatePrototypeActivationCode());
 
   // Extend / Renew state in Drawer
@@ -317,7 +317,7 @@ export const AccessRegistryScreen: React.FC = () => {
       setServiceTermChoice("3_MONTHS");
       setCustomValue(30);
       setCustomUnit("DAYS");
-      setGeneratedSxId(generatePrototypeSentinelxId());
+      setGeneratedSxId(generatePrototypeAlgoFortisId());
       setGeneratedActivationCode(generatePrototypeActivationCode());
     } else {
       showFeedback(`⚠️ ${res.error || "BACKEND AUTHORITY UNAVAILABLE"}`);
@@ -336,7 +336,7 @@ export const AccessRegistryScreen: React.FC = () => {
             type="button"
             className="v3-btn primary mini"
             onClick={() => {
-              setGeneratedSxId(generatePrototypeSentinelxId());
+              setGeneratedSxId(generatePrototypeAlgoFortisId());
               setGeneratedActivationCode(generatePrototypeActivationCode());
               setCreateModalOpen(true);
             }}
@@ -752,10 +752,10 @@ export const AccessRegistryScreen: React.FC = () => {
           {/* Identity preview */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="v3-field-label" htmlFor="new-sentinelx-id">Permanent Account ID</label>
+              <label className="v3-field-label" htmlFor="new-algofortis-id">Permanent Account ID</label>
               <input
                 type="text"
-                id="new-sentinelx-id"
+                id="new-algofortis-id"
                 className="v3-input v3-mono font-bold"
                 value={generatedSxId}
                 readOnly

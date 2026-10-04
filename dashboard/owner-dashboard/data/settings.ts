@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — System Health Subsystems, Rate Limits & Settings Domain
+ * AlgoFortis Dashboard V3 — System Health Subsystems, Rate Limits & Settings Domain
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, prototypeFixtureStorage, safeGetJson, safeSetJson } from "../../shared/data/storage";

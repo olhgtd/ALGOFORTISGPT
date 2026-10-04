@@ -37,7 +37,7 @@ Quantity authority is strictly separated:
   quantity exactly.
 
 The deterministic runtime protective-instance identity is
-``sentinelx-protective-instance/v1`` (CanonicalCodec, explicit ordered
+``algofortis-protective-instance/v1`` (CanonicalCodec, explicit ordered
 fields); its fingerprint is suitable as the ``ProtectiveExit.protective_id``.
 Quantity deliberately does NOT participate in that identity: the identity
 identifies the entry-cycle protective instance/provenance, while quantity is
@@ -67,7 +67,7 @@ from engine.reproducibility import CanonicalCodec
 from engine.orchestration.signal_intake import SignalIntent
 
 
-PROTECTIVE_INSTANCE_SCHEMA = "sentinelx-protective-instance/v1"
+PROTECTIVE_INSTANCE_SCHEMA = "algofortis-protective-instance/v1"
 
 # Protective exit intents are not signal-ranked; a fixed deterministic
 # confidence is authoritative provenance only.
@@ -100,7 +100,7 @@ def protective_instance_identity(
 ) -> str:
     """Deterministic runtime protective-instance identity.
 
-    ``sentinelx-protective-instance/v1`` via CanonicalCodec with explicit
+    ``algofortis-protective-instance/v1`` via CanonicalCodec with explicit
     caller-owned field ordering:
 
     1. run_identity
@@ -400,7 +400,7 @@ def materialize_protective_plan(
 
     Every produced instance binds the exact intended PositionKey, uses the
     concrete plan prices, carries a deterministic
-    ``sentinelx-protective-instance/v1`` id (quantity does NOT participate in
+    ``algofortis-protective-instance/v1`` id (quantity does NOT participate in
     the instance identity), and starts ACTIVE. Exactly-one-ACTIVE safety: if an
     ACTIVE STOP_LOSS, TARGET, or TRAILING_STOP already exists for the intended
     PositionKey, this fails closed (raises) rather than silently adding

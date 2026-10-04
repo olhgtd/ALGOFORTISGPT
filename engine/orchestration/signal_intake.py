@@ -31,7 +31,7 @@ def signal_intent_identity(
     originating_timestamp: datetime | None = None,
     action: str | None = None,
 ) -> str:
-    """Deterministic canonical signal intent identity (``sentinelx-signal-intent/v1``).
+    """Deterministic canonical signal intent identity (``algofortis-signal-intent/v1``).
 
     CanonicalCodec only, exact semantic field order: strategy_id,
     strategy_version, symbol, timeframe, originating_timestamp, action.
@@ -63,7 +63,7 @@ def signal_intent_identity(
         raise ValueError(f"action must be a supported signal action: {action!r}")
 
     return CanonicalCodec.fingerprint(
-        "sentinelx-signal-intent/v1",
+        "algofortis-signal-intent/v1",
         (
             ("strategy_id", strategy_id),
             ("strategy_version", strategy_version),

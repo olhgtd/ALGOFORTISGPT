@@ -2,7 +2,7 @@
 
 AlgoFortis is a Windows-focused trading research, backtest, paper-trading, portfolio-risk, and governance platform with fail-closed safety boundaries and private per-user runtime isolation.
 
-The current product name is **AlgoFortis**. `SentinelX` names that remain in explicitly historical V1 artifacts are retained only for compatibility/history and are not the current product identity.
+The current product name is **AlgoFortis**. `AlgoFortis` names that remain in explicitly historical V1 artifacts are retained only for compatibility/history and are not the current product identity.
 
 For document precedence and the current relationship between baseline V2 documents, frozen Owner Decisions/ADRs, historical G8 evidence, and the AI/Laya redesign, see `docs/v2/CANONICAL_DOCUMENT_STATUS.md`.
 

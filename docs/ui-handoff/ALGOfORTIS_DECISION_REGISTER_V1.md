@@ -56,7 +56,7 @@
 - **Status**: `FINAL`
 - **Rationale**: Establishes a distinct, institutional brand identity ("AlgoFortis — Trading Research & Risk OS") replacing the legacy development naming while maintaining code stability through explicit migration boundaries.
 - **Dependencies**: None.
-- **Supersedes**: Legacy SentinelX branding.
+- **Supersedes**: Legacy AlgoFortis branding.
 - **Implementation Phase**: Phase 1.
 
 ### ADR-02: Four-Layer Architectural Decoupling & Engine API Boundary
@@ -208,7 +208,7 @@
 
 ### ADR-23: Technical Identity, SemVer Versioning & Migration Namespaces
 - **Status**: `FINAL`
-- **Rationale**: Adopts SemVer 2.0.0 for product releases, independent API versioning (`/api/v1/`), and automated backward-compatible migration from legacy `%LOCALAPPDATA%\SentinelX` data roots.
+- **Rationale**: Adopts SemVer 2.0.0 for product releases, independent API versioning (`/api/v1/`), and automated backward-compatible migration from legacy `%LOCALAPPDATA%\AlgoFortis` data roots.
 - **Dependencies**: ADR-01.
 - **Supersedes**: None.
 - **Implementation Phase**: Phase 1.
@@ -224,7 +224,7 @@
 - **Status**: `PENDING_EXTERNAL`
 - **Rationale**: Exact root domain purchase is pending Owner domain registration. The architecture establishes the standard subdomain structure (`auth.`, `api.`, `updates.`, `status.`) driven by deployment configuration.
 - **Dependencies**: None.
-- **Supersedes**: Hardcoded `sentinelx.com` references.
+- **Supersedes**: Hardcoded `algofortis.com` references.
 - **Implementation Phase**: Phase 7.
 
 ### ADR-26: Windows Installer Packaging & WebView2 Desktop Shell

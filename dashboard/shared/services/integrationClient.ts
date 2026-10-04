@@ -1,5 +1,5 @@
 /**
- * SentinelX Phase BI-1 — Read-Only Integration Client
+ * AlgoFortis Phase BI-1 — Read-Only Integration Client
  * 
  * Provides typed queries for:
  * 1. D16 Audit Event Read Projection
@@ -204,8 +204,8 @@ export interface BackendPersistenceHealth {
 
 // Dynamic endpoint and authority configuration
 export function getApiBaseUrl(): string {
-  if (typeof window !== "undefined" && (window as any).__SENTINELX_API_URL__) {
-    return (window as any).__SENTINELX_API_URL__;
+  if (typeof window !== "undefined" && (window as any).__ALGOFORTIS_API_URL__) {
+    return (window as any).__ALGOFORTIS_API_URL__;
   }
   return "";
 }
@@ -213,10 +213,10 @@ export function getApiBaseUrl(): string {
 export function isBackendEnabled(): boolean {
   if (typeof window === "undefined") return false;
   // Explicit override: false takes precedence
-  if ((window as any).__SENTINELX_ENABLE_BACKEND__ === false) return false;
+  if ((window as any).__ALGOFORTIS_ENABLE_BACKEND__ === false) return false;
   // Explicit test harness or dev override
-  if ((window as any).__SENTINELX_ENABLE_BACKEND__ === true) return true;
-  if (Boolean((window as any).__SENTINELX_API_URL__)) return true;
+  if ((window as any).__ALGOFORTIS_ENABLE_BACKEND__ === true) return true;
+  if (Boolean((window as any).__ALGOFORTIS_API_URL__)) return true;
   // Normal authenticated runtime: active session token indicates backend authority
   if (Boolean(getSessionToken())) return true;
   return false;
@@ -225,7 +225,7 @@ export function isBackendEnabled(): boolean {
 export function isForceDemo(): boolean {
   if (typeof window === "undefined") return false;
   // Strictly in-memory flag; query string tricks or URL params are NEVER used.
-  return (window as any).__SENTINELX_FORCE_DEMO__ === true;
+  return (window as any).__ALGOFORTIS_FORCE_DEMO__ === true;
 }
 
 const REQUEST_TIMEOUT_MS = 2500;

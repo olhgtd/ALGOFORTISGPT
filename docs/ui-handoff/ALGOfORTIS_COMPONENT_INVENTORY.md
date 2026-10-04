@@ -132,7 +132,7 @@
 
 ---
 
-### Component: `SentinelXCore` / `AlgoFortisCore` (`dashboard/web/src/visual-lab/secure-entry/SentinelXCore.tsx`)
+### Component: `AlgoFortisCore` / `AlgoFortisCore` (`dashboard/web/src/visual-lab/secure-entry/AlgoFortisCore.tsx`)
 - **Used On:** Secure Entry Header, Hero Background.
 - **Purpose:** 2D Canvas dynamic cryptographic shield animation with security particle pulse.
 - **Props / Inputs:** `width?: number`, `height?: number`, `glowColor?: string`.

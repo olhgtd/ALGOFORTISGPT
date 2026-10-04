@@ -1,5 +1,5 @@
 /**
- * SentinelX User Dashboard — Option Chains & Strike Selection Policy
+ * AlgoFortis User Dashboard — Option Chains & Strike Selection Policy
  */
 import { type Truth, type OptionMoneyness, type GreeksAuthority, UNDERLYINGS } from "../../shared/data/sharedTypes";
 

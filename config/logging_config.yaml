@@ -1,4 +1,4 @@
-# SentinelX Phase 6 / ADR §123.6 (OD-6) + §126.2 (OD-B) — Logging Config.
+# AlgoFortis Phase 6 / ADR §123.6 (OD-6) + §126.2 (OD-B) — Logging Config.
 #
 # This file owns logging/observability configuration ONLY: levels, sinks,
 # rotation and retention. It contains zero canonical trading fields, does NOT
@@ -9,7 +9,7 @@
 # non-optional engine-side filter on every sink and MUST NOT be disableable
 # by configuration (§123.6 item 2).
 
-schema_version: "sentinelx-logging-config/v1"
+schema_version: "algofortis-logging-config/v1"
 
 # Sinks are destinations only (pre-registered PROJECT_STRUCTURE.md paths).
 sinks:

@@ -99,7 +99,7 @@ class CostCalculator:
         evidence = leg_evidence_fingerprint(leg, account_id, currency, instrument_identity, multiplier)
         reference = schedule.reference
         return CostLegAssessment(
-            "sentinelx-cost-leg-assessment/v2", leg_assessment_identity(leg.event_key, reference, evidence),
+            "algofortis-cost-leg-assessment/v2", leg_assessment_identity(leg.event_key, reference, evidence),
             leg.event_key, account_id, currency, instrument_identity, _side(leg), leg.execution_timestamp,
             leg.execution_price, leg.execution_quantity, multiplier, quantum, reference, results, total, evidence,
         )

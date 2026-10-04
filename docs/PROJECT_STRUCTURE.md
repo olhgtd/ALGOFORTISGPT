@@ -1,4 +1,4 @@
-# SentinelX — Project Structure
+# AlgoFortis — Project Structure
 
 **Purpose:** Physical folder/module layout. Maps every class/contract defined in `architecture-rules.md` to an actual file location, so no developer or AI agent has to guess where new code belongs.
 **Depends on:** `architecture-rules.md` (Rules 1–8), `CLAUDE.md` (build order).
@@ -7,11 +7,11 @@
 > Structural relocation note: modules listed below reflect the FINAL physical paths after
 > the approved structure-only migration (M1–M10). Contracts and semantics were unchanged;
 > only import paths moved. Historical path references inside frozen records
-> (`BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md`, `SENTINELX_PROGRESS.md`) are retained as
+> (`BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md`, `ALGOFORTIS_PROGRESS.md`) are retained as
 > historical evidence and are not rewritten.
 
 ```
-sentinelx/
+algofortis/
 ├── import_data.py                 # manual historical-data importer command
 ├── architecture-rules.md
 ├── requirements-freeze-125.md

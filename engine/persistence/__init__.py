@@ -1,4 +1,4 @@
-"""Persistence package for SentinelX Phase 5 runtime state."""
+"""Persistence package for AlgoFortis Phase 5 runtime state."""
 
 from engine.persistence.sqlite_store import (
     DatabaseIdentityMismatchError,

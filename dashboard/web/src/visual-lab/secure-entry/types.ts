@@ -1,6 +1,6 @@
 /**
- * SentinelX Secure Entry & Access Gate Types
- * Governed by SentinelX DESIGN.md & Owner Invite-Only Specifications
+ * AlgoFortis Secure Entry & Access Gate Types
+ * Governed by AlgoFortis DESIGN.md & Owner Invite-Only Specifications
  */
 
 export type EntryFlow =
@@ -40,7 +40,7 @@ export interface SecureEntryState {
   password: string;
   confirmPassword: string;
   displayName: string;
-  sentinelxId: string;
+  algofortisId: string;
   denialReason?: string;
   introPhase: number;
   isIntroComplete: boolean;

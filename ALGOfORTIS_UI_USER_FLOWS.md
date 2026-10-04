@@ -86,7 +86,7 @@
   1. User navigates to `surface=secure-entry` and selects "Owner Setup".
   2. User enters `Bootstrap Token` (printed in terminal during appliance initialization).
   3. User enters `Owner Hardware Key Label` (e.g., "Owner YubiKey 5C NFC Primary").
-  4. Client calls `POST /api/v1/auth/webauthn/bootstrap-registration/options` with `x-sentinelx-bootstrap` header.
+  4. Client calls `POST /api/v1/auth/webauthn/bootstrap-registration/options` with `x-algofortis-bootstrap` header.
   5. Server validates token, locks bootstrap mutex, and returns creation options.
   6. Client triggers `navigator.credentials.create()`.
   7. Client submits attestation to `POST /api/v1/auth/webauthn/bootstrap-registration/complete`.

@@ -44,7 +44,7 @@ class BacktestJobs:
                 raise RuntimeError("BACKTEST_RUNTIME_STOPPED")
             if self.pool is None:
                 self.service._security_store.interrupt_backtest_jobs("RUNTIME_RESTART_INTERRUPTED")
-                self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sentinelx-backtest")
+                self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="algofortis-backtest")
 
     def submit(self, prepared):
         with self.lock:

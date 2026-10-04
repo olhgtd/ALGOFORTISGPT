@@ -1,7 +1,7 @@
 """Phase 7 Slice 3 — broker-contract normalization (ADR §127.1, §127.5, §127.6).
 
 This layer owns EVERYTHING that may legally cross from the adapter boundary
-toward SentinelX core concepts.  It is pure and deterministic: no wall clock,
+toward AlgoFortis core concepts.  It is pure and deterministic: no wall clock,
 no randomness, no I/O besides one established diagnostic log emission, and no
 accounting/lifecycle mutation whatsoever.
 
@@ -76,8 +76,8 @@ __all__ = [
 ]
 
 
-NORMALIZATION_VERSION = "sentinelx-broker-normalization/v1"
-BRIDGE_REJECTION_SCHEMA = "sentinelx-bridge-rejection-evidence/v1"
+NORMALIZATION_VERSION = "algofortis-broker-normalization/v1"
+BRIDGE_REJECTION_SCHEMA = "algofortis-bridge-rejection-evidence/v1"
 UNSUPPORTED_PARTIAL_FILL_TOKEN = "UNSUPPORTED_PARTIAL_FILL"
 UNSUPPORTED_PARTIAL_SEQUENCE_TOKEN = "UNSUPPORTED_PARTIAL_SEQUENCE"
 
@@ -216,7 +216,7 @@ def evaluate_core_projection(
     *,
     fragments: tuple[BrokerFillFragment, ...] = (),
 ) -> NormalizedOutcome:
-    """Decide what (if anything) may cross toward SentinelX core.
+    """Decide what (if anything) may cross toward AlgoFortis core.
 
     This function NEVER mutates anything and NEVER fabricates fills.  It is
     the sole gate between adapter-contained evidence and core concepts.

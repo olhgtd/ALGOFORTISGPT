@@ -1,6 +1,6 @@
 $target = "$env:LOCALAPPDATA\AlgoFortis"
 if (-not (Test-Path $target)) {
-    $target = "$env:LOCALAPPDATA\SentinelX"
+    $target = "$env:LOCALAPPDATA\AlgoFortis"
 }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $items = @(Get-Item -LiteralPath $target) + @(Get-ChildItem -LiteralPath $target -Recurse -Force)

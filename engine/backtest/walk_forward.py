@@ -145,7 +145,7 @@ class WalkForwardWindowResult:
     def result_identity(self) -> str:
         """D4 identity for an already-computed successful single-window result."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-walk-forward-window-result/v1",
+            "algofortis-walk-forward-window-result/v1",
             (("window", WalkForwardWindowExecutor._window_identity(self.window)),
              ("parameter_plan", _parameter_plan_identity(self.parameter_plan)),
              ("selection", _selection_identity(self.selection_evidence)),
@@ -184,7 +184,7 @@ class MultiWindowSelectionEntry:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-multi-window-selection-entry/v1",
+            "algofortis-multi-window-selection-entry/v1",
             (("window", WalkForwardWindowExecutor._window_identity(self.window)),
              ("parameter_plan", _parameter_plan_identity(self.parameter_plan)),
              ("selection", _selection_identity(self.selection_evidence)),
@@ -214,7 +214,7 @@ class MultiWindowSelectionIdentity:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-multi-window-selection-identity/v1",
+            "algofortis-multi-window-selection-identity/v1",
             (("version", self.version), ("entries", tuple(value.fingerprint for value in self.entries))),
         )
 
@@ -298,7 +298,7 @@ class MultiWindowWalkForwardResult:
     @property
     def aggregate_identity(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-multi-window-walk-forward-result/v1",
+            "algofortis-multi-window-walk-forward-result/v1",
             (("historical_data", self.historical_data_fingerprint), ("manifest", self.manifest_fingerprint),
              ("schedule", tuple(WalkForwardWindowExecutor._window_identity(value) for value in self.schedule)),
              ("selection", self.selection_identity.fingerprint),
@@ -322,7 +322,7 @@ class _CandidateEvaluation:
 
 def _selection_identity(value: ParameterSelectionEvidence) -> str:
     return CanonicalCodec.fingerprint(
-        "sentinelx-parameter-selection-evidence/v1",
+        "algofortis-parameter-selection-evidence/v1",
         (("candidate", value.candidate_fingerprint),
          ("training_evidence", value.training_evidence_fingerprint),
          ("selected_before_oos", value.selected_before_oos)),
@@ -331,7 +331,7 @@ def _selection_identity(value: ParameterSelectionEvidence) -> str:
 
 def _parameter_plan_identity(value: ParameterPlan) -> str:
     return CanonicalCodec.fingerprint(
-        "sentinelx-parameter-plan/v1",
+        "algofortis-parameter-plan/v1",
         (("mode", value.mode), ("parameter", value.parameter_fingerprint),
          ("selection_policy", value.selection_policy),
          ("candidates", value.candidate_fingerprints),
@@ -484,7 +484,7 @@ class WalkForwardWindowExecutor:
             for value in evaluations
         ), key=lambda value: value[0]))
         evidence = CanonicalCodec.fingerprint(
-            "sentinelx-walk-forward-candidate-selection-failure/v1",
+            "algofortis-walk-forward-candidate-selection-failure/v1",
             (("window", self._window_identity(window)),
              ("training_window", (window.train_start, window.train_end)),
              ("candidate_universe", tuple(value[0] for value in items)),
@@ -500,7 +500,7 @@ class WalkForwardWindowExecutor:
     @staticmethod
     def _training_identity(window, evaluations) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-walk-forward-training-evidence/v1",
+            "algofortis-walk-forward-training-evidence/v1",
             (("window", WalkForwardWindowExecutor._window_identity(window)),
              ("candidates", tuple((value.candidate.candidate_fingerprint, None if value.metrics is None else value.metrics.evidence_id, None if value.reason is None else value.reason.value) for value in evaluations))),
         )
@@ -508,7 +508,7 @@ class WalkForwardWindowExecutor:
     @staticmethod
     def _window_identity(window: ValidationWindow) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-validation-window/v1",
+            "algofortis-validation-window/v1",
             (("window_id", window.window_id), ("train_start", window.train_start), ("train_end", window.train_end),
              ("embargo_start", window.embargo_start), ("embargo_end", window.embargo_end),
              ("oos_start", window.oos_start), ("oos_end", window.oos_end)),

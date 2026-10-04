@@ -37,7 +37,7 @@ These come from earlier decision sheets plus dated corrections. If a historical 
 
 | Area | Frozen input |
 |---|---|
-| Brand | AlgoFortis; tagline "Trading Research & Risk OS"; logo/icon frozen. Rename scope is visible surfaces only (exe, installer, shortcuts, splash, title bar, UI name, publisher/version metadata), not internal DB/schema IDs. |
+| Brand | AlgoFortis; tagline "Trading Research & Risk OS"; logo/icon frozen. Canonical brand scope is repository-wide: visible surfaces, filenames, package names, environment variables, DB/schema identifiers, deterministic schema namespaces, docs, tests, and tooling use AlgoFortis naming. No retired product-name identifier is retained in tracked source. |
 | V1 safety contract | `READ_ONLY = true`, `DISARMED = true`, zero broker mutation, no real broker connection, until explicitly changed by a future release. |
 | Anywhere-login | Central account authority + local app per PC; WebAuthn/passkey preferred for interactive auth; password fallback allowed under the 2026-09-28 S2/Auth amendment; separate TPM/CNG-backed device-binding key (DPAPI fallback); rotating refresh token with reuse detection; max 3 devices, no silent eviction; server-side revoke; high-assurance recovery revokes old trust. A password-only session cannot Arm Live, change broker credentials, enroll/revoke a device or delete the account without step-up; risk-reducing Pause/Halt/Exit does not require extra step-up for an otherwise authorized authenticated user. |
 | Sync scope | Server: account, devices, security/session state, entitlement, non-sensitive settings. Local only for V2.0: broker secrets, strategy configs, trade logs, live positions. Broker credentials re-entered per device. |

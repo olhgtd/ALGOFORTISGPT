@@ -1,9 +1,9 @@
 """§129.8 — Configurable data-root abstraction.
 
-All SentinelX data paths derive from DATA_ROOT.  The default is the
+All AlgoFortis data paths derive from DATA_ROOT.  The default is the
 existing repository ``data/`` directory.  A future external root
-(e.g. ``D:\\SentinelXData`` or VPS persistent storage) can be configured
-by setting the ``SENTINELX_DATA_ROOT`` environment variable.
+(e.g. ``D:\\AlgoFortisData`` or VPS persistent storage) can be configured
+by setting the ``ALGOFORTIS_DATA_ROOT`` environment variable.
 
 Path-safety contracts (assert_within_root, path_within_root) remain
 authoritative and are unaffected by root relocation.
@@ -24,13 +24,13 @@ def get_data_root() -> Path:
 
     Resolution order:
     1. Explicit set_data_root() call (test injection / programmatic override)
-    2. SENTINELX_DATA_ROOT environment variable
+    2. ALGOFORTIS_DATA_ROOT environment variable
     3. Default: ``data/`` relative to the current working directory
     """
     global _DATA_ROOT
     if _DATA_ROOT is not None:
         return _DATA_ROOT
-    env = os.environ.get("SENTINELX_DATA_ROOT")
+    env = os.environ.get("ALGOFORTIS_DATA_ROOT")
     if env:
         return Path(env)
     return _DEFAULT_ROOT

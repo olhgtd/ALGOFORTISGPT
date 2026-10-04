@@ -89,7 +89,7 @@ class WalkForwardService:
                     self._security.interrupt_walkforward_jobs("RUNTIME_RESTART_INTERRUPTED")
                 except Exception:
                     pass
-                self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sentinelx-walkforward")
+                self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="algofortis-walkforward")
 
     def shutdown(self) -> None:
         with self._lock:

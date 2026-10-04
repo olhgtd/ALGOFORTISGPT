@@ -168,7 +168,7 @@ class CostSchedule:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-cost-schedule/v2",
+            "algofortis-cost-schedule/v2",
             (
                 ("schedule_id", self.schedule_id),
                 ("version", self.version),
@@ -243,7 +243,7 @@ def trade_evidence_fingerprint(trade: TradeRecord) -> str:
         )
 
     return CanonicalCodec.fingerprint(
-        "sentinelx-trade-evidence/v2",
+        "algofortis-trade-evidence/v2",
         (
             ("trade_id", trade.trade_id),
             ("account_id", trade.account_id),
@@ -266,7 +266,7 @@ def trade_evidence_fingerprint(trade: TradeRecord) -> str:
 def assessment_identity(trade_fingerprint: str, references: tuple[ScheduleReference, ...]) -> str:
     """Derive a collision-safe assessment identity from canonical provenance."""
     return CanonicalCodec.fingerprint(
-        "sentinelx-cost-assessment/v2",
+        "algofortis-cost-assessment/v2",
         (
             ("trade_evidence_fingerprint", _text(trade_fingerprint, "trade_evidence_fingerprint")),
             ("schedules", tuple(
@@ -280,7 +280,7 @@ def assessment_identity(trade_fingerprint: str, references: tuple[ScheduleRefere
 def leg_assessment_identity(leg_event_key: LedgerEventKey, schedule: ScheduleReference, evidence_fingerprint: str) -> str:
     """Canonical v2 identity for one accepted execution-backed economic leg."""
     return CanonicalCodec.fingerprint(
-        "sentinelx-cost-leg-assessment/v2",
+        "algofortis-cost-leg-assessment/v2",
         (
             ("run_id", leg_event_key.run_id),
             ("accounting_sequence", leg_event_key.accounting_sequence),
@@ -293,7 +293,7 @@ def leg_assessment_identity(leg_event_key: LedgerEventKey, schedule: ScheduleRef
 def leg_evidence_fingerprint(leg: TradeLeg, account_id: str, currency: str, identity: InstrumentIdentity, multiplier: Decimal) -> str:
     """Canonical cost-relevant accepted-leg evidence, independent of trade closure."""
     return CanonicalCodec.fingerprint(
-        "sentinelx-cost-leg-evidence/v2",
+        "algofortis-cost-leg-evidence/v2",
         (
             ("event_key", (leg.event_key.run_id, leg.event_key.accounting_sequence)),
             ("account_id", _text(account_id, "account_id")),
@@ -324,7 +324,7 @@ def cost_evidence_fingerprint(
     if len({value.assessment_id for value in completed}) != len(completed):
         raise ValueError("duplicate CostAssessment identity is ambiguous")
     return CanonicalCodec.fingerprint(
-        "sentinelx-cost-result-evidence/v2",
+        "algofortis-cost-result-evidence/v2",
         (
             ("leg_assessments", tuple(sorted(
                 (
@@ -426,7 +426,7 @@ class CostLegAssessment:
     evidence_fingerprint: str
 
     def __post_init__(self) -> None:
-        if self.version != "sentinelx-cost-leg-assessment/v2":
+        if self.version != "algofortis-cost-leg-assessment/v2":
             raise ValueError("unknown CostLegAssessment schema version")
         if (not isinstance(self.leg_event_key, LedgerEventKey)
                 or not isinstance(self.schedule_reference, ScheduleReference)

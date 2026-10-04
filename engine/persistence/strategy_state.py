@@ -86,7 +86,7 @@ def state_entry_fingerprint(state: Mapping[str, object]) -> str:
     if not isinstance(state, Mapping):
         raise TypeError("state must be a mapping")
     return CanonicalCodec.fingerprint(
-        "sentinelx-state-entry/v1",
+        "algofortis-state-entry/v1",
         (("state", _canonical_state_value(state)),),
     )
 

@@ -184,7 +184,7 @@ def _broker_order_identity(order: ExecutableOrder, instrument_identity: Instrume
     """
     side = _execution_side(order)
     return CanonicalCodec.fingerprint(
-        "sentinelx-paper-broker-order/v1",
+        "algofortis-paper-broker-order/v1",
         (
             ("entry_intent_identity", entry_intent_identity(
                 strategy_id=order.strategy_id,

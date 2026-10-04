@@ -1,4 +1,4 @@
-"""Authoritative Architecture Manifest for SentinelX (F-20 Architecture Convergence).
+"""Authoritative Architecture Manifest for AlgoFortis (F-20 Architecture Convergence).
 
 Formalizes the single canonical product architecture across all trading, execution,
 risk, protective exits, portfolio, dataset, and audit domains.

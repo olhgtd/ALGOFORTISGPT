@@ -99,7 +99,7 @@ class EntryValiditySpec:
     def spec_identity(self) -> str:
         """Canonical identity over the frozen mechanical fields (never quantity/fill)."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-entry-validity-spec/v1",
+            "algofortis-entry-validity-spec/v1",
             (
                 ("valid_until", None if self.valid_until_timestamp is None else self.valid_until_timestamp),
                 ("calendar_identity", self.calendar_identity),
@@ -138,7 +138,7 @@ class EntryValidityResult:
     def evidence_identity(self) -> str:
         """Canonical identity referenced by the lifecycle terminal event."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-entry-validity-result/v1",
+            "algofortis-entry-validity-result/v1",
             (
                 ("policy", self.policy_identity),
                 ("outcome", self.outcome.value),
@@ -251,6 +251,6 @@ def entry_validity_binding_fingerprint(bindings: Iterable[tuple[str, str | None]
     if any(policy is not None and (not isinstance(policy, str) or not policy.strip()) for _, policy in ordered):
         raise ValueError("validity binding policy identities must be non-empty strings or None")
     return CanonicalCodec.fingerprint(
-        "sentinelx-entry-validity-binding/v1",
+        "algofortis-entry-validity-binding/v1",
         tuple((strategy_id, policy_identity) for strategy_id, policy_identity in ordered),
     )

@@ -33,7 +33,7 @@ class PromotionEvidenceAuthority(Protocol):
 
 
 class BacktestAuthority(Protocol):
-    """Existing SentinelX backtest application seam, not dashboard code."""
+    """Existing AlgoFortis backtest application seam, not dashboard code."""
     def run_strategy_version(self, version: "StrategyVersion") -> object: ...
 
 

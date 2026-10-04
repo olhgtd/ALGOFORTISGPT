@@ -50,7 +50,7 @@ class RegimeEvidence:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-regime-evidence/v2",
+            "algofortis-regime-evidence/v2",
             (("policy", REGIME_POLICY_ID), *_stream_identity_fields(self.stream),
              ("timestamp", self.timestamp), ("status", self.status.value),
              ("regime", None if self.regime is None else self.regime.value),
@@ -103,7 +103,7 @@ class EntryRegimeSnapshot:
     def fingerprint(self) -> str:
         if self.schema_version == "EntryRegimeSnapshot/v1":
             return CanonicalCodec.fingerprint(
-                "sentinelx-entry-regime-snapshot/v1",
+                "algofortis-entry-regime-snapshot/v1",
                 (("schema_version", self.schema_version),
                  ("entry_run_id", self.entry_event_key.run_id),
                  ("entry_sequence", self.entry_event_key.accounting_sequence),
@@ -113,7 +113,7 @@ class EntryRegimeSnapshot:
                  ("source", self.source_evidence_fingerprint)),
             )
         return CanonicalCodec.fingerprint(
-            "sentinelx-entry-regime-snapshot/v2",
+            "algofortis-entry-regime-snapshot/v2",
             (("schema_version", self.schema_version),
              ("account_id", self.account_id),
              ("entry_run_id", self.entry_event_key.run_id),
@@ -135,14 +135,14 @@ def entry_regime_evidence_fingerprint(values: tuple[EntryRegimeSnapshot, ...] | 
         if len({value.entry_event_key for value in ordered_v1}) != len(ordered_v1):
             raise ValueError("duplicate entry regime snapshot is ambiguous")
         return CanonicalCodec.fingerprint(
-            "sentinelx-entry-regime-evidence/v1",
+            "algofortis-entry-regime-evidence/v1",
             (("snapshots", tuple(value.fingerprint for value in ordered_v1)),),
         )
     ordered = sorted(snapshots, key=lambda value: (value.entry_event_key.run_id, value.entry_event_key.accounting_sequence, "" if value.account_id is None else value.account_id))
     if len({(value.entry_event_key, value.account_id) for value in ordered}) != len(ordered):
         raise ValueError("duplicate entry regime snapshot is ambiguous")
     return CanonicalCodec.fingerprint(
-        "sentinelx-entry-regime-evidence/v2",
+        "algofortis-entry-regime-evidence/v2",
         (("snapshots", tuple(value.fingerprint for value in ordered)),),
     )
 
@@ -219,7 +219,7 @@ class RegimeClassifier:
     def evidence_fingerprint(self) -> str:
         """One deterministic result-side identity for all classified streams."""
         values = tuple(value.fingerprint for value in self.evidence)
-        return CanonicalCodec.fingerprint("sentinelx-regime-evidence-aggregate/v2", (("evidence", values),))
+        return CanonicalCodec.fingerprint("algofortis-regime-evidence-aggregate/v2", (("evidence", values),))
 
     def _classify(self, stream: StreamKey, bars: list[BarEvent]) -> RegimeEvidence:
         count = len(bars)

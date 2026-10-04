@@ -1,6 +1,6 @@
 """Phase 9 authoritative audit coordinator and transactional outbox protocol.
 
-Governed by SentinelX Owner Decisions (ADR §131):
+Governed by AlgoFortis Owner Decisions (ADR §131):
 1. Transactional outbox + staged mutation + idempotent core-audit intent/outcome protocol.
 2. Core Audit remains the ONLY authoritative audit truth.
 3. engine SCHEMA_VERSION remains exactly 7.

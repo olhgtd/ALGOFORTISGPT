@@ -41,7 +41,7 @@
 4. V2 `IN_DOUBT` must be introduced with explicit migration/compatibility rules; existing lifecycle state meanings remain unchanged.
 5. Audit writes for trading-critical V2 actions must compose with the existing audit authority and fail closed.
 6. V2 Clock/Seed/Id injection must not break existing canonical fingerprints without a reviewed golden update.
-7. Legacy `sentinelx-*` schema identity strings may remain internal historical identifiers; visible-product renaming is not a reason for schema rewrites.
+7. Legacy `algofortis-*` schema identity strings may remain internal historical identifiers; visible-product renaming is not a reason for schema rewrites.
 
 ## Freeze change control
 

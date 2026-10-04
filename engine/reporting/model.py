@@ -11,9 +11,9 @@ from engine.backtest.regime import EntryRegimeSnapshot, entry_regime_evidence_fi
 from engine.costs import CostAssessment, CostLegAssessment, cost_evidence_fingerprint
 
 
-REPORT_SCHEMA_VERSION = "sentinelx-report/v1"
-REPORT_SCHEMA_VERSION_V2 = "sentinelx-report/v2"
-REPORT_SCHEMA_VERSION_V3 = "sentinelx-report/v3"
+REPORT_SCHEMA_VERSION = "algofortis-report/v1"
+REPORT_SCHEMA_VERSION_V2 = "algofortis-report/v2"
+REPORT_SCHEMA_VERSION_V3 = "algofortis-report/v3"
 
 
 class ResultKind(str, Enum):
@@ -321,10 +321,10 @@ class StructuredBacktestResult:
         if not isinstance(self.payload, expected):
             raise TypeError("result_kind and payload variant must agree exactly")
         if self.result_kind is ResultKind.INVALID_FINALIZED and self.schema_version != REPORT_SCHEMA_VERSION_V3:
-            raise ValueError("invalid finalized results require sentinelx-report/v3")
+            raise ValueError("invalid finalized results require algofortis-report/v3")
         if self.schema_version == REPORT_SCHEMA_VERSION_V2 and self.result_kind is ResultKind.SUCCESS:
             if self.payload.regime_evidence_fingerprint is None:
-                raise ValueError("sentinelx-report/v2 success requires regime_evidence_fingerprint")
+                raise ValueError("algofortis-report/v2 success requires regime_evidence_fingerprint")
         if self.schema_version == REPORT_SCHEMA_VERSION_V3 and self.result_kind is ResultKind.SUCCESS:
             if self.payload.promotion_status is None:
-                raise ValueError("sentinelx-report/v3 success requires typed promotion projection")
+                raise ValueError("algofortis-report/v3 success requires typed promotion projection")

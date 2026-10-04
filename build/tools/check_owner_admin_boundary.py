@@ -33,7 +33,7 @@ FORBIDDEN_OWNER_TRUTH_TOKENS = (
     "SAMPLE_FALLBACK",
     "simulateFirstActivation",
     "generatePrototypeActivationCode",
-    "generatePrototypeSentinelxId",
+    "generatePrototypeAlgoFortisId",
 )
 
 LAYA_ROUTING_TOKENS = (

@@ -1,5 +1,5 @@
 /**
- * SentinelX Owner Dashboard — Backtests Oversight & Paper Sessions Governance
+ * AlgoFortis Owner Dashboard — Backtests Oversight & Paper Sessions Governance
  */
 import type { Truth, BacktestRun, PaperPosition } from "../../shared/data/sharedTypes";
 import type { EffectiveEligibilityStatus, OwnerAllowanceStatus } from "./strategies";

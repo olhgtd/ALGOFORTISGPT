@@ -27,8 +27,8 @@ class WindowsAclValidator(Protocol):
 
 
 _STORE_LAYOUT = {
-    "security": ("security", "sentinelx_security.sqlite3"),
-    "governance": ("governance", "sentinelx_governance.sqlite3"),
+    "security": ("security", "algofortis_security.sqlite3"),
+    "governance": ("governance", "algofortis_governance.sqlite3"),
 }
 
 

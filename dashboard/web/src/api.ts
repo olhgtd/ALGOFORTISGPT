@@ -132,7 +132,7 @@ export const api = {
   bootstrapRegistrationOptions: (bootstrapToken: string) =>
     request<{ challenge_id: string; publicKey: PublicKeyCredentialCreationOptions }>(
       "/auth/webauthn/bootstrap-registration/options",
-      { method: "POST", headers: { "x-sentinelx-bootstrap": bootstrapToken }, body: JSON.stringify({}) }
+      { method: "POST", headers: { "x-algofortis-bootstrap": bootstrapToken }, body: JSON.stringify({}) }
     ),
   bootstrapRegistrationComplete: (bootstrap_token: string, challenge_id: string, label: string, response: Record<string, unknown>) =>
     request<{ credential_id: string; registered: boolean; security_setup: string }>(

@@ -60,7 +60,7 @@ __all__ = [
 ]
 
 
-HALT_CONTRACT_VERSION = "sentinelx-halt-state/v1"
+HALT_CONTRACT_VERSION = "algofortis-halt-state/v1"
 
 DAILY_LOSS_REASON_TOKEN = "max_daily_loss_exceeded"
 RECONCILIATION_FAILED_REASON_TOKEN = "reconciliation_failed"

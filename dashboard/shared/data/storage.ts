@@ -1,26 +1,26 @@
 /**
- * SentinelX Dashboard V3 — LocalStorage Keys & Persistence Helpers
+ * AlgoFortis Dashboard V3 — LocalStorage Keys & Persistence Helpers
  */
 
 export const STORAGE_KEYS = {
-  ACCESS_REGISTRY: "sentinelx_access_registry_v1",
-  OWNER_USERS: "sentinelx_owner_users_v1",
-  OWNER_STRATEGIES: "sentinelx_owner_strategies_v1",
-  OWNER_CONNECTIONS: "sentinelx_owner_connections_v1",
-  OWNER_DATASETS: "sentinelx_owner_datasets_v1",
-  OWNER_PLUGINS: "sentinelx_owner_plugins_v1",
-  OWNER_BACKTESTS: "sentinelx_owner_backtests_v1",
-  OWNER_PAPER_SESSIONS: "sentinelx_owner_paper_sessions_v1",
-  OWNER_PORTFOLIOS: "sentinelx_owner_portfolios_v1",
-  OWNER_POSITIONS: "sentinelx_owner_positions_v1",
-  OWNER_ORDERS: "sentinelx_owner_orders_v1",
-  OWNER_REPORTS: "sentinelx_owner_reports_v1",
-  OWNER_AUDIT_EVENTS: "sentinelx_owner_audit_v1",
-  OWNER_SESSIONS: "sentinelx_owner_sessions_v1",
-  OWNER_DEVICES: "sentinelx_owner_devices_v1",
-  OWNER_SETTINGS: "sentinelx_owner_settings_v1",
-  THEME: "sentinelx_theme",
-  STRIKE_POLICY: "sentinelx_strike_policy_v1",
+  ACCESS_REGISTRY: "algofortis_access_registry_v1",
+  OWNER_USERS: "algofortis_owner_users_v1",
+  OWNER_STRATEGIES: "algofortis_owner_strategies_v1",
+  OWNER_CONNECTIONS: "algofortis_owner_connections_v1",
+  OWNER_DATASETS: "algofortis_owner_datasets_v1",
+  OWNER_PLUGINS: "algofortis_owner_plugins_v1",
+  OWNER_BACKTESTS: "algofortis_owner_backtests_v1",
+  OWNER_PAPER_SESSIONS: "algofortis_owner_paper_sessions_v1",
+  OWNER_PORTFOLIOS: "algofortis_owner_portfolios_v1",
+  OWNER_POSITIONS: "algofortis_owner_positions_v1",
+  OWNER_ORDERS: "algofortis_owner_orders_v1",
+  OWNER_REPORTS: "algofortis_owner_reports_v1",
+  OWNER_AUDIT_EVENTS: "algofortis_owner_audit_v1",
+  OWNER_SESSIONS: "algofortis_owner_sessions_v1",
+  OWNER_DEVICES: "algofortis_owner_devices_v1",
+  OWNER_SETTINGS: "algofortis_owner_settings_v1",
+  THEME: "algofortis_theme",
+  STRIKE_POLICY: "algofortis_strike_policy_v1",
 } as const;
 
 // Owner-domain fixtures may retain their frozen key labels for compatibility
@@ -45,7 +45,7 @@ export function safeGetJson<T>(key: string, fallback: T): T {
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch (err) {
-    console.warn(`[SentinelX Storage] Failed to parse key ${key}:`, err);
+    console.warn(`[AlgoFortis Storage] Failed to parse key ${key}:`, err);
     return fallback;
   }
 }
@@ -56,7 +56,7 @@ export function safeSetJson<T>(key: string, value: T): boolean {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch (err) {
-    console.error(`[SentinelX Storage] Failed to save key ${key}:`, err);
+    console.error(`[AlgoFortis Storage] Failed to save key ${key}:`, err);
     return false;
   }
 }

@@ -1,5 +1,5 @@
 # ============================================================
-# AlgoFortis / SentinelX - Git Ignore
+# AlgoFortis / AlgoFortis - Git Ignore
 # ============================================================
 
 # Python cache / test cache
@@ -113,7 +113,7 @@ temp/
 # Local MCP/tool configuration
 config/mcporter.json
 
-# SentinelX temporary documentation backups
+# AlgoFortis temporary documentation backups
 *_BACKUP_*/
 DOC_CLOSURE_BACKUP_*/
 DOC_UNICODE_REPAIR_BACKUP_*/

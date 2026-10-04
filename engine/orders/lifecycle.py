@@ -105,7 +105,7 @@ def order_lifecycle_cause_reference(cause_type: OrderLifecycleCauseType, *, refe
     if reason is None or not reason.strip():
         raise ValueError("a canonical cause reference requires a reference identity or an authoritative reason")
     return CanonicalCodec.fingerprint(
-        "sentinelx-order-lifecycle-cause/v1",
+        "algofortis-order-lifecycle-cause/v1",
         (("cause_type", cause_type.value), ("reason", reason.strip())),
     )
 
@@ -147,7 +147,7 @@ class OrderLifecycleEvent:
     def event_identity(self) -> str:
         """Canonical replay identity for this terminal event."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-order-lifecycle-event/v1",
+            "algofortis-order-lifecycle-event/v1",
             (
                 ("entry", self.entry_identity),
                 ("state", self.state.value),

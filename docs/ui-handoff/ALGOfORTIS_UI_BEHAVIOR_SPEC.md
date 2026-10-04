@@ -26,7 +26,7 @@ The application root (`main.tsx`) operates a top-level surface dispatcher driven
    - Standard browser back/forward buttons fire `popstate` and `hashchange` listeners, keeping UI state perfectly synchronized with history.
 
 ### 1.3 Page Refresh & Cold Storage Behavior
-- **Theme Persistence:** Dark / Light theme selection is stored in `localStorage.getItem("sentinelx_theme")` and applied to `document.documentElement` as `data-theme="dark"` or `data-theme="light"` prior to DOM paint, preventing white flash.
+- **Theme Persistence:** Dark / Light theme selection is stored in `localStorage.getItem("algofortis_theme")` and applied to `document.documentElement` as `data-theme="dark"` or `data-theme="light"` prior to DOM paint, preventing white flash.
 - **Session Token Persistence:** Session JWT is stored in memory and synchronized to secure storage (`sessionStore.ts`). On reload, `AuthorizedDashboard` re-authenticates with the server to fetch fresh identity and epoch timestamps.
 - **Form State on Refresh:** Transient form inputs (e.g. unsubmitted strategy parameters) are held in component React state; refreshing clears unsubmitted drafts to prevent stale parameter execution.
 

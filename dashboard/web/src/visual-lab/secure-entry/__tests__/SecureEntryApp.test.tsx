@@ -11,7 +11,7 @@ vi.mock("../../../api", () => ({
     ownerBootstrapStatus: vi.fn(),
   },
 }));
-vi.mock("../SentinelXCore", () => ({ SentinelXCore: () => <div id="mock-core" /> }));
+vi.mock("../AlgoFortisCore", () => ({ AlgoFortisCore: () => <div id="mock-core" /> }));
 vi.mock("../../../../../shared/utilities/V3Chrome", () => ({ GlobalRealTimeClock: () => <div id="mock-clock" /> }));
 vi.mock("../ReturningUserFlow", () => ({
   ReturningUserFlow: (props: { onSwitchToAccessGate: () => void; onSwitchToRecovery: () => void; requiredRole?: "OWNER" | "USER" }) => (

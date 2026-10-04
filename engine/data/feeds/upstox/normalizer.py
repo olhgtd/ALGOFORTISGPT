@@ -1,6 +1,6 @@
 """Upstox V3 Market Data Feed Normalizer.
 
-Transforms decoded FeedResponse Protobuf instances into canonical SentinelX events:
+Transforms decoded FeedResponse Protobuf instances into canonical AlgoFortis events:
 - LiveQuoteEvent (wrapping QuoteSnapshot) for option contracts (CE/PE)
 - LiveProviderBar for 1m completed underlying index/equity base bars (no synthetic ticks)
 - MarketTimeEvent for advancing market time strictly AFTER intra-packet evidence normalization
@@ -83,7 +83,7 @@ def _to_non_negative_decimal(val: float | int | None) -> Decimal:
 
 
 class UpstoxV3Normalizer:
-    """Normalizes Upstox V3 FeedResponse protobuf messages into canonical SentinelX events."""
+    """Normalizes Upstox V3 FeedResponse protobuf messages into canonical AlgoFortis events."""
 
     def __init__(
         self,

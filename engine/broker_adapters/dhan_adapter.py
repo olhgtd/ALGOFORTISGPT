@@ -131,10 +131,10 @@ class DhanBrokerAdapter(BaseBrokerAdapter):
 
     def _get_headers(self) -> dict[str, str]:
         token = getattr(self.credentials, "access_token", None)
-        client_id = getattr(self.credentials, "client_id", None) or "sentinelx_client"
+        client_id = getattr(self.credentials, "client_id", None) or "algofortis_client"
         if isinstance(self.credentials, dict):
             token = self.credentials.get("access_token")
-            client_id = self.credentials.get("client_id", "sentinelx_client")
+            client_id = self.credentials.get("client_id", "algofortis_client")
         return {
             "access-token": str(token or ""),
             "client-id": str(client_id),

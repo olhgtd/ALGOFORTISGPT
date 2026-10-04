@@ -114,7 +114,7 @@ class TradeLedger:
         """
         identity = position_key.identity
         return CanonicalCodec.fingerprint(
-            "sentinelx-trade-identity/v1",
+            "algofortis-trade-identity/v1",
             (
                 ("account_id", account_id),
                 ("strategy_id", position_key.strategy_id),

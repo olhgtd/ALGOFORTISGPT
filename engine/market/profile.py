@@ -57,7 +57,7 @@ class WeekendCalendar:
         return session_date.weekday() < 5 and session_date not in self.closed_dates
 
 
-CALENDAR_CLOSURE_SNAPSHOT_SCHEMA_VERSION = "sentinelx-calendar-closure-snapshot/v1"
+CALENDAR_CLOSURE_SNAPSHOT_SCHEMA_VERSION = "algofortis-calendar-closure-snapshot/v1"
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ class CalendarClosureSnapshot:
     schema_version: str = CALENDAR_CLOSURE_SNAPSHOT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
-        if self.schema_version != "sentinelx-calendar-closure-snapshot/v1":
+        if self.schema_version != "algofortis-calendar-closure-snapshot/v1":
             raise ValueError(f"unsupported schema_version: {self.schema_version}")
         if not self.calendar_id.strip():
             raise ValueError("calendar_id must not be empty")
@@ -93,7 +93,7 @@ class CalendarClosureSnapshot:
     def calendar_fingerprint(self) -> str:
         from engine.reproducibility.codec import CanonicalCodec
         return CanonicalCodec.fingerprint(
-            "sentinelx-calendar-closure-snapshot/v1",
+            "algofortis-calendar-closure-snapshot/v1",
             (
                 ("calendar_id", self.calendar_id),
                 ("exchange", self.exchange),
@@ -125,7 +125,7 @@ class CalendarClosureSnapshot:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> CalendarClosureSnapshot:
         schema = str(data.get("schema_version", ""))
-        if schema != "sentinelx-calendar-closure-snapshot/v1":
+        if schema != "algofortis-calendar-closure-snapshot/v1":
             raise ValueError(f"unsupported calendar snapshot schema_version: {schema}")
         cov_start_val = data["coverage_start"]
         cov_end_val = data["coverage_end"]

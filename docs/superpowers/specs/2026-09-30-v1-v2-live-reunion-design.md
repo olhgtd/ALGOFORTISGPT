@@ -32,7 +32,7 @@ No V1 module, dashboard, AI component, persistence component, alert component, o
 
 ## 3. Binding constraints
 
-- Product name is AlgoFortis; SentinelX is legacy/history only.
+- Product name is AlgoFortis; AlgoFortis is legacy/history only.
 - V2 architecture is authoritative; V1 contributes behavior, tests, and selected bounded helpers only.
 - No big-bang legacy merge.
 - No duplicate RiskGate, Live coordinator, reconnect authority, broker lifecycle authority, or recovery authority.

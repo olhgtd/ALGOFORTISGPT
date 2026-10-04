@@ -1,12 +1,12 @@
 ---
 version: 1.0.0
-name: SentinelX-Control-Center-Design-System
+name: AlgoFortis-Control-Center-Design-System
 description: "A high-density, desktop-class dark visual language engineered for fail-closed algorithmic trading, risk governance, and security operations. Built on ultra-deep navy canvas (#05080e), four-step surface elevations (#090e17 through #172033), hairline border grids (#182232, #24334a), and crisp slate typography (#f0f4f8, #94a3b8) with JetBrains Mono for telemetry, prices, and cryptographic fingerprints. Strict fail-closed trust badges (FRESH / STALE / UNKNOWN) communicate data authority. No decorative AI-purple gradients, no fake green statuses, and no clipped viewport geometry."
 ---
 
-# SentinelX Design System & Visual Authority (`DESIGN.md`)
+# AlgoFortis Design System & Visual Authority (`DESIGN.md`)
 
-SentinelX is an institutional-grade, fail-closed algorithmic trading platform and security control center. The interface communicates uncompromising precision, technical authority, and operational clarity.
+AlgoFortis is an institutional-grade, fail-closed algorithmic trading platform and security control center. The interface communicates uncompromising precision, technical authority, and operational clarity.
 
 ---
 

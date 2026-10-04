@@ -3,7 +3,7 @@ import type { VerificationState } from "./types";
 import { api, clearSessionToken, setSessionToken } from "../../api";
 
 interface ReturningUserFlowProps {
-  sentinelxId: string;
+  algofortisId: string;
   onIdChange: (id: string) => void;
   verificationState: VerificationState;
   onStartVerification: () => void;
@@ -18,7 +18,7 @@ interface ReturningUserFlowProps {
 }
 
 export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
-  sentinelxId,
+  algofortisId,
   onIdChange,
   onVerifySuccess,
   onVerifyFailure,
@@ -27,15 +27,15 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
   requiredRole,
   onEnterWorkspace,
 }) => {
-  const [identifier, setIdentifier] = useState(sentinelxId);
+  const [identifier, setIdentifier] = useState(algofortisId);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (sentinelxId && sentinelxId !== identifier) setIdentifier(sentinelxId);
-  }, [identifier, sentinelxId]);
+    if (algofortisId && algofortisId !== identifier) setIdentifier(algofortisId);
+  }, [identifier, algofortisId]);
 
   const changeIdentifier = (value: string) => {
     setIdentifier(value);
@@ -105,10 +105,10 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
         )}
 
         <div className="form-field-group">
-          <label htmlFor="sentinelx-id-input" className="field-label">User ID or Email</label>
+          <label htmlFor="algofortis-id-input" className="field-label">User ID or Email</label>
           <div className="field-input-wrapper">
             <input
-              id="sentinelx-id-input"
+              id="algofortis-id-input"
               type="text"
               className="field-input mono-input"
               placeholder="AF-U-XXXX-XXXX / OWNER-001 / registered email"

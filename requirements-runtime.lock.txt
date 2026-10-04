@@ -1,4 +1,4 @@
-# Installable SentinelX approved runtime closure for CPython 3.13.14.
+# Installable AlgoFortis approved runtime closure for CPython 3.13.14.
 # This exact pip lock is derived from requirements-runtime.lock.json.
 # The JSON file remains the reproducibility/evidence authority.
 openpyxl==3.1.5

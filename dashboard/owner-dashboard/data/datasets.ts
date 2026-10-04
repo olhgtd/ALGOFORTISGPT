@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Datasets, Ingestion Readiness & Historical Data Domain
+ * AlgoFortis Dashboard V3 — Datasets, Ingestion Readiness & Historical Data Domain
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, prototypeFixtureStorage, safeGetJson, safeSetJson } from "../../shared/data/storage";

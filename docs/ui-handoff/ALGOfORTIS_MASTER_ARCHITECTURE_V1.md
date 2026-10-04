@@ -74,7 +74,7 @@ The Desktop Client (Layer A) **must never directly import or execute internal tr
 To prevent data corruption, cryptographic breakage, or migration risk:
 1. **Database Schemas & Internal IDs**: Historical schema IDs, table structures, column definitions, and cryptographic hash salts remain stable.
 2. **Permanent User Identifiers**: Accounts retain canonical immutable IDs (`SX-U-XXXX-XXXX` internally, aliasable as `AF-U-XXXX-XXXX` for user presentation).
-3. **Configuration & Data Migration**: The runtime automatically discovers legacy `%LOCALAPPDATA%\SentinelX` data roots and migrates them safely to `%LOCALAPPDATA%\AlgoFortis` without loss of audit evidence or security credentials.
+3. **Configuration & Data Migration**: The runtime automatically discovers legacy `%LOCALAPPDATA%\AlgoFortis` data roots and migrates them safely to `%LOCALAPPDATA%\AlgoFortis` without loss of audit evidence or security credentials.
 
 ---
 
@@ -635,11 +635,11 @@ Until an explicit, separate Owner-approved live execution phase:
 
 ---
 
-## 25. Migration Constraints (SentinelX -> AlgoFortis)
+## 25. Migration Constraints (AlgoFortis -> AlgoFortis)
 
-1. **Data Migration**: Existing `%LOCALAPPDATA%\SentinelX` directories will be safely discovered and migrated to `%LOCALAPPDATA%\AlgoFortis` during first run of AlgoFortis V1.
+1. **Data Migration**: Existing `%LOCALAPPDATA%\AlgoFortis` directories will be safely discovered and migrated to `%LOCALAPPDATA%\AlgoFortis` during first run of AlgoFortis V1.
 2. **Backward Compatible IDs**: User identifiers (`SX-U-`) and database schemas are preserved to ensure zero audit history loss.
-3. **Registry & Shortcuts**: Inno Setup installer cleanly replaces previous SentinelX shortcuts and Start Menu entries with AlgoFortis.
+3. **Registry & Shortcuts**: Inno Setup installer cleanly replaces previous AlgoFortis shortcuts and Start Menu entries with AlgoFortis.
 
 ---
 *AlgoFortis Master Architecture Contract V1 is hereby FROZEN and AUTHORITATIVE.*

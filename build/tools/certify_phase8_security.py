@@ -1,4 +1,4 @@
-"""Phase 8 Installed Application Security Certification for SentinelX using live server."""
+"""Phase 8 Installed Application Security Certification for AlgoFortis using live server."""
 import json
 import os
 import shutil
@@ -48,7 +48,7 @@ def test_live_security_invariants():
         with opener.open(req) as resp:
             assert resp.status == 200
             html = resp.read().decode("utf-8")
-            assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="sentinelx-runtime" content="PRODUCTION"' in html)
+            assert ('name="algofortis-runtime" content="PRODUCTION"' in html) or ('name="algofortis-runtime" content="PRODUCTION"' in html)
             assert "control_secret" not in html
         log("  PASS: Frontend index served cleanly with runtime marker and zero leaked secrets.")
 

@@ -458,7 +458,7 @@ class DatasetInventoryItem:
 
 
 class HistoricalDataService:
-    """Canonical Historical Data Authority for SentinelX.
+    """Canonical Historical Data Authority for AlgoFortis.
 
     Manages local cache, checks availability, provisions missing intervals via
     provider, strictly validates OHLC data, maintains SHA-256 fingerprints,
@@ -1160,7 +1160,7 @@ class HistoricalDataService:
             coverage_end=date(2035, 12, 31),
             dataset_version="2026.01-r1",
             closed_sessions=filtered,
-            provenance={"source_description": "SentinelX Authoritative NSE Calendar"},
+            provenance={"source_description": "AlgoFortis Authoritative NSE Calendar"},
         )
         return MarketCalendarAuthority(ds)
 

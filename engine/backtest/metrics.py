@@ -602,7 +602,7 @@ class MetricsCalculator:
     @staticmethod
     def _evidence_id(scope, policy, timeline, trades, assessments, intervals, positions):
         return CanonicalCodec.fingerprint(
-            "sentinelx-metric-evidence/v2",
+            "algofortis-metric-evidence/v2",
             (
                 ("scope", _scope_fields(scope)),
                 ("policy", _policy_fields(policy)),

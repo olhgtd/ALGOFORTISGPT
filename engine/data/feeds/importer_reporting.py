@@ -37,8 +37,8 @@ class ImportManifest:
     output_paths: list[str]
     quarantine_reason: str | None
     # ---- Phase 8.5 acquisition provenance (§129.13, all defaulted) ----
-    contract_version: str = "sentinelx-acquisition/v1"
-    parser_identity: str = "sentinelx.importer_orchestrator/v1"
+    contract_version: str = "algofortis-acquisition/v1"
+    parser_identity: str = "algofortis.importer_orchestrator/v1"
     source_checksum_sha256: str | None = None
     source_bytes: int | None = None
     provider: str | None = None

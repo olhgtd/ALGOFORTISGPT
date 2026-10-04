@@ -1,5 +1,5 @@
 /**
- * SentinelX Real WebAuthn / FIDO2 Client Helper
+ * AlgoFortis Real WebAuthn / FIDO2 Client Helper
  * Interacts with authoritative FastAPI endpoints:
  * - /api/v1/auth/webauthn/authentication/options
  * - /api/v1/auth/webauthn/authentication/complete

@@ -1,4 +1,4 @@
-# SentinelX — Config Schema
+# AlgoFortis — Config Schema
 
 **Purpose:** Exact, authoritative schema for every config file the engine reads. Ends guesswork about field names when writing a strategy's YAML.
 **Depends on:** `architecture-rules.md` (Rules 1, 2, 5, 6), `requirements-freeze-125.md` (Q13-22, Q55-63).

@@ -42,7 +42,6 @@ print("IMPORT_RESOLUTION_PASS: dashboard originates strictly from clean reposito
     print(f"Executing self-contained architectural tests from {foundation_tests.name}...")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(clean_root)
-    env["SENTINELX_TEST_ALLOW_INSECURE_ACL"] = "1"
     env["ALGOFORTIS_TEST_ALLOW_INSECURE_ACL"] = "1"
 
     test_res = subprocess.run([sys.executable, "-m", "unittest", str(foundation_tests)],
@@ -53,7 +52,7 @@ print("IMPORT_RESOLUTION_PASS: dashboard originates strictly from clean reposito
     assert test_res.returncode == 0, f"Foundations test failed with exit code {test_res.returncode}"
 
     # Optional reference check if external migration repo exists
-    ref_repo_env = os.environ.get("SENTINELX_REF_REPO", "").strip()
+    ref_repo_env = os.environ.get("ALGOFORTIS_REF_REPO", "").strip()
     ref_test = Path(ref_repo_env) / "tests" / "test_step7_runtime.py" if ref_repo_env else None
     if ref_test is not None and ref_test.exists():
         print(f"Executing optional reference test {ref_test.name}...")

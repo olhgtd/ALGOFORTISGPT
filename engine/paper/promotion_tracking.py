@@ -7,7 +7,7 @@ This module implements:
 - Durable current state and append-only session evidence.
 - Idempotent session finalization and restart continuity.
 - Milestone review evaluation (PF >= 1.5, Max DD <= 15%, OOS profitable).
-- Immutable canonical promotion review report (sentinelx-paper-promotion-report/v1).
+- Immutable canonical promotion review report (algofortis-paper-promotion-report/v1).
 """
 
 from __future__ import annotations
@@ -39,9 +39,9 @@ from engine.backtest.validation import (
 )
 
 
-PROMOTION_REPORT_SCHEMA_VERSION = "sentinelx-paper-promotion-report/v1"
-UPSTREAM_PROMOTION_BUNDLE_SCHEMA_VERSION = "sentinelx-upstream-promotion-bundle/v1"
-PROMOTION_SESSION_RECORD_SCHEMA_VERSION = "sentinelx-promotion-session-record/v1"
+PROMOTION_REPORT_SCHEMA_VERSION = "algofortis-paper-promotion-report/v1"
+UPSTREAM_PROMOTION_BUNDLE_SCHEMA_VERSION = "algofortis-upstream-promotion-bundle/v1"
+PROMOTION_SESSION_RECORD_SCHEMA_VERSION = "algofortis-promotion-session-record/v1"
 NSE_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 
@@ -328,7 +328,7 @@ class PromotionSessionRecord:
 
 @dataclass(frozen=True)
 class PaperPromotionReport:
-    """Immutable, canonically fingerprinted promotion milestone review artifact (sentinelx-paper-promotion-report/v1)."""
+    """Immutable, canonically fingerprinted promotion milestone review artifact (algofortis-paper-promotion-report/v1)."""
 
     strategy_id: str
     strategy_version: str
@@ -776,11 +776,11 @@ class PromotionReportPublicationError(RuntimeError):
 
 
 class PromotionReportWriter:
-    """Atomic publisher for sentinelx-paper-promotion-report/v1 artifacts."""
+    """Atomic publisher for algofortis-paper-promotion-report/v1 artifacts."""
 
     @staticmethod
     def default_filename(report: PaperPromotionReport) -> str:
-        return f"sentinelx-paper-promotion-report-{report.strategy_id}-{report.strategy_version}-{report.fingerprint[:12]}.json"
+        return f"algofortis-paper-promotion-report-{report.strategy_id}-{report.strategy_version}-{report.fingerprint[:12]}.json"
 
     @classmethod
     def publish(

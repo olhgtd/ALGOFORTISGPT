@@ -1761,7 +1761,7 @@ def _build_parser() -> argparse.ArgumentParser:
     """Build CLI argument parser for live paper trading runner."""
     parser = argparse.ArgumentParser(
         prog="python -m engine.paper.live_runner",
-        description="SentinelX Live Market Paper Trading Runner (Virtual Money Only).",
+        description="AlgoFortis Live Market Paper Trading Runner (Virtual Money Only).",
     )
     parser.add_argument(
         "--paper-session-id",
@@ -1814,16 +1814,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.validate_only:
         try:
             val_result = runner.validate_only()
-            print("SentinelX Live Paper Runner Validation: SUCCESS")
+            print("AlgoFortis Live Paper Runner Validation: SUCCESS")
             for k, v in val_result.items():
                 print(f"  {k}: {v}")
             return 0
         except Exception as exc:
-            print(f"SentinelX Live Paper Runner Validation: FAILED - {exc}", file=sys.stderr)
+            print(f"AlgoFortis Live Paper Runner Validation: FAILED - {exc}", file=sys.stderr)
             return 1
 
     try:
-        print(f"Starting SentinelX Live Paper Session: {config.paper_session_id}")
+        print(f"Starting AlgoFortis Live Paper Session: {config.paper_session_id}")
         res = runner.run()
         print(f"Session finished with status: {res.status}")
         return 0 if res.status == "completed" else 1

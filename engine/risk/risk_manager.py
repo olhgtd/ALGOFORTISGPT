@@ -2,10 +2,10 @@
 
 The RiskPolicy is the explicit Tier-1 production risk identity required by
 architecture decision §30.5.  It deliberately does NOT reuse the temporary
-``sentinelx-slice14-integration-quantity-policy/v1`` fixture, which is
+``algofortis-slice14-integration-quantity-policy/v1`` fixture, which is
 prohibited as production Risk Management sizing policy.
 
-Phase 3A (corrected): ``sentinelx-risk-policy/v3`` (v1/v2 legacy families) with
+Phase 3A (corrected): ``algofortis-risk-policy/v3`` (v1/v2 legacy families) with
 multiplier-aware Q64 sizing and runtime PositionKey ownership verification for
 the STOP_LOSS/TARGET protective contract (LONG / BUY-TO-OPEN only).
 
@@ -47,13 +47,13 @@ from engine.protective.plan import PreEntryProtectivePlan
 from engine.reproducibility import CanonicalCodec
 
 
-RISK_POLICY_SCHEMA = "sentinelx-risk-policy/v3"
-RISK_POLICY_SCHEMA_V4 = "sentinelx-risk-policy/v4"
-LEGACY_RISK_POLICY_SCHEMAS = ("sentinelx-risk-policy/v1", "sentinelx-risk-policy/v2")
+RISK_POLICY_SCHEMA = "algofortis-risk-policy/v3"
+RISK_POLICY_SCHEMA_V4 = "algofortis-risk-policy/v4"
+LEGACY_RISK_POLICY_SCHEMAS = ("algofortis-risk-policy/v1", "algofortis-risk-policy/v2")
 RISK_CAPITAL_BASIS_FIXED_IDENTITY = "FixedCapitalBasis/v1"
 RISK_CAPITAL_BASIS_COST_ADJUSTED_EQUITY_IDENTITY = "CostAdjustedEquityCapitalBasis/v1"
 # The ONLY active RiskPolicy.version values.  Unknown/future versions fail
-# closed at construction; the historical sentinelx-risk-policy/v1 and /v2
+# closed at construction; the historical algofortis-risk-policy/v1 and /v2
 # schema identities never authorize active policy objects.
 RISK_POLICY_VERSION_V3 = "risk-policy/v3"
 RISK_POLICY_VERSION_V4 = "risk-policy/v4"
@@ -220,7 +220,7 @@ class RiskPolicy:
     def fingerprint(self) -> str:
         """Explicit Tier-1 risk policy identity, replay-comparable within its schema family.
 
-        ``sentinelx-risk-policy/v1`` and ``/v2`` are legacy/non-comparable
+        ``algofortis-risk-policy/v1`` and ``/v2`` are legacy/non-comparable
         families; v3 adds the Phase-3B gate values; v4 adds the explicit
         risk-capital-basis policy (``CostAdjustedEquityCapitalBasis/v1``
         changes the Q55/Q59 capital denominator), so no cross-family
@@ -590,7 +590,7 @@ class PendingRiskCommitment:
     overlap while the OrderRequest remains pending.  ``nominal_stop_risk`` is
     the gate-computed candidate risk at approval and is never recomputed by
     callers; ``entry_identity`` is the deterministic
-    ``sentinelx-entry-intent/v1`` logical entry identity.
+    ``algofortis-entry-intent/v1`` logical entry identity.
     """
 
     entry_identity: str
@@ -1086,7 +1086,7 @@ def entry_intent_identity(
     timeframe: str,
     originating_timestamp: datetime,
 ) -> str:
-    """Deterministic pre-fill logical entry identity (``sentinelx-entry-intent/v1``).
+    """Deterministic pre-fill logical entry identity (``algofortis-entry-intent/v1``).
 
     CanonicalCodec only, exact semantic field order: strategy_id,
     strategy_version, full InstrumentIdentity (established 7-field order),
@@ -1110,7 +1110,7 @@ def entry_intent_identity(
     if originating_timestamp.tzinfo is None or originating_timestamp.utcoffset() is None:
         raise ValueError("originating_timestamp must be timezone-aware")
     return CanonicalCodec.fingerprint(
-        "sentinelx-entry-intent/v1",
+        "algofortis-entry-intent/v1",
         (
             ("strategy_id", strategy_id),
             ("strategy_version", strategy_version),

@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Access Registry & Token Issuance Domain
+ * AlgoFortis Dashboard V3 — Access Registry & Token Issuance Domain
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import type { OwnerUser } from "./users";
@@ -362,7 +362,7 @@ export function redeemAccessId(
   return { success: true, user: resolvedUser };
 }
 
-export function generatePrototypeSentinelxId(): string {
+export function generatePrototypeAlgoFortisId(): string {
   const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   const part1 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   const part2 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
@@ -377,7 +377,7 @@ export function generatePrototypeActivationCode(): string {
   return `SX-ACT-${part1}-${part2}-${part3}`;
 }
 
-export const generateRandomAccessId = generatePrototypeSentinelxId;
+export const generateRandomAccessId = generatePrototypeAlgoFortisId;
 
 export function createNewAccessRecord(data: {
   displayName: string;
@@ -393,7 +393,7 @@ export function createNewAccessRecord(data: {
   notes?: string;
 }): AccessRecord {
   const records = getStoredAccessRecords();
-  const sxId = data.sxId || data.accessId || generatePrototypeSentinelxId();
+  const sxId = data.sxId || data.accessId || generatePrototypeAlgoFortisId();
   const activationCode = data.activationCode || generatePrototypeActivationCode();
   const now = new Date();
   const nowStr = now.toISOString().replace("T", " ").slice(0, 19) + " UTC";

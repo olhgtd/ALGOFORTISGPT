@@ -1,6 +1,6 @@
 """§129.17 / §122.5 OD-E - THE authoritative market-calendar/session abstraction.
 
-This module is SentinelX's ONE reusable market-calendar and session-state
+This module is AlgoFortis's ONE reusable market-calendar and session-state
 authority.  It is isolated from acquisition/importer modules (no pandas, no
 IO except the explicit offline loader) and is reusable by historical
 ingestion, gap analysis, replay/backtest, and future validation layers.
@@ -45,7 +45,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from engine.reproducibility.codec import CanonicalCodec
 
-CALENDAR_DATA_SCHEMA_VERSION = "sentinelx-market-calendar/v1"
+CALENDAR_DATA_SCHEMA_VERSION = "algofortis-market-calendar/v1"
 
 DEFAULT_NSE_CALENDAR_ID = "nse-equity"
 NSE_EXCHANGE_ID = "NSE"

@@ -1,4 +1,4 @@
-"""Canonical Strategy Signal Generators for SentinelX Backtesting.
+"""Canonical Strategy Signal Generators for AlgoFortis Backtesting.
 
 All strategies strictly adhere to:
 - interface_version = "1.0"

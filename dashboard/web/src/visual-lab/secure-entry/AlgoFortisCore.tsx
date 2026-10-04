@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import type { VerificationState } from "./types";
 
-interface SentinelXCoreProps {
+interface AlgoFortisCoreProps {
   size?: number;
   verificationState?: VerificationState;
   introPhase?: number; // 0, 1, 2, 3
@@ -22,7 +22,7 @@ interface Point3D {
   rgb: string;
 }
 
-export const SentinelXCore: React.FC<SentinelXCoreProps> = ({
+export const AlgoFortisCore: React.FC<AlgoFortisCoreProps> = ({
   size = 280,
   verificationState = "ID_ENTRY",
   introPhase = 3,
@@ -252,7 +252,7 @@ export const SentinelXCore: React.FC<SentinelXCoreProps> = ({
 
   return (
     <div
-      className="sentinelx-core-wrapper"
+      className="algofortis-core-wrapper"
       style={{
         width: size,
         height: size,

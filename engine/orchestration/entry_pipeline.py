@@ -1,4 +1,4 @@
-"""Deterministic Slice 14 orchestration over existing SentinelX boundaries.
+"""Deterministic Slice 14 orchestration over existing AlgoFortis boundaries.
 
 This module deliberately owns coordination only.  It does not recalculate
 execution, accounting, costs, metrics, validation, reproducibility, or
@@ -94,7 +94,7 @@ from engine.persistence.sqlite_store import StrategyStateTransition
 from engine.backtest.regime import EntryRegimeSnapshot, REGIME_POLICY_ID, RegimeClassifier, RegimeEvidence, entry_regime_evidence_fingerprint
 
 
-TEMPORARY_QUANTITY_POLICY_ID = "sentinelx-slice14-integration-quantity-policy/v1"
+TEMPORARY_QUANTITY_POLICY_ID = "algofortis-slice14-integration-quantity-policy/v1"
 
 
 class PriceSource(str, Enum):
@@ -236,7 +236,7 @@ class SignalToOrderPolicy:
     def tier1_identity(self) -> str:
         """Identity bound to manifest execution semantics and D6 replay."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-slice14-signal-to-order-policy/v1",
+            "algofortis-slice14-signal-to-order-policy/v1",
             (
                 ("policy_id", self.policy_id),
                 ("version", self.version),
@@ -420,7 +420,7 @@ class EntryRiskRejectionEvidence:
     def evidence_identity(self) -> str:
         """Canonical deterministic identity binding entry + decision + rejection."""
         return CanonicalCodec.fingerprint(
-            "sentinelx-entry-risk-rejection/v1",
+            "algofortis-entry-risk-rejection/v1",
             (
                 ("entry", self.entry_identity),
                 ("decision_time", self.decision_timestamp),
@@ -1443,7 +1443,7 @@ class BacktestOrchestrator:
                     order_lifecycle_cause_reference(
                         OrderLifecycleCauseType.FILL,
                         reference=CanonicalCodec.fingerprint(
-                            "sentinelx-accepted-accounting/v1",
+                            "algofortis-accepted-accounting/v1",
                             (("entry", entry_identity), ("outcome", AccountingOutcome.ACCEPTED.value)),
                         ),
                     ),
@@ -1536,9 +1536,9 @@ class BacktestOrchestrator:
                     )
                     for outcome, stream in sorted(group, key=intent_sort_key)
                 )
-                evidence_identity = CanonicalCodec.fingerprint("sentinelx-slice14-capital-competition/v1", (("intents", evidence),))
+                evidence_identity = CanonicalCodec.fingerprint("algofortis-slice14-capital-competition/v1", (("intents", evidence),))
                 return StructuredFailureResult(
-                    "sentinelx-slice14-failure/v1", self._manifest.manifest_fingerprint,
+                    "algofortis-slice14-failure/v1", self._manifest.manifest_fingerprint,
                     "slice14.concurrent_capital_competition",
                     OrchestrationFailureCode.AMBIGUOUS_CONCURRENT_CAPITAL_COMPETITION,
                     evidence_identity, self._manifest.execution_policy_identity,

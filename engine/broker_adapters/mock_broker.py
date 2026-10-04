@@ -91,7 +91,7 @@ __all__ = [
 ]
 
 
-MOCK_BROKER_ADAPTER_VERSION = "sentinelx-mock-broker-adapter/v1"
+MOCK_BROKER_ADAPTER_VERSION = "algofortis-mock-broker-adapter/v1"
 
 _RATE_LIMITED_REASON = "rate_limited"
 

@@ -1,5 +1,5 @@
 /**
- * SentinelX User Dashboard — User Strategies & Templates
+ * AlgoFortis User Dashboard — User Strategies & Templates
  */
 
 export interface StrategyTemplate {

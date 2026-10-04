@@ -34,7 +34,7 @@ class RuntimeIdentity:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-runtime-identity/v1",
+            "algofortis-runtime-identity/v1",
             (("implementation", self.implementation), ("version", self.version), ("timezone_calendar", self.timezone_calendar_identity)),
         )
 
@@ -79,14 +79,14 @@ class RuntimeConfigurationSnapshot:
     def fingerprint(self) -> str:
         if self.version.endswith("/v3"):
             return CanonicalCodec.fingerprint(
-                "sentinelx-runtime-configuration/v3",
+                "algofortis-runtime-configuration/v3",
                 (("version", self.version), ("strategy", self.strategy), ("risk", self.risk),
                  ("execution", self.execution), ("broker", self.broker),
                  ("slippage", self.slippage), ("environment", self.environment),
                  ("entry_validity", self.entry_validity)),
             )
         return CanonicalCodec.fingerprint(
-            "sentinelx-runtime-configuration/v2" if self.version.endswith("/v2") else "sentinelx-runtime-configuration/v1",
+            "algofortis-runtime-configuration/v2" if self.version.endswith("/v2") else "algofortis-runtime-configuration/v1",
             (("version", self.version), ("strategy", self.strategy), ("risk", self.risk),
              ("execution", self.execution), ("broker", self.broker),
              ("slippage", self.slippage), ("environment", self.environment)),
@@ -127,7 +127,7 @@ class ReproducibilityManifest:
     @property
     def manifest_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-reproducibility-manifest/v2" if self.regime_policy_identity is not None else "sentinelx-reproducibility-manifest/v1",
+            "algofortis-reproducibility-manifest/v2" if self.regime_policy_identity is not None else "algofortis-reproducibility-manifest/v1",
             (("version", self.version), ("source", self.source.fingerprint),
              ("market_data", self.market_data.fingerprint), ("configuration", self.configuration.fingerprint),
              ("runtime", self.runtime.fingerprint), ("dependencies", self.dependencies.fingerprint),
@@ -195,7 +195,7 @@ class RandomizedAnalysisCollection:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-randomized-analysis-collection/v1",
+            "algofortis-randomized-analysis-collection/v1",
             (("schema_version", self.schema_version),
              ("entries", tuple((value.analysis_kind, value.scope_identity,
                                  value.evidence_schema_version, value.evidence_result_fingerprint)
@@ -257,7 +257,7 @@ class ValidationEvidenceCollection:
     @property
     def fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-validation-evidence-collection/v1",
+            "algofortis-validation-evidence-collection/v1",
             (("schema_version", self.schema_version),
              ("entries", tuple((value.validation_analysis_kind, value.scope_identity,
                                  value.evidence_schema_version, value.evidence_result_fingerprint)
@@ -303,7 +303,7 @@ class SuccessfulResult:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-successful-result/v2" if self.version.endswith("/v2") else "sentinelx-successful-result/v1",
+            "algofortis-successful-result/v2" if self.version.endswith("/v2") else "algofortis-successful-result/v1",
             (("version", self.version), ("evidence", tuple((item.family, item.identity) for item in self.evidence))),
         )
 
@@ -381,7 +381,7 @@ class InvalidFinalizedResult:
     @property
     def result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-invalid-finalized-result/v1",
+            "algofortis-invalid-finalized-result/v1",
             (("schema_version", self.schema_version), ("manifest", self.manifest_fingerprint),
              ("terminal_status", self.terminal_status), ("promotable", self.promotable),
              ("validation_collection", self.validation_collection_fingerprint),
@@ -411,7 +411,7 @@ class StructuredFailureResult:
     @property
     def failure_result_fingerprint(self) -> str:
         return CanonicalCodec.fingerprint(
-            "sentinelx-structured-failure-result/v1",
+            "algofortis-structured-failure-result/v1",
             (("version", self.version), ("manifest", self.manifest_fingerprint), ("stage", self.stage),
              ("code", self.code), ("evidence", self.evidence_identity), ("policy", self.policy_identity)),
         )

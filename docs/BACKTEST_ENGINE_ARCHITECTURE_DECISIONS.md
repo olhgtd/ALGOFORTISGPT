@@ -1,4 +1,4 @@
-# SentinelX — Backtest Engine Architecture Decisions
+# AlgoFortis — Backtest Engine Architecture Decisions
 
 **Status:** FROZEN  
 **Companion to:** `BACKTEST_ENGINE_FREEZE.md`  
@@ -52,11 +52,11 @@ Do not depend on inconsistent historical phase numbers.
 
 The current active milestone is:
 
-> **Complete SentinelX Backtesting Engine — Long-Term Stable Core**
+> **Complete AlgoFortis Backtesting Engine — Long-Term Stable Core**
 
 Older documents may continue to contain different phase labels. Those labels are historical/documentation metadata and must not block the current owner-approved milestone.
 
-`SENTINELX_PROGRESS.md` should be updated in a controlled step to reflect this active milestone after this architecture decision file is accepted.
+`ALGOFORTIS_PROGRESS.md` should be updated in a controlled step to reflect this active milestone after this architecture decision file is accepted.
 
 Do not rewrite historical documents merely to make numbering cosmetically consistent.
 
@@ -66,7 +66,7 @@ Do not rewrite historical documents merely to make numbering cosmetically consis
 
 The older requirement “IST throughout” must NOT be interpreted as a permanent global engine restriction.
 
-SentinelX must support India and US markets.
+AlgoFortis must support India and US markets.
 
 ### Frozen rule
 
@@ -257,7 +257,7 @@ Any future alternative execution model must be explicit, named, configurable, an
 
 ## 10. Strategy Boundary
 
-Keep the existing SentinelX `Signal` / `StrategySignalGenerator` separation.
+Keep the existing AlgoFortis `Signal` / `StrategySignalGenerator` separation.
 
 Frozen rule:
 
@@ -452,7 +452,7 @@ The Backtesting Engine should proceed in controlled slices.
 - resampling boundary where approved
 
 ### Slice 10 — Metrics
-- exact frozen SentinelX metric set
+- exact frozen AlgoFortis metric set
 - equity/drawdown calculations
 - trade statistics
 - result summaries
@@ -679,37 +679,37 @@ and not a template to reproduce.
 
 The Backtest Engine-specific application is:
 
-1. Understand the applicable SentinelX requirement, approved owner decision,
+1. Understand the applicable AlgoFortis requirement, approved owner decision,
    and current failure/question first.
 2. Route through the project-wide catalog/process and perform targeted local
    Backtrader research where it is materially relevant; do not read the entire
    repository by default.
-3. Record the Backtrader findings before judging SentinelX.
-4. Inspect the relevant SentinelX code, tests, configuration, and contracts.
+3. Record the Backtrader findings before judging AlgoFortis.
+4. Inspect the relevant AlgoFortis code, tests, configuration, and contracts.
 5. Explicitly compare the two and classify each material finding as one of:
-   - **A — SentinelX already strong:** retain the existing contract/design.
+   - **A — AlgoFortis already strong:** retain the existing contract/design.
    - **B — useful missing edge:** identify whether it belongs in current scope
      or is a future capability.
-   - **C — SentinelX intentionally differs:** document the rejected Backtrader
-     behavior and the SentinelX reason.
+   - **C — AlgoFortis intentionally differs:** document the rejected Backtrader
+     behavior and the AlgoFortis reason.
    - **D — Backtrader has a better concept:** independently design a
-     SentinelX-equivalent boundary; do not transplant an API or hierarchy.
+     AlgoFortis-equivalent boundary; do not transplant an API or hierarchy.
    - **E — future capability:** record it as deferred without silently adding
      it to the active slice.
    - **F — not applicable:** state why the concept does not apply.
 
 The project-wide workflow owns routing, multi-reference coverage, trivial-task
 exceptions, classification, availability reporting, and the significant-task
-report format. The exact Backtrader files depend on the SentinelX requirement.
+report format. The exact Backtrader files depend on the AlgoFortis requirement.
 
-### 19.2 SentinelX authority and independence
+### 19.2 AlgoFortis authority and independence
 
 Use the authority order in `REFERENCE_ROUTING_RULES.md` when comparing or
 reconciling a Backtrader concept:
 
 Backtrader source, tests, fixtures, API/class hierarchy, and implementation
 patterns must not be copied, closely adapted, or recreated for similarity.
-SentinelX must independently implement its own interfaces, data models,
+AlgoFortis must independently implement its own interfaces, data models,
 algorithms, tests, and fixtures; GPL source code must never be copied.
 
 ### 19.3 Availability and evidence reporting
@@ -726,17 +726,17 @@ all Backtrader source, test, and sample paths that were researched.
 When a conflict appears, use this priority for Backtest Engine work:
 
 1. explicit current owner decision
-2. SentinelX frozen requirements
+2. AlgoFortis frozen requirements
 3. this `BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md`
 4. verified public contracts
-5. SentinelX configuration/schema contracts
+5. AlgoFortis configuration/schema contracts
 6. reference repositories
 
 This priority applies only where documents genuinely conflict.
 
 Do not use it to ignore unrelated hard requirements.
 
-`SENTINELX_PROGRESS.md` records implementation state only and is not an
+`ALGOFORTIS_PROGRESS.md` records implementation state only and is not an
 authority in this conflict order.
 
 ---
@@ -1123,7 +1123,7 @@ authorize Slice 10.
 
 ### 25.1 Completed-bar-only visibility
 
-SentinelX OHLCV bars retain their approved start-of-interval source timestamp.
+AlgoFortis OHLCV bars retain their approved start-of-interval source timestamp.
 For strategy/data visibility, their deterministic availability/completion time
 is:
 
@@ -1285,7 +1285,7 @@ without rewriting formulas.
 No scope may assume one shared MarketProfile. For a scope containing different
 MarketProfiles, eligible scope time for Time Exposure is the scope-aware union
 of applicable authoritative MarketProfile eligible-session intervals.
-Overlapping intervals count once; SentinelX must not sum session durations,
+Overlapping intervals count once; AlgoFortis must not sum session durations,
 select an arbitrary primary profile, use a universal 24×7 denominator, or use
 the intersection of all markets. Session semantics, including timezone,
 holidays, special sessions, boundaries, and DST behavior, remain owned by the
@@ -2046,7 +2046,7 @@ canonical; temporary artifacts are explicitly non-canonical.
 
 ### 29.5 R6 — closed schema and strict JSON
 
-The opaque public schema identifier is `sentinelx-report/v1`. It is closed:
+The opaque public schema identifier is `algofortis-report/v1`. It is closed:
 any field addition/removal/rename/type/requiredness/semantic change requires a
 new schema identifier. Unknown versions or fields, malformed/truncated JSON,
 missing required fields, invalid types, forbidden variant fields, or silent
@@ -2113,8 +2113,8 @@ default), invalid-name, locked, permission, disk, or unsafe-publication
 destinations fail export without changing result identity. Parent directories
 are not silently created unless an explicit caller policy permits it.
 
-Default names are `sentinelx-report-success-<manifest12>-<result12>.json` and
-`sentinelx-report-category-a-<manifest12>-<failure12>.json`, where each short
+Default names are `algofortis-report-success-<manifest12>-<result12>.json` and
+`algofortis-report-category-a-<manifest12>-<failure12>.json`, where each short
 fingerprint is 12 lowercase SHA-256 hex characters and display-only.
 Category-B/Category-C names use public-safe `attempt_id`, otherwise a
 filesystem-safe `report_generated_at` token; they never fabricate a
@@ -2133,7 +2133,7 @@ Category-C collision fails closed.
 There is no separate canonical report-content fingerprint/checksum in v1;
 manifest/result/failure identities remain authoritative. Before publication,
 the writer validates the staged bytes for UTF-8, strict JSON,
-`sentinelx-report/v1`, variant exclusivity, required/unknown fields, Decimal
+`algofortis-report/v1`, variant exclusivity, required/unknown fields, Decimal
 and timestamp encoding, R3 allowlisting, authoritative ordering, and intended
 identity/content consistency. This is writer-owned publication validation, not
 a general import/migration reader.
@@ -2207,7 +2207,7 @@ those inputs.
 
 The quantity mechanism used solely to prove Slice 14 end-to-end orchestration
 is a temporary integration/test-fixture policy and must carry its own explicit
-versioned identity: `sentinelx-slice14-integration-quantity-policy/v1`. It is
+versioned identity: `algofortis-slice14-integration-quantity-policy/v1`. It is
 not a production Risk Management sizing/allocation policy and must not be
 silently reused as one. When production Risk Management is introduced, its
 sizing/allocation policy must have a separately explicit versioned Tier-1
@@ -2417,7 +2417,7 @@ outcome/effect evidence and participate in the existing cost/result/replay
 evidence hierarchy.  Existing legal cost-evidence slots in
 `SuccessfulResult`/authoritative-result composition and public reporting must
 be reused where sufficient.  `ReproducibilityManifest`, successful-result,
-and `sentinelx-report` schema versions are not automatically bumped; only an
+and `algofortis-report` schema versions are not automatically bumped; only an
 affected closed external schema may receive a versioned bump when a genuinely
 new externally authoritative structural field cannot be represented legally.
 
@@ -2487,7 +2487,7 @@ evidence, its fingerprint, or post-run outcomes.
 authoritative `regime_evidence_fingerprint` child while preserving the separate
 core economic trade/fill evidence family.
 
-`sentinelx-report/v1` is closed.  `sentinelx-report/v2` must expose
+`algofortis-report/v1` is closed.  `algofortis-report/v2` must expose
 authoritative `regime_evidence`, `regime_evidence_fingerprint`, regime status,
 the taxonomy value only when classified, and reconciliation/bucket semantics.
 There is no in-place extension of v1; unknown or unsupported schema versions
@@ -2656,7 +2656,7 @@ including the newly required account/entry fields.  The smallest new outcome
 identity is `ScopedValidationResultIdentity/v1`.  Historical v1 evidence
 remains historical evidence under its producing contract.  This decision does
 not bump `ReproducibilityManifest`, `AuthoritativeResultIdentity`, or
-`sentinelx-report`; they consume the produced upstream evidence through their
+`algofortis-report`; they consume the produced upstream evidence through their
 existing legal slots unless a later independently authorized closed-schema
 change is required.
 
@@ -2754,7 +2754,7 @@ tests and the required regressions pass.
 `BacktestFinalizer/v1` is the one authoritative application boundary that
 composes a completed `OrchestrationResult` and already-produced authoritative
 analysis/result evidence into `SuccessfulResult` / `AuthoritativeResultIdentity`
-and `StructuredBacktestResult` under `sentinelx-report/v2`.  The causal flow is
+and `StructuredBacktestResult` under `algofortis-report/v2`.  The causal flow is
 strictly one way:
 
 `OrchestrationResult + FinalizationEvidenceBundle -> BacktestFinalizer/v1 ->`
@@ -2837,7 +2837,7 @@ authoritative bundle produce the same child identities, result identity,
 structured result, and canonical serialized report.
 
 No automatic bump to `ReproducibilityManifest/v2`,
-`AuthoritativeResultIdentity/v2`, or `sentinelx-report/v2` is authorized.
+`AuthoritativeResultIdentity/v2`, or `algofortis-report/v2` is authorized.
 `BacktestFinalizer/v1` and `FinalizationEvidenceBundle` are internal/application
 composition contracts.  If implementation finds a closed public schema cannot
 represent a required already-approved field, it must stop for an owner
@@ -2890,7 +2890,7 @@ Missing evidence must never be reclassified as NOT_APPLICABLE.
 
 `AuthoritativeResultIdentity/v2` / `SuccessfulResult` composes exactly one
 VALIDATION child using `ValidationOutcomeIdentity/v1`, never a caller-invented
-validation fingerprint.  `sentinelx-report/v2`'s existing required
+validation fingerprint.  `algofortis-report/v2`'s existing required
 `validation_identity` field carries that canonical SHA-256 identity.  The
 closed report field accepts a lowercase SHA-256 identity and does not restrict
 the concrete producer type; no report, manifest, or top-level-result schema
@@ -2964,7 +2964,7 @@ infers applicability.
 It reuses the manifest's existing validation-policy/configuration identity
 slot and the existing outcome/result/report validation-identity path.  It does
 not by itself authorize a bump to `ReproducibilityManifest/v2`,
-`AuthoritativeResultIdentity/v2`, or `sentinelx-report/v2`; implementation
+`AuthoritativeResultIdentity/v2`, or `algofortis-report/v2`; implementation
 must stop for an owner decision if a closed schema cannot carry the resulting
 outcome identity through those existing legal slots.
 
@@ -3007,7 +3007,7 @@ reconstructed from the fingerprint.  Before a decision is produced,
 `CONFIG_SCHEMA.md` currently has no closed validation-policy representation
 that conflicts with this runtime policy contract.  Accordingly, no
 configuration-schema, `ReproducibilityManifest/v2`,
-`AuthoritativeResultIdentity/v2`, or `sentinelx-report/v2` change is
+`AuthoritativeResultIdentity/v2`, or `algofortis-report/v2` change is
 authorized by this lock.  If a future file-backed configuration boundary needs
 to read this policy, its exact closed schema must be owner-approved before it
 is added.
@@ -3195,7 +3195,7 @@ Step-3A orchestration boundary, not strategy code, owns selection.
 
 The selection policy is `MAXIMIZE_TRAINING_METRIC`. Its primary metric is
 canonical **net Expectancy** from training-only completed-trade evidence under
-the existing SentinelX metric definition.
+the existing AlgoFortis metric definition.
 
 A candidate with zero completed trades in its applicable training window is
 `SELECTION_INELIGIBLE`, because canonical net Expectancy is undefined. A
@@ -4195,7 +4195,7 @@ is authorized.
 
 ### 52.6 Public reporting / v3
 
-`sentinelx-report/v3` is authorized.  Existing v1/v2 reports remain unchanged.
+`algofortis-report/v3` is authorized.  Existing v1/v2 reports remain unchanged.
 The minimal public-safe promotion projection is promotion status, promotable,
 canonical ordered gate summaries (`gate_kind`, `status`, `reason`), promotion
 evidence fingerprint, and validation-collection fingerprint.  An
@@ -4250,13 +4250,13 @@ canonicalizers are prohibited.
 
 The first migration schemas are:
 
-1. `sentinelx-resolved-embargo-map/v2`;
-2. `sentinelx-walk-forward-policy/v2`;
-3. `sentinelx-randomized-derived-seed/v2`;
-4. `sentinelx-synchronized-economic-episode/v2`;
-5. `sentinelx-aggregate-mc1-scope/v2`;
-6. `sentinelx-aggregate-mc2-scope/v2`; and
-7. `sentinelx-validation-run-evidence/v2`.
+1. `algofortis-resolved-embargo-map/v2`;
+2. `algofortis-walk-forward-policy/v2`;
+3. `algofortis-randomized-derived-seed/v2`;
+4. `algofortis-synchronized-economic-episode/v2`;
+5. `algofortis-aggregate-mc1-scope/v2`;
+6. `algofortis-aggregate-mc2-scope/v2`; and
+7. `algofortis-validation-run-evidence/v2`.
 
 Each schema supplies explicit ordered fields directly to `CanonicalCodec`.
 `timedelta` values are represented by schema-owned `(days, seconds,
@@ -4279,13 +4279,13 @@ removed.
 
 The migrated cost identity schemas are:
 
-1. `sentinelx-cost-schedule/v2` — `CostSchedule.fingerprint`;
-2. `sentinelx-trade-evidence/v2` — `trade_evidence_fingerprint`;
-3. `sentinelx-cost-assessment/v2` — `assessment_identity`;
-4. `sentinelx-cost-leg-assessment/v2` — `leg_assessment_identity` (and the
+1. `algofortis-cost-schedule/v2` — `CostSchedule.fingerprint`;
+2. `algofortis-trade-evidence/v2` — `trade_evidence_fingerprint`;
+3. `algofortis-cost-assessment/v2` — `assessment_identity`;
+4. `algofortis-cost-leg-assessment/v2` — `leg_assessment_identity` (and the
    stored `CostLegAssessment.version` schema tag);
-5. `sentinelx-cost-leg-evidence/v2` — `leg_evidence_fingerprint`; and
-6. `sentinelx-cost-result-evidence/v2` — `cost_evidence_fingerprint`.
+5. `algofortis-cost-leg-evidence/v2` — `leg_evidence_fingerprint`; and
+6. `algofortis-cost-result-evidence/v2` — `cost_evidence_fingerprint`.
 
 Each schema supplies explicit ordered fields directly to `CanonicalCodec` with
 caller-owned ordering.  Instrument identity reuses the established D4 ordered
@@ -4316,7 +4316,7 @@ The authoritative metric evidence identity in `engine/metrics.py`
 former `_canonical_json` / `_canonical_value` JSON canonicalizers and the
 ad-hoc `_*_body` JSON builders were removed.
 
-The migrated metric identity schema is `sentinelx-metric-evidence/v2`.
+The migrated metric identity schema is `algofortis-metric-evidence/v2`.
 
 Explicit ordered fields bind, in order: scope (kind, run_id, account_id,
 strategy_id, instrument), policy (policy_id, version,
@@ -4342,7 +4342,7 @@ No metric mathematics, economic calculations, definitions, thresholds,
 ordering/eligibility logic, reporting behavior, or unrelated architecture
 changed.
 
-> **OWNER DECISION:** `sentinelx-metric-evidence/v2` is approved and frozen
+> **OWNER DECISION:** `algofortis-metric-evidence/v2` is approved and frozen
 > as the authoritative D4 schema for `MetricSummary.evidence_id` (produced by
 > `MetricsCalculator._evidence_id`).  The §55 implementation is accepted as
 > the frozen contract, including CanonicalCodec-only authoritative identity
@@ -4366,17 +4366,17 @@ removed.
 
 The migrated regime identity schemas are:
 
-1. `sentinelx-entry-regime-snapshot/v1` — the `EntryRegimeSnapshot/v1`
+1. `algofortis-entry-regime-snapshot/v1` — the `EntryRegimeSnapshot/v1`
    fingerprint (v1 evidence without `account_id`), replacing the legacy
    JSON/SHA-256 body; and
-2. `sentinelx-entry-regime-evidence/v1` — the all-v1 run-level aggregate
+2. `algofortis-entry-regime-evidence/v1` — the all-v1 run-level aggregate
    entry-regime evidence fingerprint, replacing the legacy JSON list digest.
 
-The already-canonical v2 siblings (`sentinelx-entry-regime-snapshot/v2`,
-`sentinelx-entry-regime-evidence/v2`), `RegimeEvidence.fingerprint`
-(`sentinelx-regime-evidence/v2`), and
+The already-canonical v2 siblings (`algofortis-entry-regime-snapshot/v2`,
+`algofortis-entry-regime-evidence/v2`), `RegimeEvidence.fingerprint`
+(`algofortis-regime-evidence/v2`), and
 `RegimeClassifier.evidence_fingerprint`
-(`sentinelx-regime-evidence-aggregate/v2`) are unchanged.
+(`algofortis-regime-evidence-aggregate/v2`) are unchanged.
 
 The migrated v1 snapshot fingerprint binds the v1 evidence contract exactly
 (`schema_version`, entry event key `(run_id, accounting_sequence)`, fill
@@ -4484,9 +4484,9 @@ separately frozen `alert_and_halt()` contract.
 `engine/risk_manager.py` implements the Phase 3A scope only:
 
 - **`RiskPolicy`** — versioned Tier-1 production risk policy with explicit
-  CanonicalCodec identity `sentinelx-risk-policy/v1` (established
-  `sentinelx-<domain>-policy/vN` family; NOT the temporary
-  `sentinelx-slice14-integration-quantity-policy/v1`, which is prohibited as
+  CanonicalCodec identity `algofortis-risk-policy/v1` (established
+  `algofortis-<domain>-policy/vN` family; NOT the temporary
+  `algofortis-slice14-integration-quantity-policy/v1`, which is prohibited as
   production risk sizing policy).  It binds: policy version, per-trade risk
   percentage (0.5%), FIXED capital allocation, minimum risk:reward (1.5),
   authoritative stop source (`PROTECTIVE_EXIT_STOP_LOSS`), structured-REJECT
@@ -4524,10 +4524,10 @@ the corrective reconciliation and supersedes §58.4's sizing semantics.
 ### 59.1 RiskPolicy v2 identity
 
 - The authoritative production RiskPolicy identity is now
-  **`sentinelx-risk-policy/v2`** (CanonicalCodec-based, explicit schema-owned
+  **`algofortis-risk-policy/v2`** (CanonicalCodec-based, explicit schema-owned
   ordering, exact Decimal semantics, deterministic replay-comparable inside the
   v2 schema family).
-- `sentinelx-risk-policy/v1` MUST NOT be silently mutated and is legacy /
+- `algofortis-risk-policy/v1` MUST NOT be silently mutated and is legacy /
   non-comparable: the authoritative Q64 economic sizing semantics changed, so
   v1-sized results must never be compared with v2-sized results under one
   identity.  No compatibility hack preserves old v1 quantities or fingerprints.
@@ -4658,8 +4658,8 @@ invoke `alert_and_halt()` (exits/protective exits are never gated).
 ### 60.2 RiskPolicy v3 identity
 
 - The authoritative production RiskPolicy schema is now
-  **`sentinelx-risk-policy/v3`** (CanonicalCodec, explicit ordered fields).
-  `sentinelx-risk-policy/v1` and `/v2` are legacy/non-comparable schema
+  **`algofortis-risk-policy/v3`** (CanonicalCodec, explicit ordered fields).
+  `algofortis-risk-policy/v1` and `/v2` are legacy/non-comparable schema
   families; v2 keeps its Phase-3A semantics and is never silently mutated, and
   Phase-3B fields are never silently added to v2.
 - v3 binds all economically meaningful fields: version; per_trade_risk_pct
@@ -4724,7 +4724,7 @@ binding into the manifest risk slot) remain unstarted.
 
 ### 60.4 Phase 3B-1 narrow contract clarifications (hardening patch)
 
-No economic policy changed; `sentinelx-risk-policy/v3` identity semantics are
+No economic policy changed; `algofortis-risk-policy/v3` identity semantics are
 unchanged (no v4).  These clarifications lock existing behavior:
 
 1. **Phase 3B-1 is explicitly LONG / BUY-TO-OPEN ONLY.**  All R:R and
@@ -4801,11 +4801,11 @@ fail-closed; the object never `abs()`s, reorders, swaps, or repairs prices,
 and never independently invents R:R semantics — LONG geometry
 (`STOP < ENTRY < TARGET`) remains RiskManager/RiskGate authority.
 
-### 61.4 Protective-instance identity — `sentinelx-protective-instance/v1`
+### 61.4 Protective-instance identity — `algofortis-protective-instance/v1`
 
 Plan/template and runtime instance are separate concepts.  The RUNTIME
 ProtectiveExit instance identity is the new canonical family
-`sentinelx-protective-instance/v1` (CanonicalCodec, explicit ordered fields,
+`algofortis-protective-instance/v1` (CanonicalCodec, explicit ordered fields,
 suitable as the `ProtectiveExit.protective_id`):
 
 1. run_identity
@@ -4832,7 +4832,7 @@ remain historical evidence and their ids are never reused.
 deterministically materializes one plan into exactly TWO fresh ACTIVE
 ProtectiveExit instances (STOP_LOSS then TARGET) registered in the runtime
 book: exact intended PositionKey, concrete plan prices,
-`sentinelx-protective-instance/v1` ids, ACTIVE start state.  If an ACTIVE
+`algofortis-protective-instance/v1` ids, ACTIVE start state.  If an ACTIVE
 STOP_LOSS or ACTIVE TARGET already exists for the intended PositionKey it
 fails closed (raises) rather than adding another active plan; it never cancels
 a legitimate existing active protection to make room and never selects a
@@ -4871,7 +4871,7 @@ remains unchanged: it may reduce protection after legitimate position
 reductions but is NOT an initial sizing authority.
 
 Quantity deliberately does NOT participate in the
-`sentinelx-protective-instance/v1` identity: the identity identifies the
+`algofortis-protective-instance/v1` identity: the identity identifies the
 entry-cycle protective instance/provenance, while quantity is authoritative
 runtime sizing evidence that changes legitimately through position
 reduction/reconciliation.  The 8 canonical identity fields are unchanged.
@@ -4953,7 +4953,7 @@ later accepted-fill orchestration wiring.
   R:R mathematics as `size_position` (shared `_size_from_prices` /
   `_risk_reward_from_prices`; no duplicated sizing logic).  The
   ProtectiveExit-based `size_position` API and its reason codes are unchanged.
-- `sentinelx-risk-policy/v3` is NOT mutated.  When RiskPolicy v4 is
+- `algofortis-risk-policy/v3` is NOT mutated.  When RiskPolicy v4 is
   implemented it MUST bind the final candidate-protective-evidence policy
   identity (the plan-price candidate evidence contract) as an explicit
   versioned sub-policy.
@@ -4988,7 +4988,7 @@ exists, cross-strategy ordering is deterministic canonical strategy ordering.
   policy_identity=<active v2 identity>)`; any unknown identity FAILS CLOSED
   (deterministic `ValueError`).  No Python `hash()`, no insertion order, no
   caller order, no calibration engine, no normalization invention.
-- `sentinelx-risk-policy/v3` schema is unchanged (NOT v4).  The v3 fingerprint
+- `algofortis-risk-policy/v3` schema is unchanged (NOT v4).  The v3 fingerprint
   already binds `signal_priority_policy`; the ACTIVE v2 identity is now the
   default `RiskPolicy` sub-policy identity, so it participates in every v3
   fingerprint.
@@ -5011,7 +5011,7 @@ signal, time exit, or another strategy-owned exit rule).
   reintroduced; the plan remains quantity-free).  A plan WITH a target
   materializes exactly STOP_LOSS + TARGET; a targetless plan materializes
   exactly STOP_LOSS only — no TARGET instance, no TARGET OrderRequest, no
-  TARGET `sentinelx-protective-instance/v1` identity.  Return contract is one
+  TARGET `algofortis-protective-instance/v1` identity.  Return contract is one
   or two fresh ACTIVE instances.  Duplicate-active safety, exact PositionKey
   ownership, deterministic instance ids, terminal lifecycle, and quantity
   semantics unchanged.
@@ -5058,7 +5058,7 @@ in pre-order R:R eligibility.  BUY STOP / STOP_LIMIT in gate-enabled mode
 FAIL CLOSED at construction until a separate owner-locked entry-reference
 policy exists.
 
-**D. `sentinelx-entry-intent/v1` logical entry identity.**  Deterministic
+**D. `algofortis-entry-intent/v1` logical entry identity.**  Deterministic
 pre-fill identity via `CanonicalCodec` only, exact semantic field order:
 strategy_id, strategy_version, full InstrumentIdentity (established 7-field
 order), timeframe, originating_timestamp (codec UTC/nanosecond encoding).
@@ -5216,7 +5216,7 @@ NOT modified.
 
 ### 64.1 RiskPolicy v4 schema and capital-basis identity
 
-- `sentinelx-risk-policy/v4` is the next explicit schema/version after v3.
+- `algofortis-risk-policy/v4` is the next explicit schema/version after v3.
   v3 remains the current fixed-capital schema with byte-identical fingerprints
   and economic semantics (a v3-versioned policy is restricted to
   `FixedCapitalBasis/v1`).
@@ -5264,7 +5264,7 @@ NOT modified.
 
 - Gate-enabled runs must carry the ACTIVE `RiskPolicy.fingerprint` in
   `RuntimeConfigurationSnapshot.risk` under the `config/v2` schema
-  (`sentinelx-runtime-configuration/v2` fingerprint identity; v1 free-form
+  (`algofortis-runtime-configuration/v2` fingerprint identity; v1 free-form
   fingerprints are never compared against v2 authoritative evidence).
 - `risk-deferred` remains valid ONLY for explicit non-gated legacy runs.
 - `BacktestOrchestrator` verifies equality at construction and FAILS CLOSED on
@@ -5283,7 +5283,7 @@ NOT modified.
   and `risk-policy/v4`.  Any other value — future versions, malformed
   strings, suffix matches — FAILS CLOSED at construction with
   `unsupported RiskPolicy version`.
-- The historical `sentinelx-risk-policy/v1` and `/v2` schema identities may
+- The historical `algofortis-risk-policy/v1` and `/v2` schema identities may
   remain as identity-history constants but never authorize constructing
   active policy objects with `risk-policy/v1` or `risk-policy/v2`.
 - Semantic dispatch (v4 schema fingerprint, fixed-basis restriction) uses
@@ -5527,7 +5527,7 @@ architecture review were implemented as Slice 1:
   encoded distinctly from any provider identity).  v2 historical
   replay identity is UNCHANGED (the new field exists only under v3);
   validity-enabled runs require v3 and fail closed on mismatch.
-  `sentinelx-entry-intent/v1` is unchanged — ordinary validity
+  `algofortis-entry-intent/v1` is unchanged — ordinary validity
   re-evaluation never creates a new entry identity.
 
 Test evidence (Slice 1): full suite = 886 passed, 1 skipped, 0 failures
@@ -5582,7 +5582,7 @@ changes):
       entry_identity
       decision_timestamp
       risk_result            # authoritative RiskGateResult
-      evidence_identity      # sentinelx-entry-risk-rejection/v1
+      evidence_identity      # algofortis-entry-risk-rejection/v1
                              # canonical fingerprint over entry +
                              # decision_time + outcome + reason
   ```
@@ -5604,7 +5604,7 @@ changes):
 
 Identity semantics: `EntryValiditySpec.spec_identity`,
 `EntryValidityResult.evidence_identity`, `OrderLifecycleEvent.event_identity`,
-`sentinelx-entry-intent/v1`, and `RuntimeConfigurationSnapshot/v2` are
+`algofortis-entry-intent/v1`, and `RuntimeConfigurationSnapshot/v2` are
 UNCHANGED.  v3 validity binding remains deterministic; correct-policy runs
 replay identically and policy mismatch fails deterministically.
 
@@ -5639,7 +5639,7 @@ decisions above are not rewritten.
 ## 71. Phase-4 Slice 2 — Idempotency / Duplicate-Order Protection (owner lock + coverage record)
 
 **Owner lock — authoritative backtest-core idempotency key:**
-`sentinelx-entry-intent/v1` (via `engine.risk_manager.entry_intent_identity`)
+`algofortis-entry-intent/v1` (via `engine.risk_manager.entry_intent_identity`)
 is the sole logical-entry identity.  NO `OrderRequest.id`, `OrderRequest.identity`,
 `request_id`, UUID, random identity, or parallel fingerprint is added.
 Future broker/exchange order IDs are a DIFFERENT semantic entity and belong
@@ -5663,7 +5663,7 @@ structurally, without a historical seen-set:
   (orchestration.py duplicate check) — no second RiskGate approval, no second
   OrderRequest, no second lifecycle chain, no duplicate economic position.
 - Legitimate re-entry: a new source-event `originating_timestamp` produces a
-  new `sentinelx-entry-intent/v1` identity, a fresh RiskGate approval, a fresh
+  new `algofortis-entry-intent/v1` identity, a fresh RiskGate approval, a fresh
   OrderRequest, and a fresh commitment/lifecycle.  Idempotency does NOT
   suppress a legitimate new trading opportunity.
 - Cross-run replay: the same deterministic input may recreate the same
@@ -5705,7 +5705,7 @@ strategy profitability, or live-trading performance evidence).
 
 Closed contracts:
 
-- `sentinelx-entry-intent/v1` authoritative backtest-core idempotency key;
+- `algofortis-entry-intent/v1` authoritative backtest-core idempotency key;
   no OrderRequest identity added (no `OrderRequest.id`/`identity`, no
   `request_id`, no UUID, no parallel fingerprint).
 - Run-lifetime order-creation idempotency: once E creates an OrderRequest,
@@ -5828,7 +5828,7 @@ lifecycle, and reservation cleanup all hold from current source and current
 permanent tests.  No lookahead, no new replay ambiguity (order type and
 planned prices already participate in `SignalToOrderPolicy.tier1_identity`
 and the manifest execution-policy binding; no schema bump required —
-RuntimeConfigurationSnapshot/v2/v3, RiskPolicy, and `sentinelx-entry-intent/v1`
+RuntimeConfigurationSnapshot/v2/v3, RiskPolicy, and `algofortis-entry-intent/v1`
 identities unchanged).  STOP/STOP_LIMIT are NOT activated by this section.
 
 ## 74. Owner Decision O4 — Persistent STOP_LIMIT Activation State
@@ -5979,7 +5979,7 @@ distinguished in replay identity by the EXISTING Tier-1
 `SourceIdentityPolicy/v1` source binding (engine/**/*.py content bytes →
 `source.fingerprint` → `manifest_fingerprint`), so a changed ExecutionEngine
 semantic is a changed logical run without any new identity authority.  No
-`RuntimeConfigurationSnapshot` schema bump; `RiskPolicy`, `sentinelx-entry-intent/v1`,
+`RuntimeConfigurationSnapshot` schema bump; `RiskPolicy`, `algofortis-entry-intent/v1`,
 `SignalToOrderPolicy.tier1_identity`, and the manifest execution-policy binding
 are unchanged.  `StopLimitActivationEvidence` participates in result evidence
 only (deterministic execution evidence), never in manifest identity.  No
@@ -5990,7 +5990,7 @@ activation is execution substate/evidence; lifecycle remains
 CREATED/VALIDATED/QUEUED + true terminal states as frozen.
 
 **OrderRequest identity unchanged.**  No `OrderRequest.id`/`identity`/
-activation/triggered field; `sentinelx-entry-intent/v1` remains the sole
+activation/triggered field; `algofortis-entry-intent/v1` remains the sole
 backtest-core logical-entry/idempotency key.  Activation is execution-state
 evidence, not a new logical order.
 
@@ -6031,8 +6031,8 @@ STOP/STOP_LIMIT activation remains FAIL-CLOSED.
 
 O5 routing lock:
 
-- `sentinelx-execution-evidence/v1` frozen — byte-for-byte unchanged.
-- `sentinelx-execution-evidence/v2` added — activation-aware.
+- `algofortis-execution-evidence/v1` frozen — byte-for-byte unchanged.
+- `algofortis-execution-evidence/v2` added — activation-aware.
 - Collection-level routing: IF ZERO executions carry non-None
   `StopLimitActivationEvidence` → v1; IF ONE OR MORE → v2.
 - Evidence-shape routing, NOT historical-run detection.
@@ -6102,12 +6102,12 @@ Closed contracts:
   - DAY session-bounded active limit / GTC cross-session persistence /
     end-of-data terminal retention.
   - Reproducibility preserved through existing SourceIdentityPolicy/v1;
-    OrderLifecycleState and `sentinelx-entry-intent/v1` unchanged.
+    OrderLifecycleState and `algofortis-entry-intent/v1` unchanged.
 
 - O5 Execution-Evidence V1/V2 Collection Routing (§75):
   - Collection-level routing: runs with ZERO executions carrying activation
-    evidence route to `sentinelx-execution-evidence/v1` (byte-stable).
-  - Runs with ONE OR MORE activations route to `sentinelx-execution-evidence/v2`.
+    evidence route to `algofortis-execution-evidence/v1` (byte-stable).
+  - Runs with ONE OR MORE activations route to `algofortis-execution-evidence/v2`.
   - v2 binds explicit `("NONE",)` or `("PRESENT", activation_bar_timestamp,
     activation_price, activation_basis)` per execution.
   - 12 permanent tests (A–L) verify collision repair, byte stability, and
@@ -6498,7 +6498,7 @@ feed/event boundary:**
 - Persistent across process restarts.
 
 **Layer 2 — Existing engine entry-intent idempotency (§71):**
-- `sentinelx-entry-intent/v1` run-lifetime idempotency preserved.
+- `algofortis-entry-intent/v1` run-lifetime idempotency preserved.
 - Per-run scope. Defense-in-depth against Layer 1 bugs.
 
 **Layer 3 — Persistent paper-broker order idempotency:**
@@ -6667,7 +6667,7 @@ VERIFIED only.
 PHASE 5 OWNER SCOPE REFREEZE — OWNER_APPROVED.
 Refreeze date: 2026-08-19.
 Trigger: Master spec conflict audit identified 7 material conflicts between the new
-`SentinelX-Paper-Trading-Engine-Spec-v1.0.md` DRAFT and existing frozen contracts.
+`AlgoFortis-Paper-Trading-Engine-Spec-v1.0.md` DRAFT and existing frozen contracts.
 The owner approved seven scope-refreeze decisions (OD-1 through OD-7) which are frozen below.
 
 ### Superseded/amended prior decisions:
@@ -6761,7 +6761,7 @@ Goal: conservative, execution-realistic paper behavior.
 
 Option Selector is a **BLOCKING DEPENDENCY** for Phase 5 VERIFIED_COMPLETE.
 
-SentinelX Phase 5 target is automated OPTIONS paper trading.
+AlgoFortis Phase 5 target is automated OPTIONS paper trading.
 Therefore Phase 5 cannot be declared VERIFIED_COMPLETE until the system can automatically resolve,
 using frozen strategy/configuration rules: underlying intent, CE/PE, expiry, strike, tradable option instrument,
 lot size/contract multiplier, required live quote/instrument identity.
@@ -7360,7 +7360,7 @@ Live Quote Delivery / Live Paper Coordinator pre-implementation audit.
 Owner-local status: **VERIFIED_COMPLETE**.
 
 Slice 4B establishes the additive runtime coordination boundary between the
-provider-neutral live quote core and SentinelX option paper execution.
+provider-neutral live quote core and AlgoFortis option paper execution.
 
 ### Permanent Runtime Boundary
 
@@ -8179,7 +8179,7 @@ The next single required step is:
 ### Production Architecture & Ownership Contracts
 
 1. **Audit Journal Purpose & Authority Separation:**
-   - Item 11 implements the Phase-5 D16 audit/event envelope (`sentinelx-audit-envelope/v1`) and durable local historical evidence journal.
+   - Item 11 implements the Phase-5 D16 audit/event envelope (`algofortis-audit-envelope/v1`) and durable local historical evidence journal.
    - The audit journal is **historical evidence**; it is NOT accounting authority, broker authority, RiskGate authority, TradeLedger authority, protective state authority, or reconciliation authority.
    - Canonical domain/state tables (`account_state`, `positions`, `orders`, `protective_exits`, `safety_state`) remain authoritative current-state truth.
    - `SQLitePaperStateStore` is the sole durable journal persistence owner.
@@ -8188,7 +8188,7 @@ The next single required step is:
    - Schema Version is advanced to `SCHEMA_VERSION = 3`.
    - The new durable table `audit_events` stores all structured event envelopes with indexes on `event_type`, `(aggregate_type, aggregate_identity)`, `correlation_id`, `market_timestamp`, `broker_order_identity`, `trade_id`, and `protective_id`.
    - Clean new databases are created as Schema V3. Existing Schema V1 and V2 databases fail closed on initialization with `DatabaseIdentityMismatchError`. Zero automatic migration, zero silent upgrade, and zero destructive recreation.
-3. **Audit Envelope Model (`sentinelx-audit-envelope/v1`):**
+3. **Audit Envelope Model (`algofortis-audit-envelope/v1`):**
    - Core sparse fields: `audit_sequence`, `event_id`, `event_schema_version`, `event_family`, `event_type`, `aggregate_type`, `aggregate_identity`, `market_timestamp`, `recorded_at_utc`, `state_generation`, `transaction_event_ordinal`, `correlation_id`, `causation_event_id`, `strategy_id`, `strategy_version`, `instrument_key`, `position_key_json`, `entry_intent_identity`, `broker_order_identity`, `trade_id`, `protective_id`, `payload_version`, `payload_json`.
    - `recorded_at_utc` is diagnostic UTC operational observation time only. `market_timestamp` remains authoritative market-time evidence. `recorded_at_utc` MUST NEVER be described as trading authority.
 4. **D16 Event-Family Taxonomy (E1–E20):**
@@ -8230,7 +8230,7 @@ The next single required step is:
     - `STARTUP_KILL_CLEANUP_COMPLETED` is emitted only after actual active-kill startup queued-order cleanup completes.
     - `KILL_SWITCH_ACTIVATED` and `RESUME_SUCCEEDED` are transaction-coupled. `KILL_SWITCH_IDEMPOTENT_REPEAT` and `RESUME_REJECTED` are standalone observational (`state_generation = NULL`).
 12. **Persistence Failure Paradox & Raw Market-Data Boundary:**
-    - If SQLite persistence itself fails, SentinelX cannot persist a durable `PERSISTENCE_HEALTH_FAILED` event into that failed transaction. `PersistenceHealth` becomes `FAILED`, runtime fails closed, local `SafetyAlert` logs failure, but no fake durable DB event is claimed.
+    - If SQLite persistence itself fails, AlgoFortis cannot persist a durable `PERSISTENCE_HEALTH_FAILED` event into that failed transaction. `PersistenceHealth` becomes `FAILED`, runtime fails closed, local `SafetyAlert` logs failure, but no fake durable DB event is claimed.
     - Raw idle quotes/ticks that cause no fills, triggers, ratchets, or transitions produce zero business audit records.
 13. **Local Read-Only Query API & Serialization:**
     - `query_audit_events(...)` and `get_audit_event_by_id(...)` support local filtering (aggregate, intent, broker order, trade, protective ID, market timestamp). No dashboard, no analytics, no reconciliation logic.
@@ -8656,14 +8656,14 @@ Authoritative final marker:
    - `ITEM14_DISCOVERED_LATENT_DEFECT_REPAIR_6`: `ConcreteCloseInstruction` persistence deserialization contained fallbacks (`action=intent_dict.get("action") or "EXIT"`, `confidence=float(intent_dict.get("confidence") or 0.0)`). Repaired with strict fail-closed validation for `closing_action`, `source_intent` mapping, `strategy_id`, `strategy_version`, `symbol`, `timeframe`, `originating_timestamp`, `action`, and `confidence`. Explicit `confidence: 0.0` is valid; missing field fails closed. Zero implicit fallback to `SELL`, `EXIT`, or `0.0`.
 
 8. **Three-Layer Identity Architecture:**
-   - Layer 2 (`entry_intent_identity`, `sentinelx-entry-intent/v1`): Strategy intent provenance and premium/risk commitment linkage.
-   - Layer 3 (`broker_order_identity`, `sentinelx-paper-broker-order/v1`): Concrete broker order execution entity and lifecycle integrity.
+   - Layer 2 (`entry_intent_identity`, `algofortis-entry-intent/v1`): Strategy intent provenance and premium/risk commitment linkage.
+   - Layer 3 (`broker_order_identity`, `algofortis-paper-broker-order/v1`): Concrete broker order execution entity and lifecycle integrity.
    - `order_id`: Individual broker submission/lifecycle instance identifier.
    - `BrokerOrderRecord.broker_order_identity` strictly remains Layer-3 across all lifecycles (`QUEUED`, `FILLED`, `CANCELLED`, `EXPIRED`, `REJECTED`, protective exits).
 
 9. **Persistence & Reconciliation Invariants:**
    - Schema V4 remains unchanged (21 SQLite tables). Zero migrations.
-   - Item-11 audit envelope (`sentinelx-audit-envelope/v1`) unchanged.
+   - Item-11 audit envelope (`algofortis-audit-envelope/v1`) unchanged.
    - Item-12 reconciliation remains strictly observational (no mutation of live state).
 
 ### Verification Evidence
@@ -9121,7 +9121,7 @@ Enum decoding resolves classes and strictly verifies `isinstance(enum_cls, type)
 
 Persist explicit:
 
-`codec_version = "sentinelx-strategy-state/v1"`
+`codec_version = "algofortis-strategy-state/v1"`
 
 Compatibility is bound by:
 
@@ -9186,7 +9186,7 @@ Seed each row from:
 
 with:
 
-- `codec_version = "sentinelx-strategy-state/v1"`
+- `codec_version = "algofortis-strategy-state/v1"`
 - `state_generation = 0`
 - `last_evaluated_decision_time = NULL`
 - `paper_session_id = current durable session identity`
@@ -9292,7 +9292,7 @@ CREATE INDEX IF NOT EXISTS idx_strategy_states_session ON strategy_states (paper
 ### 121.14 Verified Implementation Deliverables
 
 - `engine/persistence/schema.py`: `SCHEMA_VERSION = 5`, 22 canonical tables, `strategy_states` table DDL and index.
-- `engine/persistence/sqlite_store.py`: Canonical codec `sentinelx-strategy-state/v1`, lossless type round-trip, Enum subclass validation, fresh DB generation-0 bootstrap, hydration fail-closed validation, `save_strategy_state` for non-actionable persistence, and `save_t1_entry_submission` atomic coupling.
+- `engine/persistence/sqlite_store.py`: Canonical codec `algofortis-strategy-state/v1`, lossless type round-trip, Enum subclass validation, fresh DB generation-0 bootstrap, hydration fail-closed validation, `save_strategy_state` for non-actionable persistence, and `save_t1_entry_submission` atomic coupling.
 - `engine/paper_coordinator.py`: Forwarding strategy state transition into atomic T1 entry submission.
 - `engine/live_strategy_coordinator.py`: State hydration, replay protection (`decision_time <= last_evaluated_decision_time`), non-actionable persistence, and exception handling / owner halting.
 - `engine/live_paper_runner.py`: Resolution of strategy bindings before store construction, passing initial states for clean DB seeding and hydrated states to coordinator.
@@ -9575,7 +9575,7 @@ Old promotion evidence remains immutable historical evidence. It does not need t
 ### 122.21 OD-U — Final Promotion Report (APPROVED)
 
 When pre-live promotion criteria reach Owner-review readiness, emit:
-`sentinelx-paper-promotion-report/v1`
+`algofortis-paper-promotion-report/v1`
 
 The report MUST be:
 - Immutable after finalization;
@@ -9614,7 +9614,7 @@ Do NOT claim a cryptographic digital signature unless a separate signing authori
 | Six-month contiguous window incomplete | `MILESTONE_INCOMPLETE` | Cannot transition to `CRITERIA_MET_PENDING_REVIEW`. |
 | Pre-live Q68 PF/Max-DD/OOS criteria failure | `CRITERIA_FAILED` | 6 months completed, but numeric thresholds failed; review blocked. |
 | Q68 live-vs-paper $\le 20\%$ before first live deployment | `DEFERRED_TO_PHASE7` | Post-live monitoring gate; not evaluated pre-live. |
-| All Phase-5 pre-live criteria satisfied | `CRITERIA_MET_PENDING_REVIEW` | Emits `sentinelx-paper-promotion-report/v1` for Owner review. |
+| All Phase-5 pre-live criteria satisfied | `CRITERIA_MET_PENDING_REVIEW` | Emits `algofortis-paper-promotion-report/v1` for Owner review. |
 
 ### 122.23 Expected Schema Design / DDL
 
@@ -9679,10 +9679,10 @@ Scope firewalls:
 Existing `PromotionDecisionEvidence/v1` is NOT sufficient by itself to prove the configured paper strategy owner because its canonical schema does not contain a structured `(strategy_id, strategy_version)` pair. Unfingerprinted wrapper JSON fields MUST NOT be trusted.
 
 P1-08 introduces exactly ONE canonical upstream provenance authority:
-`sentinelx-upstream-promotion-bundle/v1`
+`algofortis-upstream-promotion-bundle/v1`
 
 The bundle is immutable and canonically fingerprinted. It must semantically bind at minimum:
-- `schema_version = "sentinelx-upstream-promotion-bundle/v1"`
+- `schema_version = "algofortis-upstream-promotion-bundle/v1"`
 - `strategy_id: str`
 - `strategy_version: str`
 - `manifest_fingerprint: str`
@@ -9707,10 +9707,10 @@ Any mismatch fails closed (`PaperConfigurationError`). Paper configuration's `up
 
 ### 122.27 OD-X — Immutable NSE Calendar Closure Snapshot (APPROVED)
 
-SentinelX has `WeekendCalendar` plus injected closures but no built-in authoritative annual NSE holiday dataset. P1-08 MUST NOT depend on mutable network calendar lookup.
+AlgoFortis has `WeekendCalendar` plus injected closures but no built-in authoritative annual NSE holiday dataset. P1-08 MUST NOT depend on mutable network calendar lookup.
 
 A promotion-tracked paper run must receive an explicit immutable exchange calendar snapshot in configuration.
-Canonical schema/version: `sentinelx-calendar-closure-snapshot/v1`
+Canonical schema/version: `algofortis-calendar-closure-snapshot/v1`
 
 The snapshot must bind at minimum:
 - `calendar_id: str`
@@ -9734,7 +9734,7 @@ Weekends and snapshot-declared NSE closures are not required trading sessions. O
 
 ### 122.28 OD-Y — Caller-Supplied Promotion Report Destination (APPROVED)
 
-Existing SentinelX `ReportWriter` convention uses a destination supplied explicitly by the caller. `PromotionReportWriter` MUST NOT hard-code `data/promotion_reports` and P1-08 MUST NOT owner-lock an implicit default such as `reports/promotion`.
+Existing AlgoFortis `ReportWriter` convention uses a destination supplied explicitly by the caller. `PromotionReportWriter` MUST NOT hard-code `data/promotion_reports` and P1-08 MUST NOT owner-lock an implicit default such as `reports/promotion`.
 
 The promotion report destination must be supplied explicitly through the existing runtime/configuration/caller artifact-destination authority (`ResolvedPaperConfiguration.promotion_report_destination_dir` or caller argument). The path itself is strictly NON-SEMANTIC.
 
@@ -9743,7 +9743,7 @@ If report publication becomes required and no valid destination is supplied: FAI
 ### 122.29 OD-Z — Append-Only Session Record Integrity (APPROVED)
 
 Every row in `promotion_session_records` must carry:
-- `record_schema_version = "sentinelx-promotion-session-record/v1"`
+- `record_schema_version = "algofortis-promotion-session-record/v1"`
 - `record_fingerprint: str`
 
 `record_fingerprint` is computed using `CanonicalCodec.fingerprint` over all semantic row fields:
@@ -9824,11 +9824,11 @@ The Owner ruling overrides any prior assumption of a mandatory six-month paper t
 3. **Independent Evidence Validation:** Walk-forward, backtest, and statistical validation remain independent evidence sources and do not create a mandatory six-month runtime lock.
 4. **Optional Telemetry / Reporting:** Six-month promotion tracking remains ONLY as OPTIONAL telemetry, evidence generation, and reporting.
 5. **No Live-Mode Prerequisites:** Six-month completion is NEVER required for owner mode selection, enabling LIVE mode, or switching between PAPER and LIVE.
-6. **No Automatic Switching:** SentinelX MUST NOT automatically switch PAPER -> LIVE.
+6. **No Automatic Switching:** AlgoFortis MUST NOT automatically switch PAPER -> LIVE.
 7. **Optional Tracking Integrity:** If optional tracking is enabled, its persistence, calendar closure snapshot, session integrity, reports, restart handling, and state/ledger cross-validation remain fully enforced.
 8. **Tracking Disabled Non-Invasiveness:** If optional tracking is disabled, normal PAPER/LIVE mode operation MUST NOT require `promotion_tracking_activated`, `calendar_closure_snapshot`, `upstream_promotion_evidence_bundle`, six-month completion, or promotion report destination.
 9. **Status Meaning:** Status such as `CRITERIA_MET_PENDING_REVIEW` exists only as OPTIONAL evidence status and is never a live-mode authorization prerequisite.
-10. **Semantic Fingerprint Invariant:** `recorded_at_utc` is metadata-only wall-clock evidence and MUST NOT participate in `sentinelx-promotion-session-record/v1` semantic record fingerprint.
+10. **Semantic Fingerprint Invariant:** `recorded_at_utc` is metadata-only wall-clock evidence and MUST NOT participate in `algofortis-promotion-session-record/v1` semantic record fingerprint.
 
 ### 122.36 Authoritative Marker
 
@@ -9853,7 +9853,7 @@ The Phase-6 pre-implementation architecture / contract / scope review identified
 
 ### 123.1 OD-1 — D16 Envelope Closure, Envelope v2, Schema V7 (APPROVED)
 
-The D16 §96 minimum envelope is closed. `AUDIT_ENVELOPE_SCHEMA_VERSION` advances to `sentinelx-audit-envelope/v2` and `SCHEMA_VERSION` advances **6 → 7**.
+The D16 §96 minimum envelope is closed. `AUDIT_ENVELOPE_SCHEMA_VERSION` advances to `algofortis-audit-envelope/v2` and `SCHEMA_VERSION` advances **6 → 7**.
 
 Seven fields are added to `AuditEvent` and to the `audit_events` table as **proper persisted fields**, not payload keys:
 
@@ -9962,7 +9962,7 @@ This section explicitly supersedes the following clauses, for the identified sco
 | §116.20 "Item-11 audit taxonomy remains unchanged (zero new event families/types)" | Additive E21 `ERROR` only |
 | §116.20 / §118.4 "`SCHEMA_VERSION` remains exactly 4" | Already superseded by §121 (V5) and §122 (V6); now V7 |
 | §122 "`SCHEMA_VERSION` 5 → 6" as terminal | Advanced to V7 |
-| `SENTINELX_PROGRESS.md` P1-09 item 7 — "`semantic_projection()` … remain untouched; schema remains V6" | Projection extended per §123.1 item 2; schema V7. `derive_audit_event_id`, `audit_events UNIQUE(event_id)` and `AuditIntegrityError` remain **untouched** |
+| `ALGOFORTIS_PROGRESS.md` P1-09 item 7 — "`semantic_projection()` … remain untouched; schema remains V6" | Projection extended per §123.1 item 2; schema V7. `derive_audit_event_id`, `audit_events UNIQUE(event_id)` and `AuditIntegrityError` remain **untouched** |
 | `PROJECT_STRUCTURE.md` `logs/audit_log/` description | Corrected per §123.5 |
 
 **Not superseded, and reaffirmed:** §114.1 sole-owner rule; §114.5 append-only-by-policy with no cryptographic tamper-evidence claim; §114.6 same-transaction atomicity; §114.7 hybrid identity and `AuditIntegrityError` fail-closed; §114.8 `recorded_at_utc_now()` as sole wall-clock; §114.9 HOLD exclusion; §114.12 persistence-failure paradox; §114.13 no dashboard / no analytics / retention; §114.14 journal-does-not-reconcile; §115.14 RECONCILIATION prohibition; §120 and §121 identity validation; §122.35 owner mode authority; the Rule 1 / 6 / 7 / 8 contracts; and `safe_generate_signal(strategy, data, state, mode)`.
@@ -10037,7 +10037,7 @@ Publication reuses the established reporting conventions (exclusive claim, stagi
 
 The existing generic `paper_metadata` facility carries an additive key:
 
-`q93_contract_version = "sentinelx-q93-state/v1"`
+`q93_contract_version = "algofortis-q93-state/v1"`
 
 No new table, no DDL, no migration; `SCHEMA_VERSION` remains 7.
 
@@ -10047,7 +10047,7 @@ An EXISTING Schema-V7 paper database/session that predates the Q93 contract (i.e
 
 ### 125.3 C3 — Fresh Q93 Database (APPROVED)
 
-A genuinely fresh database/session created under Q93-enabled code records `q93_contract_version = "sentinelx-q93-state/v1"` during the existing bootstrap path (additive paper_metadata key only). The observation marker `q93_last_observed_ist_month` is NOT written at creation time.
+A genuinely fresh database/session created under Q93-enabled code records `q93_contract_version = "algofortis-q93-state/v1"` during the existing bootstrap path (additive paper_metadata key only). The observation marker `q93_last_observed_ist_month` is NOT written at creation time.
 
 ### 125.4 C4 — No Historical Inference (APPROVED)
 
@@ -10055,7 +10055,7 @@ Historical Q93 month state is never reconstructed or guessed from audit_events, 
 
 ### 125.5 C5 — Valid Session Marker Semantics (APPROVED)
 
-Inside a valid `sentinelx-q93-state/v1` session, `q93_last_observed_ist_month` may be missing only before that session has accepted its first authoritative market/event time through the Q93-enabled contract; the first accepted event durably establishes the marker.
+Inside a valid `algofortis-q93-state/v1` session, `q93_last_observed_ist_month` may be missing only before that session has accepted its first authoritative market/event time through the Q93-enabled contract; the first accepted event durably establishes the marker.
 
 ### 125.6 C6 — Monotonic Q93 Marker (APPROVED)
 
@@ -10107,9 +10107,9 @@ Phase 7 explicitly EXCLUDES: a real Zerodha adapter; real broker integration; AP
 
 ### 127.1 OD-1 — Partial Fills: Option A, Adapter-Contained (APPROVED)
 
-1. Existing SentinelX core lifecycle remains unchanged; `PARTIALLY_FILLED` is NOT added to `OrderLifecycleState`.
+1. Existing AlgoFortis core lifecycle remains unchanged; `PARTIALLY_FILLED` is NOT added to `OrderLifecycleState`.
 2. The adapter/mock boundary may generate, retain, deduplicate, and aggregate partial-fill fragments for adapter-contract testing.
-3. Individual partial-fill fragments MUST NOT be projected into existing SentinelX core lifecycle/accounting.
+3. Individual partial-fill fragments MUST NOT be projected into existing AlgoFortis core lifecycle/accounting.
 4. While cumulative filled quantity remains below full order quantity: the canonical core lifecycle remains at its last valid state (normally QUEUED); no accounting mutation occurs from a fragment; no fabricated full fill occurs.
 5. Only a supported terminal FULL FILL may be projected to the existing core full-fill path.
 6. PARTIAL THEN TERMINAL NON-FULL CASE: if an order receives one or more partial fragments and then becomes CANCELLED, EXPIRED, or REJECTED before reaching full quantity, that sequence is unsupported for Phase-7 core projection. It MUST fail closed at the adapter/integration boundary. It MUST NOT fabricate a full fill, silently discard the exposure, mutate canonical accounting as if no partial occurred, or create a `PARTIALLY_FILLED` lifecycle state.
@@ -10123,23 +10123,23 @@ Phase 7 explicitly EXCLUDES: a real Zerodha adapter; real broker integration; AP
 
 ### 127.3 OD-2 — Broker Adapter Shape: Hybrid Boundary (APPROVED)
 
-A HYBRID broker-independent boundary is frozen: (a) a callback/event path for broker/mock-initiated observations; plus (b) a synchronous query path for reconciliation/state inspection. Broker-specific API method names are NOT frozen. The core engine consumes SentinelX canonical types only; broker/provider-specific models remain inside the adapter boundary.
+A HYBRID broker-independent boundary is frozen: (a) a callback/event path for broker/mock-initiated observations; plus (b) a synchronous query path for reconciliation/state inspection. Broker-specific API method names are NOT frozen. The core engine consumes AlgoFortis canonical types only; broker/provider-specific models remain inside the adapter boundary.
 
-### 127.4 OD-3 — Idempotency: SentinelX-Owned Submission Identity (APPROVED)
+### 127.4 OD-3 — Idempotency: AlgoFortis-Owned Submission Identity (APPROVED)
 
-`entry_intent_identity` remains the SentinelX-owned deterministic submission/dedup identity. No assumption is made that any external broker provides native idempotency. Phase-7 retry/idempotency behavior is MOCK-ONLY; a future real broker requires a provider-specific owner review before any submission-retry behavior is authorized.
+`entry_intent_identity` remains the AlgoFortis-owned deterministic submission/dedup identity. No assumption is made that any external broker provides native idempotency. Phase-7 retry/idempotency behavior is MOCK-ONLY; a future real broker requires a provider-specific owner review before any submission-retry behavior is authorized.
 
 ### 127.5 OD-4 — Dual Order Identity (APPROVED)
 
-SentinelX internal deterministic order identity remains authoritative. External/mock broker order identity is a separate opaque reference. A broker ID MUST NOT replace SentinelX internal order identity and MUST NOT become strategy/accounting authority. All fragments of one adapter order share the same SentinelX `order_id` and the same `broker_order_identity`; each fill fragment carries its own unique `broker_fill_id`. Existing SentinelX order identity is NOT switched to UUID.
+AlgoFortis internal deterministic order identity remains authoritative. External/mock broker order identity is a separate opaque reference. A broker ID MUST NOT replace AlgoFortis internal order identity and MUST NOT become strategy/accounting authority. All fragments of one adapter order share the same AlgoFortis `order_id` and the same `broker_order_identity`; each fill fragment carries its own unique `broker_fill_id`. Existing AlgoFortis order identity is NOT switched to UUID.
 
 ### 127.6 Adapter-Only Fill Dedup Scope (APPROVED; bound to OD-4)
 
-Fragment dedup identity = `(broker_order_identity, broker_fill_id)`. This identity applies ONLY inside the adapter/mock boundary and does NOT replace or alter existing SentinelX core order dedup, lifecycle identity, accounting identity, or reconciliation identity. Duplicate adapter fill fragments must not change deterministic aggregate results.
+Fragment dedup identity = `(broker_order_identity, broker_fill_id)`. This identity applies ONLY inside the adapter/mock boundary and does NOT replace or alter existing AlgoFortis core order dedup, lifecycle identity, accounting identity, or reconciliation identity. Duplicate adapter fill fragments must not change deterministic aggregate results.
 
-### 127.7 OD-5 — Protective Orders: SentinelX-Side Only (APPROVED)
+### 127.7 OD-5 — Protective Orders: AlgoFortis-Side Only (APPROVED)
 
-Phase-7 protective behavior is SENTINELX-SIDE ONLY. Existing protective planning/evaluation remains authoritative. Broker-native stop/target projection is neither designed nor implemented in Phase 7 and is deferred to separate future owner authorization.
+Phase-7 protective behavior is ALGOFORTIS-SIDE ONLY. Existing protective planning/evaluation remains authoritative. Broker-native stop/target projection is neither designed nor implemented in Phase 7 and is deferred to separate future owner authorization.
 
 ### 127.8 OD-6 — Retry: Deterministic Mock-Only Testing (APPROVED)
 
@@ -10151,7 +10151,7 @@ Phase 7 implementation scope: broker-independent contracts; deterministic offlin
 
 ### 127.10 OD-8 — Reconnect / Reconciliation Precedence Over Retry (APPROVED)
 
-DISCONNECT suspends submission-retry activity. RECONNECT queries mock/broker-contract state and reconciles it against SentinelX-owned state. Clean, deterministically matched reconciliation permits the mock processing path to become eligible to continue. Mismatched, uncertain, incomplete, or unsupported reconciliation FAILS CLOSED / halts the affected integration path. No automatic external/live recovery is authorized; no submission retry may execute while reconnect/reconciliation safety is unresolved. ABSOLUTE PRECEDENCE: RECONNECT/RECONCILIATION SAFETY > RETRY LOGIC.
+DISCONNECT suspends submission-retry activity. RECONNECT queries mock/broker-contract state and reconciles it against AlgoFortis-owned state. Clean, deterministically matched reconciliation permits the mock processing path to become eligible to continue. Mismatched, uncertain, incomplete, or unsupported reconciliation FAILS CLOSED / halts the affected integration path. No automatic external/live recovery is authorized; no submission retry may execute while reconnect/reconciliation safety is unresolved. ABSOLUTE PRECEDENCE: RECONNECT/RECONCILIATION SAFETY > RETRY LOGIC.
 
 ### 127.11 PaperReconciliationEngine Separation (APPROVED; binding boundary)
 
@@ -10159,7 +10159,7 @@ PaperReconciliationEngine remains PAPER-SPECIFIC and is NOT converted into a liv
 
 ### 127.12 OD-9 — Determinism / Reproducibility Contract (APPROVED)
 
-MockBrokerAdapter MUST obey existing SentinelX reproducibility requirements: same canonical inputs + same scripted mock scenario + same event ordering + same canonical timestamps ⇒ same observable outputs and state transitions. Phase-7 mock correctness MUST NOT depend on uncontrolled randomness, system wall clock, random latency, nondeterministic thread scheduling, race-dependent correctness, or sleep()-based timing correctness. Timeouts, rate limits, disconnects, reconnects, duplicates, out-of-order events, and partial fragments must be driven by deterministic scripted scenarios. No probabilistic fault injection in Phase 7; any future probabilistic fault injection requires an explicit deterministic seed contract and owner approval.
+MockBrokerAdapter MUST obey existing AlgoFortis reproducibility requirements: same canonical inputs + same scripted mock scenario + same event ordering + same canonical timestamps ⇒ same observable outputs and state transitions. Phase-7 mock correctness MUST NOT depend on uncontrolled randomness, system wall clock, random latency, nondeterministic thread scheduling, race-dependent correctness, or sleep()-based timing correctness. Timeouts, rate limits, disconnects, reconnects, duplicates, out-of-order events, and partial fragments must be driven by deterministic scripted scenarios. No probabilistic fault injection in Phase 7; any future probabilistic fault injection requires an explicit deterministic seed contract and owner approval.
 
 ### 127.13 Audit / Logging and Persistence Boundaries (binding)
 
@@ -10261,7 +10261,7 @@ Restart sequence: load global safety state (already durable under existing safet
 
 ### 128.9 Existing paper_metadata Reuse + Canonical Structured Serialization (binding)
 
-Per-strategy durable halt state uses the EXISTING `paper_metadata` key/value facility: NO new table, NO new column, NO SCHEMA_VERSION change, NO migration. Contract version concept: `halt_contract_version = sentinelx-halt-state/v1`. State concept: `halted_strategy_owners` as canonical deterministic structured serialization of owner records conceptually equivalent to `[{"strategy_id": "...", "strategy_version": "..."}]` with deterministic lexical canonical ordering. Ambiguous colon-concatenated strings such as `strategy_id:strategy_version` are PROHIBITED. The repository's existing canonical codec OWNS serialization where one exists; no arbitrary JSON encoder is prescribed over it.
+Per-strategy durable halt state uses the EXISTING `paper_metadata` key/value facility: NO new table, NO new column, NO SCHEMA_VERSION change, NO migration. Contract version concept: `halt_contract_version = algofortis-halt-state/v1`. State concept: `halted_strategy_owners` as canonical deterministic structured serialization of owner records conceptually equivalent to `[{"strategy_id": "...", "strategy_version": "..."}]` with deterministic lexical canonical ordering. Ambiguous colon-concatenated strings such as `strategy_id:strategy_version` are PROHIBITED. The repository's existing canonical codec OWNS serialization where one exists; no arbitrary JSON encoder is prescribed over it.
 
 ### 128.10 Halt Persistence Authority Semantics (binding)
 
@@ -10273,7 +10273,7 @@ The EXISTING `heartbeat_timeout_seconds` config key is reused; NO second timeout
 
 ### 128.12 OD-8 — Protective Inconsistency Scope Model (APPROVED)
 
-If a protective invariant failure is clearly attributable to ONE strategy and does NOT create broader accounting/integrity ambiguity ⇒ halt the affected strategy, emit safety evidence, require explicit human resume for that strategy. If ownership is ambiguous OR integrity/accounting safety cannot be proven ⇒ GLOBAL fail closed / kill switch. Protective logic remains SentinelX-side; no broker-native protection authority.
+If a protective invariant failure is clearly attributable to ONE strategy and does NOT create broader accounting/integrity ambiguity ⇒ halt the affected strategy, emit safety evidence, require explicit human resume for that strategy. If ownership is ambiguous OR integrity/accounting safety cannot be proven ⇒ GLOBAL fail closed / kill switch. Protective logic remains AlgoFortis-side; no broker-native protection authority.
 
 ### 128.13 OD-9 — Alert Transport Scope: Local/Mock Contract Now; Network Transports Deferred (APPROVED)
 
@@ -10322,7 +10322,7 @@ None. §128 alters no prior owner ruling; §1–§127 remain in force unchanged 
 `UNIVERSAL_AFFECTED_SCOPE_MANUAL_RESUME`
 `UNIFIED_GLOBAL_MANUAL_REVIEW_GATE`
 `PER_STRATEGY_HALT_LATCH_DURABLE`
-`HALT_CONTRACT_VERSION: sentinelx-halt-state/v1`
+`HALT_CONTRACT_VERSION: algofortis-halt-state/v1`
 `STRATEGY_HALT_MODULE_STATE_EPHEMERAL`
 `HEARTBEAT_TIMEOUT_SECONDS_REUSED_NO_DEFAULT`
 `MOCK_LOCAL_ALERT_TRANSPORT_ONLY`
@@ -10355,7 +10355,7 @@ SOURCE ACQUISITION
         ↓
 data/incoming/
         ↓
-existing SentinelX importer/orchestrator
+existing AlgoFortis importer/orchestrator
         ↓
 existing cleaning/validation
         ↓
@@ -10368,7 +10368,7 @@ Existing authorities remain authoritative for: discovery (`importer_discovery.py
 
 ### 129.2 OD-A — External Data Acquisition Authorization: Engineering Compliance Risk, FAIL CLOSED (APPROVED)
 
-SentinelX does NOT make a legal determination about NSE licensing or Terms of Use. The identified terms/licensing issue is treated strictly as an **engineering compliance risk**. Therefore SentinelX MUST **FAIL CLOSED**: until (a) written authorization, (b) an applicable licensed-data arrangement, or (c) another owner-approved legally permitted source is independently confirmed, SentinelX MUST NOT perform programmatic network acquisition from NSE. This is risk-control architecture, NOT legal advice. Before production/commercial use that relies on automated NSE data acquisition, applicable permissions/licensing must be independently verified. Network scheduling remains unauthorized until OD-A is superseded by a new explicit owner ruling (see §129.10).
+AlgoFortis does NOT make a legal determination about NSE licensing or Terms of Use. The identified terms/licensing issue is treated strictly as an **engineering compliance risk**. Therefore AlgoFortis MUST **FAIL CLOSED**: until (a) written authorization, (b) an applicable licensed-data arrangement, or (c) another owner-approved legally permitted source is independently confirmed, AlgoFortis MUST NOT perform programmatic network acquisition from NSE. This is risk-control architecture, NOT legal advice. Before production/commercial use that relies on automated NSE data acquisition, applicable permissions/licensing must be independently verified. Network scheduling remains unauthorized until OD-A is superseded by a new explicit owner ruling (see §129.10).
 
 ### 129.3 Manual Download vs Programmatic Fetch Boundary (binding)
 
@@ -10381,14 +10381,14 @@ human opens official NSE site
 → human downloads file
 → file saved locally
 → file placed into data/incoming/
-→ SentinelX automatically processes LOCAL file only
+→ AlgoFortis automatically processes LOCAL file only
 ```
 
 NOT authorized: a human running a Python downloader; a PowerShell downloader; a program that sends NSE HTTP requests; browser automation; CLI fetchers; HTTP clients; scheduled tasks; cron jobs; bots; scrapers; programmatic download scripts. **A human manually launching software that itself fetches the file is STILL programmatic acquisition.** The authorization boundary is based on WHO/WHAT PERFORMS THE FETCH, not merely who initiates execution.
 
 ### 129.4 Future Network Adapter — Dormant, Disabled By Default (binding)
 
-Any future network-acquisition adapter MUST remain DISABLED BY DEFAULT and MUST be unreachable from normal SentinelX runtime configuration until a NEW explicit owner ruling authorizes the source. Enabling a network source requires recorded evidence of authorization such as applicable written permission, an approved licensed-data-provider arrangement, or another independently verified lawful source arrangement. The following are NOT sufficient authorization: code exists; tests pass; endpoint works; public URL exists; operator manually clicks "run". An unsupported or unauthorized source FAILS CLOSED **BEFORE ANY OUTBOUND NETWORK REQUEST**.
+Any future network-acquisition adapter MUST remain DISABLED BY DEFAULT and MUST be unreachable from normal AlgoFortis runtime configuration until a NEW explicit owner ruling authorizes the source. Enabling a network source requires recorded evidence of authorization such as applicable written permission, an approved licensed-data-provider arrangement, or another independently verified lawful source arrangement. The following are NOT sufficient authorization: code exists; tests pass; endpoint works; public URL exists; operator manually clicks "run". An unsupported or unauthorized source FAILS CLOSED **BEFORE ANY OUTBOUND NETWORK REQUEST**.
 
 ### 129.5 OD-B — EOD First (APPROVED)
 
@@ -10404,11 +10404,11 @@ Future authorized acquisition preference is HYBRID. Primary: the daily complete 
 
 ### 129.8 OD-E — Data Root Policy (APPROVED)
 
-The current operational root remains the existing repository `data/` root. Data MUST NOT be moved during Slice 0. Future architecture MUST allow a configurable external data root (e.g. `D:\SentinelXData` or VPS persistent storage). Because existing code retains `Path("data")` assumptions (e.g. `CANONICAL_STORAGE_ROOT`, `IMPORT_REPORT_ROOT`, `HistoricalDataFeed` legacy paths), relocation implementation is DEFERRED to a later Phase-8.5 slice. No config change now.
+The current operational root remains the existing repository `data/` root. Data MUST NOT be moved during Slice 0. Future architecture MUST allow a configurable external data root (e.g. `D:\AlgoFortisData` or VPS persistent storage). Because existing code retains `Path("data")` assumptions (e.g. `CANONICAL_STORAGE_ROOT`, `IMPORT_REPORT_ROOT`, `HistoricalDataFeed` legacy paths), relocation implementation is DEFERRED to a later Phase-8.5 slice. No config change now.
 
 ### 129.9 OD-F — Raw Source Evidence Immutability (APPROVED)
 
-Original downloaded/source file bytes are IMMUTABLE EVIDENCE. For manually acquired files: original file → preserved unchanged. Original source bytes are NEVER rewritten during normalization. Normalized canonical data remains separately produced by the existing SentinelX ingestion/storage authority (§129.1). V1 retention rule: preserve original source evidence. Compression optimization may occur later ONLY without destroying source provenance.
+Original downloaded/source file bytes are IMMUTABLE EVIDENCE. For manually acquired files: original file → preserved unchanged. Original source bytes are NEVER rewritten during normalization. Normalized canonical data remains separately produced by the existing AlgoFortis ingestion/storage authority (§129.1). V1 retention rule: preserve original source evidence. Compression optimization may occur later ONLY without destroying source provenance.
 
 ### 129.10 OD-G — Update Schedule Boundary (APPROVED)
 
@@ -10465,7 +10465,7 @@ Historical acquisition remains SEPARATE from live-feed authority. Do NOT contami
 
 ### 129.21 Backtest Compatibility (binding)
 
-The acquisition layer adapts source data TO existing SentinelX canonical contracts. BacktestEngine, HistoricalDataFeed, HistoricalReplayFeed, the Option catalog, and canonical OHLC contracts are NOT redesigned merely because NSE raw schemas differ.
+The acquisition layer adapts source data TO existing AlgoFortis canonical contracts. BacktestEngine, HistoricalDataFeed, HistoricalReplayFeed, the Option catalog, and canonical OHLC contracts are NOT redesigned merely because NSE raw schemas differ.
 
 ### 129.22 Schema / Config Verdict (binding)
 
@@ -10585,13 +10585,13 @@ Verified actual coordinator bridge paths include:
 
 The independent audit concluded: **M1–M11 STRUCTURAL MIGRATION: PASS**.
 
-No migration-introduced business-logic regression was identified. The physical structure established at `01a9fc6` (Finalize SentinelX physical project structure) remains accepted/frozen. The Phase-8 safety defects were PRE-EXISTING and were not introduced by the M1–M11 structural migration.
+No migration-introduced business-logic regression was identified. The physical structure established at `01a9fc6` (Finalize AlgoFortis physical project structure) remains accepted/frozen. The Phase-8 safety defects were PRE-EXISTING and were not introduced by the M1–M11 structural migration.
 
 ### 130.6 Current Blocker Status
 
 **No known open P0/P1 findings from the completed independent audit.**
 
-This does not claim that SentinelX can never contain undiscovered defects.
+This does not claim that AlgoFortis can never contain undiscovered defects.
 
 ### 130.7 Next Owner-Approved Work
 
@@ -10599,7 +10599,7 @@ Phase 8.5 implementation may now begin from the already-frozen Phase 8.5 Slice 0
 
 ### 130.8 Repair Scope Constraints
 
-- This recording step changed: `BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md` (this section), `SENTINELX_PROGRESS.md`.
+- This recording step changed: `BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md` (this section), `ALGOFORTIS_PROGRESS.md`.
 - No production code, tests, configuration, schema, or persistence files were changed.
 - No Phase 8.5 implementation files were created or modified.
 - No commit was performed; changes left uncommitted for owner review.
@@ -10644,17 +10644,17 @@ Current active operating mode remains **SINGLE OWNER / ADMIN ONLY**. The archite
 The earlier Streamlit production-dashboard requirements — `requirements-freeze-125.md` Q70 ("Real-time dashboard: 🔒 Yes, Streamlit, as established") and Q94–100 (freeze-doc "Phase 10 – UI" dashboard feature set: "Streamlit, as decided") — and the `PROJECT_STRUCTURE.md` `dashboard/` entry marked "Phase 10 — not built yet, Streamlit" — are **EXPLICITLY SUPERSEDED** (named supersession, not silent replacement). Phase 10 – UI Q101 (single-admin username/password login, the historical freeze-doc authentication item — not the separate Phase 11 Deployment Q101) is likewise superseded by P9-OD1 in §131.3.
 
 **AUTHORITATIVE PHASE 9 PRODUCTION STACK:**
-- **Backend:** FastAPI (Python), a controlled API/service boundary over existing SentinelX authorities. REST where appropriate; WebSocket/event streaming where appropriate.
+- **Backend:** FastAPI (Python), a controlled API/service boundary over existing AlgoFortis authorities. REST where appropriate; WebSocket/event streaming where appropriate.
 - **Frontend:** React + TypeScript + Vite.
-- **UI/component/styling ecosystem:** may use suitable open-source dependencies (e.g. Tailwind/shadcn-style components and appropriate charting libraries). Exact dependency versions must be selected and frozen during implementation without destabilizing the existing SentinelX runtime.
+- **UI/component/styling ecosystem:** may use suitable open-source dependencies (e.g. Tailwind/shadcn-style components and appropriate charting libraries). Exact dependency versions must be selected and frozen during implementation without destabilizing the existing AlgoFortis runtime.
 - **Streamlit:** remains usable only for optional/internal diagnostic prototypes if ever separately authorized. It is NOT the authoritative Phase 9 production control-center framework.
-- **Dependency isolation:** dashboard dependencies remain isolated from the core SentinelX runtime where necessary to preserve the frozen core dependency closure.
+- **Dependency isolation:** dashboard dependencies remain isolated from the core AlgoFortis runtime where necessary to preserve the frozen core dependency closure.
 
 ### 131.2 General Dashboard Control-Center Principle (APPROVED)
 
-The Phase 9 dashboard is the primary governed user-facing **control center** for SentinelX — **not** merely a reporting/charting interface. Every existing SentinelX capability that is meaningfully user-facing must have an appropriate dashboard surface unless an explicit safety/security reason requires it to remain CLI-only or backend-only.
+The Phase 9 dashboard is the primary governed user-facing **control center** for AlgoFortis — **not** merely a reporting/charting interface. Every existing AlgoFortis capability that is meaningfully user-facing must have an appropriate dashboard surface unless an explicit safety/security reason requires it to remain CLI-only or backend-only.
 
-The dashboard **exposes existing authorities**; it must **NOT create competing authorities**. It must NOT become: a second risk engine, a second strategy engine, a second persistence authority, a second audit authority, a second historical-data authority, or an unrestricted execution authority. Existing SentinelX backend authorities remain authoritative.
+The dashboard **exposes existing authorities**; it must **NOT create competing authorities**. It must NOT become: a second risk engine, a second strategy engine, a second persistence authority, a second audit authority, a second historical-data authority, or an unrestricted execution authority. Existing AlgoFortis backend authorities remain authoritative.
 
 ### 131.3 P9-OD1 — Strong Authentication (APPROVED)
 
@@ -10672,28 +10672,28 @@ The dashboard **exposes existing authorities**; it must **NOT create competing a
 
 ### 131.5 P9-OD3 — Break-Glass Is Access Recovery, Not Safety Bypass (APPROVED)
 
-Break-glass exists only to restore administrative access. It must **NEVER** bypass: risk controls, safety gates, persistence safety, fail-closed state, manual-resume requirements, execution restrictions, or recovery semantics. Break-glass restores **ACCESS**, not unrestricted SentinelX authority.
+Break-glass exists only to restore administrative access. It must **NEVER** bypass: risk controls, safety gates, persistence safety, fail-closed state, manual-resume requirements, execution restrictions, or recovery semantics. Break-glass restores **ACCESS**, not unrestricted AlgoFortis authority.
 
 ### 131.6 P9-OD4 — Safety Semantics Survive Every Access Path (APPROVED)
 
-Normal access, VPN access, recovery access, and break-glass access must obey the same existing SentinelX safety rules. No alternate access path may create auto-resume, risk bypass, safety bypass, persistence bypass, or execution bypass. Existing manual-resume and fail-closed semantics remain authoritative.
+Normal access, VPN access, recovery access, and break-glass access must obey the same existing AlgoFortis safety rules. No alternate access path may create auto-resume, risk bypass, safety bypass, persistence bypass, or execution bypass. Existing manual-resume and fail-closed semantics remain authoritative.
 
 ### 131.7 P9-OD5 / P9-OD6 — Security Recovery / Audit Authority (APPROVED)
 
 Security-sensitive actions must be attributable, timestamped, auditable, and reviewable. This applies to: authentication recovery, authenticator enrollment/replacement, device recovery, break-glass use, security-setting changes, and other privileged recovery actions.
 
-Recovery must not erase evidence, silently reset safety state, weaken risk controls, silently replace an existing authority, or create an invisible backdoor. Existing SentinelX audit/safety authorities remain authoritative.
+Recovery must not erase evidence, silently reset safety state, weaken risk controls, silently replace an existing authority, or create an invisible backdoor. Existing AlgoFortis audit/safety authorities remain authoritative.
 
 ### 131.8 Advanced Security / Safety Design (APPROVED)
 
 - **mTLS** is an additional device/channel identity layer for NORMAL administrative access. Conceptual layers: VPN/overlay = private network boundary; mTLS = device/channel identity; FIDO2 = operator/human authentication. mTLS must NOT become a mandatory dependency of the independent break-glass route when that would place break-glass in the same normal-access failure chain.
 - **FIDO2 device/authenticator attestation:** the architecture must support policy-driven authenticator attestation where compatible. Do not assume all passkey authenticators provide identical attestation. The exact mandatory/optional hardware policy must preserve interoperability and security and must not silently weaken P9-OD1.
 - **Deterministic session-risk / step-up policy:** use explicit deterministic security rules, not opaque ML scoring. Possible signals: unknown device, unexpected certificate, unexpected authenticator, changed access route, abnormal session condition, repeated auth failures, break-glass usage. Conceptual decisions: `NORMAL`, `STEP_UP_REQUIRED`, `DENY_OR_REVIEW`.
-- **Dashboard-originated security evidence:** support tamper-evident / hash-chain-style evidence where appropriate, subordinate and cross-linked to the existing authoritative SentinelX audit system. Never create a second competing audit truth.
+- **Dashboard-originated security evidence:** support tamper-evident / hash-chain-style evidence where appropriate, subordinate and cross-linked to the existing authoritative AlgoFortis audit system. Never create a second competing audit truth.
 
 ### 131.9 Global Dashboard Safe Mode (APPROVED)
 
-Phase 9 includes a global dashboard **SAFE MODE**: freeze dashboard-originated mutable operations during security/incident review without necessarily shutting down the SentinelX engine. Safe mode allows monitoring, audit review, historical inspection, and reports/state inspection. Safe mode blocks dashboard-originated settings writes, configuration mutation, and other mutable control actions. Safe mode is **NOT** a risk bypass, a safety bypass, or an auto-resume mechanism.
+Phase 9 includes a global dashboard **SAFE MODE**: freeze dashboard-originated mutable operations during security/incident review without necessarily shutting down the AlgoFortis engine. Safe mode allows monitoring, audit review, historical inspection, and reports/state inspection. Safe mode blocks dashboard-originated settings writes, configuration mutation, and other mutable control actions. Safe mode is **NOT** a risk bypass, a safety bypass, or an auto-resume mechanism.
 
 ### 131.10 Settings Governance (APPROVED)
 
@@ -10705,9 +10705,9 @@ Important widgets must expose authoritative freshness information: `FRESH`, `STA
 
 ### 131.12 Strategy Plugin Architecture (APPROVED)
 
-The dashboard exposes SentinelX's existing strategy-pluggable architecture. Required user-facing flow: **Strategies → + Add Strategy → Python strategy/plugin submission → safety/static validation → strategy interface/contract conformance → BACKTEST → results/evidence → PAPER eligibility promotion → paper results/evidence → LIVE eligibility promotion.**
+The dashboard exposes AlgoFortis's existing strategy-pluggable architecture. Required user-facing flow: **Strategies → + Add Strategy → Python strategy/plugin submission → safety/static validation → strategy interface/contract conformance → BACKTEST → results/evidence → PAPER eligibility promotion → paper results/evidence → LIVE eligibility promotion.**
 
-A new strategy must NOT require rewriting the engine. Strategy code must follow the authoritative strategy interface/ABC and existing SentinelX contracts. Strategy code must NOT receive direct unrestricted authority over broker execution, the risk engine, persistence, audit, or unrelated filesystem/system capabilities. Dangerous/banned imports or calls must be rejected according to the eventual frozen sandbox/static-validation policy.
+A new strategy must NOT require rewriting the engine. Strategy code must follow the authoritative strategy interface/ABC and existing AlgoFortis contracts. Strategy code must NOT receive direct unrestricted authority over broker execution, the risk engine, persistence, audit, or unrelated filesystem/system capabilities. Dangerous/banned imports or calls must be rejected according to the eventual frozen sandbox/static-validation policy.
 
 ### 131.13 Backtest / Paper / Live Staged Eligibility (APPROVED)
 
@@ -10735,7 +10735,7 @@ Grades: 90–100 Exceptional; 80–89 Strong; 70–79 Good; 60–69 Moderate; <6
 
 Architecture contains two roles: **OWNER** and **USER**. Current runtime/launch mode remains OWNER-only.
 
-- **OWNER:** system-wide administrative visibility; users list; user strategies; backtests; paper evidence; performance; account suspend/disable; strategy quarantine; system-wide governed settings; system/security/audit review. OWNER still cannot bypass existing SentinelX risk/safety/audit rules.
+- **OWNER:** system-wide administrative visibility; users list; user strategies; backtests; paper evidence; performance; account suspend/disable; strategy quarantine; system-wide governed settings; system/security/audit review. OWNER still cannot bypass existing AlgoFortis risk/safety/audit rules.
 - **USER:** only own permitted dashboard/data; own strategies; own backtests; own paper/live-eligibility records; own performance; own allowed settings; own security/activity history. User-A must NEVER access User-B's private domain. Owner must never receive plaintext user passwords/private keys/secrets.
 - Future roles such as Support/Analyst may have extension points but must NOT be implemented now.
 
@@ -10777,7 +10777,7 @@ Any frozen P9 owner decision may be changed only by an explicit later OWNER ruli
 
 No implementation is authorized by this freeze. Correct sequence after this docs-only freeze: 1. Phase 9 docs/ADR freeze; 2. independent read-only audit (another agent, e.g. Ox Alpha); 3. OWNER review; 4. explicit implementation authorization; 5. Codex implementation in controlled slices; 6. targeted tests per slice; 7. full regression/security audit; 8. Phase 9 final closure.
 
-**Recorded Phase 9 implementation technology target (for future implementation):** Frontend React + TypeScript + Vite; Backend/API boundary FastAPI; Communication REST and/or WebSocket per authoritative use case. Existing SentinelX engine/services remain backend authority. The implementation agent will install/select required open-source packages from normal package registries. No Hugging Face or external AI model is required merely to implement the Phase 9 dashboard.
+**Recorded Phase 9 implementation technology target (for future implementation):** Frontend React + TypeScript + Vite; Backend/API boundary FastAPI; Communication REST and/or WebSocket per authoritative use case. Existing AlgoFortis engine/services remain backend authority. The implementation agent will install/select required open-source packages from normal package registries. No Hugging Face or external AI model is required merely to implement the Phase 9 dashboard.
 
 ### 131.27 Supersession Register
 
@@ -10823,15 +10823,15 @@ The Phase 9 dashboard **MUST** include a professional, trading-terminal-style in
 **Required capabilities:**
 
 1. **Price visualization.** Candlestick / OHLC market visualization with clear price and time axes, professional trading-terminal visual quality, and smooth desktop-grade interaction.
-2. **Timeframe selection.** The user must be able to switch among SentinelX-supported timeframes. Timeframe availability must come from authoritative SentinelX data capability/configuration, not from invented UI-only values.
-3. **Live data view.** Where authoritative SentinelX live market data exists, the chart must update from that existing authoritative data path. It must **NOT** create a separate live market-data source or authority.
+2. **Timeframe selection.** The user must be able to switch among AlgoFortis-supported timeframes. Timeframe availability must come from authoritative AlgoFortis data capability/configuration, not from invented UI-only values.
+3. **Live data view.** Where authoritative AlgoFortis live market data exists, the chart must update from that existing authoritative data path. It must **NOT** create a separate live market-data source or authority.
 4. **Historical / backtest view.** The same chart surface must be usable for supported historical and backtest inspection. Historical/backtest state must be clearly distinguishable from current/live state.
 5. **Live vs. historical trust semantics.** LIVE/current and FROZEN HISTORICAL/BACKTEST views must be visibly distinct. §131.11 FRESH / STALE / UNKNOWN and authoritative "as-of" semantics apply. Historical state must use the §131.11 **FROZEN HISTORICAL VIEW** principle where applicable. STALE/UNKNOWN must never appear as authoritative live data.
 6. **Volume.** Display volume when the authoritative source data contains valid volume evidence. Missing volume must never be fabricated.
-7. **Strategy signal / trade markers.** Where authoritative evidence exists, the chart should display relevant strategy signals, entries, exits, and trade markers. Markers must derive from existing SentinelX strategy/backtest/paper/live records, never reconstructed or invented independently by the frontend.
+7. **Strategy signal / trade markers.** Where authoritative evidence exists, the chart should display relevant strategy signals, entries, exits, and trade markers. Markers must derive from existing AlgoFortis strategy/backtest/paper/live records, never reconstructed or invented independently by the frontend.
 8. **Protective overlays.** Where authoritative evidence exists, display relevant stop-loss, target, and trailing/protective state. The chart is visualization only; it must not calculate or become a second protective-policy/risk authority.
-9. **Strategy / backtest analysis (MANDATORY).** The chart MUST support visual strategy/backtest analysis, including reviewing where authoritative strategy signals, entries, exits, trades, and supported protective overlays occurred against historical market data. This remains visualization over authoritative SentinelX records; it must NOT become a second strategy/backtest/risk/protective authority. The existing Backtest Engine remains the authoritative computation engine.
-10. **Dashboard authority boundary.** The chart consumes existing SentinelX data/state and MUST NOT become a market-data, strategy, backtest, risk, protective-policy, execution, or audit authority (per §131.2 the dashboard exposes existing authorities and creates no competing authority).
+9. **Strategy / backtest analysis (MANDATORY).** The chart MUST support visual strategy/backtest analysis, including reviewing where authoritative strategy signals, entries, exits, trades, and supported protective overlays occurred against historical market data. This remains visualization over authoritative AlgoFortis records; it must NOT become a second strategy/backtest/risk/protective authority. The existing Backtest Engine remains the authoritative computation engine.
+10. **Dashboard authority boundary.** The chart consumes existing AlgoFortis data/state and MUST NOT become a market-data, strategy, backtest, risk, protective-policy, execution, or audit authority (per §131.2 the dashboard exposes existing authorities and creates no competing authority).
 11. **Fail-closed display.** Missing, stale, corrupt, unavailable, or unknown data must be represented honestly (consistent with §131.24 fail-closed UI). The frontend must never fabricate candles, signals, trade states, SL, targets, volume, or confidence.
 12. **No external TradingView dependency requirement.** "TradingView-style" refers to professional interaction/design quality. Phase 9 does NOT require TradingView Desktop, TradingView MCP, or proprietary TradingView services. Any eventual chart library must be chosen separately during implementation under the frozen dependency/security boundaries (§131.1, §131.26).
 13. **Responsive / professional UX.** Primary target is a professional desktop trading control-center. The chart must remain usable on smaller supported displays without corrupting or hiding critical safety/freshness. No generic low-information admin-template chart satisfies this requirement.
@@ -10842,20 +10842,20 @@ The Phase 9 dashboard **MUST** include a professional, trading-terminal-style in
 
 **Authoritative markers:** `P9_MARKET_CHART_TRADING_TERMINAL_IS_MANDATORY` · `TRADINGVIEW_STYLE_IS_UX_NOT_DEPENDENCY` · `NO_TRADINGVIEW_DESKTOP_MCP_OR_PROPRIETARY_API_DEPENDENCY` · `CHART_CONSUMES_EXISTING_AUTHORITY_NOT_A_SECOND_DATA_SOURCE` · `CHART_NEVER_FABRICATES_DATA_OR_STATE`
 
-### 131.30 First-Party Multi-Surface SentinelX (APPROVED)
+### 131.30 First-Party Multi-Surface AlgoFortis (APPROVED)
 
 **Date:** 2026-08-26. Additive owner decision to §131. All prior §131 decisions and P9-OD1 … P9-OD6 remain in force, unchanged. Docs-only; no implementation started by this recording step.
 
-SentinelX must be designed and delivered as a **first-party product** on its own owned/branded surfaces. These are distinct user-facing presentation/control surfaces, not independent products or engines:
+AlgoFortis must be designed and delivered as a **first-party product** on its own owned/branded surfaces. These are distinct user-facing presentation/control surfaces, not independent products or engines:
 
-1. **Public first-party website.** A SentinelX-branded public information site (`sentinelx.com` or an owner-selected SentinelX domain) providing product information, documentation, posts/updates, and an entry/link into the secure application.
-2. **First-party web application.** A web-based SentinelX Control Center (e.g. `app.sentinelx.com`) implementing the full governed Phase 9 dashboard capabilities: strategies, backtests, paper state, the professional market chart (§131.29), and portfolio/data/audit/settings/security surfaces.
-3. **First-party desktop application.** A SentinelX-branded desktop application that requires no third-party-branded control panel for normal use. It must consume the same authoritative SentinelX services/contracts as web/mobile. Final installer/release packaging may remain in the later owner-designated packaging phase.
-4. **First-party mobile application.** A SentinelX-branded mobile application. The architecture must support a mobile surface from Phase 9 onward. Mobile permissions/actions remain governed by the same security, risk, safety, and authorization rules as every other surface. Current operation remains OWNER-only until multi-user launch is separately authorized.
+1. **Public first-party website.** A AlgoFortis-branded public information site (`algofortis.com` or an owner-selected AlgoFortis domain) providing product information, documentation, posts/updates, and an entry/link into the secure application.
+2. **First-party web application.** A web-based AlgoFortis Control Center (e.g. `app.algofortis.com`) implementing the full governed Phase 9 dashboard capabilities: strategies, backtests, paper state, the professional market chart (§131.29), and portfolio/data/audit/settings/security surfaces.
+3. **First-party desktop application.** A AlgoFortis-branded desktop application that requires no third-party-branded control panel for normal use. It must consume the same authoritative AlgoFortis services/contracts as web/mobile. Final installer/release packaging may remain in the later owner-designated packaging phase.
+4. **First-party mobile application.** A AlgoFortis-branded mobile application. The architecture must support a mobile surface from Phase 9 onward. Mobile permissions/actions remain governed by the same security, risk, safety, and authorization rules as every other surface. Current operation remains OWNER-only until multi-user launch is separately authorized.
 
-**CRITICAL ARCHITECTURE RULE:** Do NOT build four independent SentinelX engines. Use **ONE authoritative SentinelX backend/domain architecture**. Web, Desktop, and Mobile are first-party client/control surfaces over the same authoritative SentinelX contracts. They must not duplicate: risk authority, strategy authority, backtest authority, persistence authority, historical/live market-data authority, protective-policy authority, audit authority, or unrestricted execution authority. Shared frontend/domain components should be reused wherever technically safe and appropriate instead of rewriting the same product independently for each surface.
+**CRITICAL ARCHITECTURE RULE:** Do NOT build four independent AlgoFortis engines. Use **ONE authoritative AlgoFortis backend/domain architecture**. Web, Desktop, and Mobile are first-party client/control surfaces over the same authoritative AlgoFortis contracts. They must not duplicate: risk authority, strategy authority, backtest authority, persistence authority, historical/live market-data authority, protective-policy authority, audit authority, or unrestricted execution authority. Shared frontend/domain components should be reused wherever technically safe and appropriate instead of rewriting the same product independently for each surface.
 
-**"Everything first-party"** means the final user-facing SentinelX product, branding, domain, and control surfaces belong to SentinelX. It does NOT mean rewriting operating systems, browsers, frameworks, or every open-source library from scratch; open-source/internal implementation dependencies are allowed. TradingView Desktop/MCP remains unnecessary (§131.29.12).
+**"Everything first-party"** means the final user-facing AlgoFortis product, branding, domain, and control surfaces belong to AlgoFortis. It does NOT mean rewriting operating systems, browsers, frameworks, or every open-source library from scratch; open-source/internal implementation dependencies are allowed. TradingView Desktop/MCP remains unnecessary (§131.29.12).
 
 **Deployment boundary preserved:** Current active use remains **SINGLE OWNER / PRIVATE USE**. A public first-party website may exist as a public information surface, but normal USER onboarding, customer accounts, billing/subscriptions, and commercial multi-user launch remain **unauthorized** until a separate future OWNER decision (§131.0/§131.21).
 
@@ -10865,8 +10865,8 @@ SentinelX must be designed and delivered as a **first-party product** on its own
 
 ### 131.31 Phase 9 Security / Identity Store and WebAuthn Production Identities (APPROVED)
 
-**Date:** 2026-08-27. Additive owner decision. The normal production WebAuthn RP ID is `sentinelx.com` with the sole application origin `https://app.sentinelx.com`; the public information website is not a WebAuthn origin. The independent recovery RP ID is `sentinelx-recovery.com` with the sole recovery origin `https://access.sentinelx-recovery.com`. Recovery credentials are separately enrolled and the recovery path remains independent of normal VPN/mTLS. A development-only profile may use `localhost` and an explicitly configured `http://localhost:<port>` origin; it is never accepted by production configuration.
+**Date:** 2026-08-27. Additive owner decision. The normal production WebAuthn RP ID is `algofortis.com` with the sole application origin `https://app.algofortis.com`; the public information website is not a WebAuthn origin. The independent recovery RP ID is `algofortis-recovery.com` with the sole recovery origin `https://access.algofortis-recovery.com`. Recovery credentials are separately enrolled and the recovery path remains independent of normal VPN/mTLS. A development-only profile may use `localhost` and an explicitly configured `http://localhost:<port>` origin; it is never accepted by production configuration.
 
-Owner authorizes the independent durable store `<configured_data_root>/security/sentinelx_security.sqlite3`, with `SECURITY_STORE_SCHEMA_VERSION = 1`, for users, WebAuthn credentials, one-time challenges, safe session verifier material, and authoritative core-audit references only. It is not a second audit authority. **Engine `SCHEMA_VERSION` remains exactly 7; `engine/persistence/schema.py` receives no Phase 9 security tables or migration.**
+Owner authorizes the independent durable store `<configured_data_root>/security/algofortis_security.sqlite3`, with `SECURITY_STORE_SCHEMA_VERSION = 1`, for users, WebAuthn credentials, one-time challenges, safe session verifier material, and authoritative core-audit references only. It is not a second audit authority. **Engine `SCHEMA_VERSION` remains exactly 7; `engine/persistence/schema.py` receives no Phase 9 security tables or migration.**
 
-**Authoritative markers:** `SENTINELX_FIRST_PARTY_PRODUCT_MULTI_SURFACE` · `PUBLIC_WEBSITE_MANDATORY` · `WEB_APP_MANDATORY` · `DESKTOP_APP_MANDATORY` · `MOBILE_APP_MANDATORY` · `ONE_AUTHORITATIVE_BACKEND_NOT_FOUR_ENGINES` · `SINGLE_OWNER_CURRENT_USE_PRESERVED` · `MULTI_USER_LAUNCH_REMAINS_UNAUTHORIZED` · `FINAL_PACKAGING_PHASE_REMAINS_SEPARATE`
+**Authoritative markers:** `ALGOFORTIS_FIRST_PARTY_PRODUCT_MULTI_SURFACE` · `PUBLIC_WEBSITE_MANDATORY` · `WEB_APP_MANDATORY` · `DESKTOP_APP_MANDATORY` · `MOBILE_APP_MANDATORY` · `ONE_AUTHORITATIVE_BACKEND_NOT_FOUR_ENGINES` · `SINGLE_OWNER_CURRENT_USE_PRESERVED` · `MULTI_USER_LAUNCH_REMAINS_UNAUTHORIZED` · `FINAL_PACKAGING_PHASE_REMAINS_SEPARATE`

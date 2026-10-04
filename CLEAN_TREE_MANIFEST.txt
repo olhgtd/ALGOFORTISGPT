@@ -1,5 +1,5 @@
 ===============================================================================
-SENTINELX CLEAN PRODUCT TREE MANIFEST
+ALGOFORTIS CLEAN PRODUCT TREE MANIFEST
 ===============================================================================
 Source: <LOCAL_SOURCE_REPO>
 Target: <LOCAL_CLEAN_TARGET>
@@ -21,7 +21,7 @@ RETAINED TOP-LEVEL ENTRIES:
   [FILE] requirements-runtime.in
   [FILE] requirements-runtime.lock.json
   [FILE] requirements-runtime.lock.txt
-  [FILE] START_SENTINELX.pyw
+  [FILE] START_ALGOFORTIS.pyw
   [DIR ] strategies
 
 TOTAL FILES: 287

@@ -21,7 +21,7 @@ Before distributing any installer or onboarding an external quantitative tester,
 3. **Database Health Verification:**
    Ensure local databases pass integrity checks:
    ```powershell
-   python -c "import sqlite3; c = sqlite3.connect(r'$env:LOCALAPPDATA\AlgoFortis\databases\security\sentinelx_security.sqlite3'); print(c.execute('PRAGMA integrity_check;').fetchall())"
+   python -c "import sqlite3; c = sqlite3.connect(r'$env:LOCALAPPDATA\AlgoFortis\databases\security\algofortis_security.sqlite3'); print(c.execute('PRAGMA integrity_check;').fetchall())"
    ```
 4. **Distribute Documentation Pack:**
    Provide the tester with:

@@ -86,7 +86,7 @@ def run_installed_app():
     assert exe_path.exists(), f"Installed launcher {exe_path} does not exist!"
     
     # Check that source repo is not on product PATH or PYTHONPATH
-    clean_env = {k: v for k, v in os.environ.items() if "SentinelX-CLEAN" not in v and "SentinelX_AWS_MIGRATION" not in v}
+    clean_env = {k: v for k, v in os.environ.items() if "AlgoFortis-CLEAN" not in v and "AlgoFortis_AWS_MIGRATION" not in v}
     clean_env.pop("PYTHONPATH", None)
 
     log("Launching installed application via AlgoFortis.exe...")
@@ -124,7 +124,7 @@ def run_installed_app():
     with opener.open(req_index) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html)
         assert "<title>AlgoFortis</title>" in html or "AlgoFortis" in html
         log("  PASS: Installed local-private frontend loaded cleanly from Program Files dist with AlgoFortis branding.")
 
@@ -166,8 +166,8 @@ def run_installed_app():
     # 3. Local-Private Data Root & Mutable Isolation (%LOCALAPPDATA%\AlgoFortis)
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
     assert localappdata.exists(), f"Local-private data root {localappdata} was not created!"
-    assert (localappdata / "databases" / "security" / "sentinelx_security.sqlite3").exists(), "Security database missing!"
-    assert (localappdata / "databases" / "governance" / "sentinelx_governance.sqlite3").exists(), "Governance database missing!"
+    assert (localappdata / "databases" / "security" / "algofortis_security.sqlite3").exists(), "Security database missing!"
+    assert (localappdata / "databases" / "governance" / "algofortis_governance.sqlite3").exists(), "Governance database missing!"
     assert (localappdata / "databases" / "core-audit.sqlite3").exists(), "Core audit database missing!"
     assert (localappdata / "config" / "runtime.json").exists(), "Runtime config missing!"
     assert (localappdata / "logs" / "backend.log").exists(), "Backend log missing!"
@@ -268,7 +268,7 @@ def run_installed_app():
     with opener.open(req_index_relaunch) as resp:
         assert resp.status == 200
         html = resp.read().decode("utf-8")
-        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="sentinelx-runtime" content="LOCAL_PRIVATE"' in html)
+        assert ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html) or ('name="algofortis-runtime" content="LOCAL_PRIVATE"' in html)
         log("  PASS: Relaunched frontend loaded cleanly from Program Files dist.")
 
     # Gracefully close reopened application; the window close path owns shutdown.
@@ -313,7 +313,7 @@ def run_uninstall_and_verify():
     # Verify user data in %LOCALAPPDATA%\AlgoFortis was NOT destroyed
     localappdata = Path(os.environ["LOCALAPPDATA"]) / "AlgoFortis"
     assert localappdata.exists(), "User data in LOCALAPPDATA was destroyed by uninstaller!"
-    assert (localappdata / "databases" / "security" / "sentinelx_security.sqlite3").exists(), "Security DB was deleted!"
+    assert (localappdata / "databases" / "security" / "algofortis_security.sqlite3").exists(), "Security DB was deleted!"
     assert (localappdata / "logs" / "backend.log").exists(), "Logs were deleted!"
     log("  PASS: User data and databases in LOCALAPPDATA preserved across uninstallation.")
 

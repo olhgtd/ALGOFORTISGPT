@@ -50,12 +50,12 @@ class ReportWriter:
     def default_filename(result: StructuredBacktestResult) -> str:
         payload = result.payload
         if result.result_kind is ResultKind.SUCCESS:
-            return f"sentinelx-report-success-{_short(payload.manifest_fingerprint)}-{_short(payload.result_fingerprint)}.json"
+            return f"algofortis-report-success-{_short(payload.manifest_fingerprint)}-{_short(payload.result_fingerprint)}.json"
         if result.result_kind is ResultKind.CATEGORY_A:
-            return f"sentinelx-report-category-a-{_short(payload.manifest_fingerprint)}-{_short(payload.failure_result_fingerprint)}.json"
+            return f"algofortis-report-category-a-{_short(payload.manifest_fingerprint)}-{_short(payload.failure_result_fingerprint)}.json"
         attempt = result.provenance.attempt_id
         suffix = attempt if attempt is not None and _SAFE_ATTEMPT.fullmatch(attempt) else _timestamp_token(result.report_generated_at)
-        return f"sentinelx-report-{result.result_kind.value.casefold()}-{suffix}.json"
+        return f"algofortis-report-{result.result_kind.value.casefold()}-{suffix}.json"
 
     @classmethod
     def publish(cls, result: StructuredBacktestResult, destination: str | Path, *, create_parents: bool = False) -> PublicationResult:
@@ -65,7 +65,7 @@ class ReportWriter:
         with cls._exclusive_claim(target):
             if target.exists():
                 return cls._existing(target, desired, result)
-            staging = target.parent / f".{target.name}.sentinelx-staging-{uuid4().hex}"
+            staging = target.parent / f".{target.name}.algofortis-staging-{uuid4().hex}"
             if target.exists():
                 return cls._existing(target, desired, result)
             try:
@@ -106,7 +106,7 @@ class ReportWriter:
                     pass
                 return False
 
-        return _Claim(target.parent / f".{target.name}.sentinelx-lock")
+        return _Claim(target.parent / f".{target.name}.algofortis-lock")
 
     @staticmethod
     def _destination(destination: str | Path, *, create_parents: bool) -> Path:

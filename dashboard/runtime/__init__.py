@@ -1,1 +1,1 @@
-"""Packaging-neutral local SentinelX runtime. No import-time startup."""
+"""Packaging-neutral local AlgoFortis runtime. No import-time startup."""

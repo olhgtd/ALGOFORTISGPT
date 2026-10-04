@@ -1,4 +1,4 @@
-"""Authoritative Backtest Service for SentinelX.
+"""Authoritative Backtest Service for AlgoFortis.
 
 Orchestrates the authoritative backtest pipeline:
 1. Validates caller and strategy governance in SQLiteSecurityStore (fail-closed HTTP 403 on suspension/hold)
@@ -231,7 +231,7 @@ class BacktestService:
             BarEvent(inst, row.timestamp, tf, row.open, row.high, row.low, row.close, row.volume, False, seq)
             for seq, row in enumerate(df.itertuples(index=False))
         )
-        mdp = MarketDataPolicy("data/v1", "normalization/v1", "sentinelx-backtest")
+        mdp = MarketDataPolicy("data/v1", "normalization/v1", "algofortis-backtest")
         stream_data = MarketDataStream(sk, bars, mdp)
         snapshot = MarketDataSnapshot(mdp, (stream_data,))
         events = tuple(BoundBarEvent(b, sk) for b in bars)

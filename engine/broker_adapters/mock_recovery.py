@@ -58,7 +58,7 @@ __all__ = [
 ]
 
 
-MOCK_RECONCILIATION_VERSION = "sentinelx-mock-reconciliation/v1"
+MOCK_RECONCILIATION_VERSION = "algofortis-mock-reconciliation/v1"
 
 
 class ReconciliationVerdict(str, Enum):
@@ -77,7 +77,7 @@ class ReconciliationVerdict(str, Enum):
 
 @dataclass(frozen=True)
 class ExpectedAdapterOrderState:
-    """SentinelX-owned expectation for one order at the adapter boundary."""
+    """AlgoFortis-owned expectation for one order at the adapter boundary."""
 
     order_id: str
     broker_order_identity: str
@@ -152,7 +152,7 @@ def reconcile(
     expected: ExpectedAdapterOrderState,
     adapter_snapshot: BrokerAdapterOrderSnapshot | None,
 ) -> ReconciliationResult:
-    """Compare SentinelX-owned expectations against the synchronous query view.
+    """Compare AlgoFortis-owned expectations against the synchronous query view.
 
     Deterministic rules:
 
@@ -378,7 +378,7 @@ class SubmissionRetrySupervisor:
     def register_logical_submission(self, entry_intent_identity: str) -> bool:
         """Register one logical submission; return False when already known.
 
-        The ``entry_intent_identity`` REMAINS the SentinelX-owned deterministic
+        The ``entry_intent_identity`` REMAINS the AlgoFortis-owned deterministic
         submission/dedup identity (§127.4 / OD-3).  This ledger is a mock-path
         convenience that reuses that identity verbatim; it never replaces the
         core or adapter dedup layers.

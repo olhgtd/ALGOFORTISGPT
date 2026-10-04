@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Owner Users & Service Entitlement Domain
+ * AlgoFortis Dashboard V3 — Owner Users & Service Entitlement Domain
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import type { AccessRecord, ServiceTermType, CustomServiceTerm, AccessStatus, ServiceEntitlementStatus, AccountAccessStatus } from "./access";

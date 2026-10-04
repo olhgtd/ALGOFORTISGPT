@@ -1,6 +1,6 @@
 import React from "react";
 
-/* SentinelX V3 icon set — 24px stroke grid, monochrome, no fills except dots. */
+/* AlgoFortis V3 icon set — 24px stroke grid, monochrome, no fills except dots. */
 
 export type IconName =
   | "home" | "layers" | "trade" | "plug" | "more" | "users" | "puzzle"

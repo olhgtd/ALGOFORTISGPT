@@ -37,7 +37,7 @@ IST: ZoneInfo = IST_CALENDAR
 
 _ZERO = Decimal("0")
 
-Q93_MONTHLY_SCHEMA_VERSION = "sentinelx-q93-monthly/v1"
+Q93_MONTHLY_SCHEMA_VERSION = "algofortis-q93-monthly/v1"
 
 _SAFE_SESSION_TOKEN = re.compile(r"[^A-Za-z0-9_-]")
 
@@ -341,10 +341,10 @@ def publish_q93_monthly_summary(
         raise Q93PublicationError("Q93 publication destination directory does not exist")
 
     session_token = _SAFE_SESSION_TOKEN.sub("_", paper_session_id)[:80]
-    target = directory / f"sentinelx-q93-{session_token}-{year:04d}-{month:02d}.json"
+    target = directory / f"algofortis-q93-{session_token}-{year:04d}-{month:02d}.json"
     desired_raw = _q93_document_bytes(rows, paper_session_id=paper_session_id, year=year, month=month)
 
-    lock = directory / f".{target.name}.sentinelx-lock"
+    lock = directory / f".{target.name}.algofortis-lock"
     for _attempt in range(500):
         try:
             handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -365,7 +365,7 @@ def publish_q93_monthly_summary(
                     "existing final report differs from recomputed content"
                 )
             return q93_publication_outcome_already_published()
-        staging = directory / f".{target.name}.sentinelx-staging-{uuid4().hex}"
+        staging = directory / f".{target.name}.algofortis-staging-{uuid4().hex}"
         try:
             with staging.open("xb") as stream:
                 stream.write(desired_raw)

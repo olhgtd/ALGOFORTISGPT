@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Strategy Domain State & Governance
+ * AlgoFortis Dashboard V3 — Strategy Domain State & Governance
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, prototypeFixtureStorage, safeGetJson, safeSetJson } from "../../shared/data/storage";

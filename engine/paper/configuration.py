@@ -193,7 +193,7 @@ class ResolvedPaperConfiguration:
     def configuration_identity(self) -> str:
         calendar_fp = self.calendar_snapshot.calendar_fingerprint if self.calendar_snapshot is not None else None
         return CanonicalCodec.fingerprint(
-            "sentinelx-resolved-paper-configuration/v1",
+            "algofortis-resolved-paper-configuration/v1",
             (
                 ("risk_policy", self.risk_policy_identity),
                 ("cost_profile", self.cost_profile_identity),
@@ -291,7 +291,7 @@ def _load_execution_policy(path: Path) -> tuple[PaperFillPolicy, str]:
         max_slippage_bps=maximum,
     )
     identity = CanonicalCodec.fingerprint(
-        "sentinelx-paper-execution-profile/v1",
+        "algofortis-paper-execution-profile/v1",
         (
             ("profile", profile), ("version", version), ("model_id", policy.slippage_model.model_id),
             ("max_execution_tolerance_bps", tolerance), ("max_slippage_bps", maximum),
@@ -318,7 +318,7 @@ def _research_zero_cost_profile(raw: Mapping[str, object]) -> tuple[tuple[CostSc
         component_rules=(),
     )
     identity = CanonicalCodec.fingerprint(
-        "sentinelx-paper-cost-profile/v1",
+        "algofortis-paper-cost-profile/v1",
         (("profile", profile), ("version", version), ("currency", currency), ("schedule", schedule.fingerprint)),
     )
     return (schedule,), identity

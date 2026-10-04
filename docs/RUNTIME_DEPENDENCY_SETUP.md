@@ -1,4 +1,4 @@
-# SentinelX runtime dependency setup
+# AlgoFortis runtime dependency setup
 
 Supported verification runtime: CPython 3.13.14.
 
@@ -33,9 +33,9 @@ it does not put the repository root on `sys.path` and ignores the subprocess
 The authoritative Phase 9 dashboard/control-surface contract (`BACKTEST_ENGINE_ARCHITECTURE_DECISIONS.md` §131)
 mandates that Phase 9 dashboard dependencies (FastAPI backend; React + TypeScript
 + Vite frontend; optional UI/charting libraries) remain **isolated from the frozen
-core SentinelX runtime dependency closure** where necessary. No Phase 9 dependency
+core AlgoFortis runtime dependency closure** where necessary. No Phase 9 dependency
 is added, installed, or declared by this docs-only task. The core runtime closure
 defined by `requirements-runtime.lock.txt` / `requirements-runtime.lock.json` is
 **unchanged**. Exact Phase 9 dependency versions must be selected and frozen during
 Phase 9 implementation (a `requirements-dashboard.txt` or equivalent will be created
-then, not now) without destabilizing the existing SentinelX runtime.
+then, not now) without destabilizing the existing AlgoFortis runtime.

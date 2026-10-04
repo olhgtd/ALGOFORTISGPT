@@ -65,7 +65,7 @@ This document catalogs every user-facing screen, route, sub-view, modal, and dra
 - **Purpose:** Central cryptographic authentication gate providing 4 primary entry ceremonies: Returning User (Passkey), First-Time Customer (Token Activation), Owner Bootstrap Setup, and Emergency Recovery.
 - **Entry Conditions:** Default application entrypoint when no authenticated session exists, or when user clicks "Exit / Lock Session".
 - **Layout Shell:**
-  - Centered Glassmorphic Security Card with animated AlgoFortis Shield logo canvas (`SentinelXCore`).
+  - Centered Glassmorphic Security Card with animated AlgoFortis Shield logo canvas (`AlgoFortisCore`).
   - Mode Switcher Tabs / Selector buttons.
   - Footer with "Return to Public Website" and platform status indicator.
 - **Sub-Flow 1: Returning User (`ReturningUserFlow`)**

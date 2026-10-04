@@ -144,7 +144,7 @@ def quote_payload_fingerprint(quote: QuoteSnapshot) -> str:
     if not isinstance(quote, QuoteSnapshot):
         raise TypeError("quote must be a QuoteSnapshot")
     return CanonicalCodec.fingerprint(
-        "sentinelx-quote-payload/v1",
+        "algofortis-quote-payload/v1",
         _canonical_quote_fields(quote),
     )
 
@@ -154,7 +154,7 @@ def deterministic_live_quote_event_id(quote: QuoteSnapshot) -> str:
     if not isinstance(quote, QuoteSnapshot):
         raise TypeError("quote must be a QuoteSnapshot")
     return CanonicalCodec.fingerprint(
-        "sentinelx-live-quote/v1",
+        "algofortis-live-quote/v1",
         _canonical_quote_fields(quote),
     )
 

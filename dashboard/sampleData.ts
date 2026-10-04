@@ -1,5 +1,5 @@
 /**
- * SentinelX Master Sample Data Barrel
+ * AlgoFortis Master Sample Data Barrel
  * Single canonical source uniting shared, user, and owner data models
  */
 export * from "./shared/data/index";

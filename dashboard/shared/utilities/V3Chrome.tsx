@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../icons/V3Icons";
 import type { Truth } from "../data";
 
-/* SentinelX Dashboard V3 — shared visual chrome.
+/* AlgoFortis Dashboard V3 — shared visual chrome.
    Every interactive control maps to one of the three truth states:
    REAL + WORKING | DEV PREVIEW / SAMPLE | DISABLED / UNAVAILABLE. */
 

@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Shared Cross-Workspace Domain Types & Fixtures
+ * AlgoFortis Dashboard V3 — Shared Cross-Workspace Domain Types & Fixtures
  */
 
 export type Truth = "REAL" | "SAMPLE" | "DISABLED";

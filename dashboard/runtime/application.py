@@ -46,19 +46,19 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
         raise RuntimeError("Built AlgoFortis frontend resources are unavailable")
     profile = paths.mode.value.lower()
     options = dict(profile=profile, data_root=paths.databases, windows_acl_validator=CurrentUserAcl())
-    security = SQLiteSecurityStore(paths.databases / "security" / "sentinelx_security.sqlite3", seed_governance=False, **options)
+    security = SQLiteSecurityStore(paths.databases / "security" / "algofortis_security.sqlite3", seed_governance=False, **options)
     # Legacy V1 local-private builds could persist OWNER activation_status as
     # ACTIVATED, which is not a current V2 enum value. Normalize the narrow
     # historical value before any identity object is reconstructed.
     normalize_legacy_owner_activation(security)
-    governance = SQLiteGovernanceStore(paths.databases / "governance" / "sentinelx_governance.sqlite3", **options)
-    core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="sentinelx-local",
-                                starting_capital=Decimal("0.00"), audit_source_identity="sentinelx-local")
+    governance = SQLiteGovernanceStore(paths.databases / "governance" / "algofortis_governance.sqlite3", **options)
+    core = SQLitePaperStateStore(paths.databases / "core-audit.sqlite3", account_id="algofortis-local",
+                                starting_capital=Decimal("0.00"), audit_source_identity="algofortis-local")
     owner = local_owner(security, paths.config / "identity.json")
-    normal_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RP_ID", "algofortis.com")).strip()
-    normal_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_ORIGIN", f"https://app.{normal_rp_id}")).strip()
-    recovery_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_RP_ID", "algofortis-recovery.com")).strip()
-    recovery_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_ORIGIN", os.environ.get("SENTINELX_WEBAUTHN_RECOVERY_ORIGIN", f"https://access.{recovery_rp_id}")).strip()
+    normal_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", os.environ.get("ALGOFORTIS_WEBAUTHN_RP_ID", "algofortis.com")).strip()
+    normal_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", os.environ.get("ALGOFORTIS_WEBAUTHN_ORIGIN", f"https://app.{normal_rp_id}")).strip()
+    recovery_rp_id = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_RP_ID", "algofortis-recovery.com")).strip()
+    recovery_origin = os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_ORIGIN", os.environ.get("ALGOFORTIS_WEBAUTHN_RECOVERY_ORIGIN", f"https://access.{recovery_rp_id}")).strip()
 
     ceremonies = WebAuthnCeremonyService(
         store=security,
@@ -71,7 +71,7 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
         imports_root=paths.imports,
         security_store=security,
     )
-    local_import_path = os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", os.environ.get("SENTINELX_LOCAL_IMPORT_PATH", "")).strip()
+    local_import_path = os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", os.environ.get("ALGOFORTIS_LOCAL_IMPORT_PATH", "")).strip()
     if local_import_path:
         candidate = Path(local_import_path)
         if candidate.is_file():
@@ -186,7 +186,7 @@ def create_runtime_app(paths, origin: str, instance_id: str, roaming_identity=No
     @app.get("/index.html")
     def product_index():
         html = (paths.frontend / "index.html").read_text(encoding="utf-8")
-        marker = f'<meta name="algofortis-runtime" content="{paths.mode.value}"><meta name="sentinelx-runtime" content="{paths.mode.value}">'
+        marker = f'<meta name="algofortis-runtime" content="{paths.mode.value}"><meta name="algofortis-runtime" content="{paths.mode.value}">'
         return HTMLResponse(html.replace("<head>", "<head>" + marker, 1), headers={"Cache-Control": "no-store"})
 
     # API routes precede immutable static assets; the API client keeps /api/v1.

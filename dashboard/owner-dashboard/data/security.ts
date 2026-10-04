@@ -1,5 +1,5 @@
 /**
- * SentinelX Owner Dashboard — Security Authority, Zero-Trust Sessions & Hardware Sensors
+ * AlgoFortis Owner Dashboard — Security Authority, Zero-Trust Sessions & Hardware Sensors
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, prototypeFixtureStorage, safeGetJson, safeSetJson } from "../../shared/data/storage";

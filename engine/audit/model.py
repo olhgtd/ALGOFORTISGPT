@@ -26,8 +26,8 @@ from typing import Any, Mapping, Sequence
 from engine.core.numeric import as_decimal
 from engine.portfolio.model import InstrumentIdentity, PositionKey
 
-AUDIT_ENVELOPE_SCHEMA_VERSION = "sentinelx-audit-envelope/v2"
-AUDIT_PAYLOAD_SCHEMA_VERSION_DEFAULT = "sentinelx-payload/v1"
+AUDIT_ENVELOPE_SCHEMA_VERSION = "algofortis-audit-envelope/v2"
+AUDIT_PAYLOAD_SCHEMA_VERSION_DEFAULT = "algofortis-payload/v1"
 
 # Phase 6 / ADR §123.1: D16 environment vocabulary. The durable paper/live
 # journal populates "paper" and "live" only; "backtest" remains defined by D16
@@ -67,7 +67,7 @@ class AuditEventFamily(str, Enum):
     # is purely additive under the explicit §123.10 supersession scope.
     ERROR = "ERROR"                                       # D16-E21
     # Phase 9 / ADR §131: approved additive family D16-E22.
-    # Governed SentinelX Phase 9 control-plane mutation lifecycle evidence.
+    # Governed AlgoFortis Phase 9 control-plane mutation lifecycle evidence.
     PHASE9_MUTATION = "PHASE9_MUTATION"                   # D16-E22
 
 

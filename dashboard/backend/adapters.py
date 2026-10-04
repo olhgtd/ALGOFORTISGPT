@@ -1,4 +1,4 @@
-"""Read-only adapters from existing SentinelX data contracts to dashboard DTOs."""
+"""Read-only adapters from existing AlgoFortis data contracts to dashboard DTOs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -892,8 +892,8 @@ class OwnerDatasetsReadAdapter:
             return None
 
 
-class SentinelXReadAdapters:
-    """Concrete, read-only projections of existing SentinelX authorities.
+class AlgoFortisReadAdapters:
+    """Concrete, read-only projections of existing AlgoFortis authorities.
 
     Callers inject existing objects/functions; this class deliberately cannot
     construct or replace any engine authority.
@@ -936,6 +936,6 @@ class SentinelXReadAdapters:
     def read_existing(self, name: str, *, as_of_utc: datetime) -> TrustedValue:
         reader = self._readers.get(name)
         try:
-            return self._project(reader(), source=f"SentinelX.{name}", as_of_utc=as_of_utc) if callable(reader) else TrustedValue(None, TrustState.UNKNOWN, None)
+            return self._project(reader(), source=f"AlgoFortis.{name}", as_of_utc=as_of_utc) if callable(reader) else TrustedValue(None, TrustState.UNKNOWN, None)
         except Exception:
             return TrustedValue(None, TrustState.UNKNOWN, None)

@@ -86,5 +86,5 @@
 ## 5. UI Consistency & Outlier Audit
 
 - **Consistent System Elements:** Dark mode color tokens, WebAuthn flow glassmorphism card, monospace data formatting, table action buttons, and status badge color conventions.
-- **`LOCAL OVERRIDE` Elements:** Certain interactive canvas elements in `CinematicHero.tsx` and `SentinelXCore.tsx` render direct WebGL/Canvas styles independent of CSS classes.
+- **`LOCAL OVERRIDE` Elements:** Certain interactive canvas elements in `CinematicHero.tsx` and `AlgoFortisCore.tsx` render direct WebGL/Canvas styles independent of CSS classes.
 - **`INCONSISTENT` Areas:** Font family fallbacks occasionally list `system-ui` vs `-apple-system` in legacy CSS blocks. Redesign team should consolidate all font rules to standard root CSS custom properties.

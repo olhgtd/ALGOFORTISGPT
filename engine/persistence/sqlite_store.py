@@ -1,4 +1,4 @@
-"""SQLite Atomic and Fail-Closed Persistence Store for SentinelX Phase 5.
+"""SQLite Atomic and Fail-Closed Persistence Store for AlgoFortis Phase 5.
 
 Implements the single authoritative relational persistence engine for:
 - VirtualPaperAccount financial truth & commitments
@@ -164,7 +164,7 @@ class StrategyStateCodecError(PersistenceError, ValueError, TypeError):
 # Strategy State Codec & Types (P1-07 / ADR §121)
 # ======================================================================
 
-STRATEGY_STATE_CODEC_VERSION: str = "sentinelx-strategy-state/v1"
+STRATEGY_STATE_CODEC_VERSION: str = "algofortis-strategy-state/v1"
 
 
 @dataclass(frozen=True)
@@ -1059,7 +1059,7 @@ def _compute_fill_fingerprint(
         ("fee", fee),
         ("fill_timestamp", fill_timestamp),
     )
-    return CanonicalCodec.fingerprint("sentinelx-processed-fill/v1", fields)
+    return CanonicalCodec.fingerprint("algofortis-processed-fill/v1", fields)
 
 
 # ======================================================================
@@ -1083,9 +1083,9 @@ class SQLitePaperStateStore:
         monetary_quantum: Decimal = Decimal("0.01"),
         starting_capital: Decimal = Decimal("2000000.00"),
         paper_session_id: str = "default_paper_session",
-        risk_policy_identity: str = "sentinelx-risk-policy/v3",
+        risk_policy_identity: str = "algofortis-risk-policy/v3",
         cost_schedule_fingerprint: str = "",
-        execution_policy_identity: str = "sentinelx-paper-execution/v1",
+        execution_policy_identity: str = "algofortis-paper-execution/v1",
         configuration_identity: str = "",
         initial_strategy_states: Mapping[SubscriptionOwnerKey, dict[str, Any]] | Sequence[Any] | None = None,
         initial_promotion_states: Mapping[SubscriptionOwnerKey, PromotionTrackingState] | None = None,
@@ -2794,7 +2794,7 @@ class SQLitePaperStateStore:
     # durable persistence — V7 additive `paper_metadata` facility ONLY
     # (ADR §128.8–§128.10 precedent; owner decision 2026-08-27 denies Schema
     # V8).  Additive metadata key only: no DDL, no schema-version change, no
-    # migration.  Contract: "sentinelx-protective-exit-eligibility/v1".
+    # migration.  Contract: "algofortis-protective-exit-eligibility/v1".
     # Written inside the SAME transaction as the owning protective_exits row
     # (every writer funnels through _save_protective_exit), keyed by
     # protective_id; rows are never hard-deleted, so entries stay in lockstep.
@@ -2803,7 +2803,7 @@ class SQLitePaperStateStore:
     # exactly as the in-memory PE-19 non-retroactivity rule requires.
     # ------------------------------------------------------------------
 
-    PROTECTIVE_ELIGIBILITY_CONTRACT_VERSION = "sentinelx-protective-exit-eligibility/v1"
+    PROTECTIVE_ELIGIBILITY_CONTRACT_VERSION = "algofortis-protective-exit-eligibility/v1"
     _PROTECTIVE_ELIGIBILITY_KEY = "protective_exit_eligibility"
 
     @staticmethod
@@ -4394,10 +4394,10 @@ class SQLitePaperStateStore:
     # bookkeeping in the EXISTING paper_metadata key/value facility.
     # Additive keys only: no DDL, no schema-version change, no
     # state_generation effect, no accounting authority. Marker canonical
-    # value format: "YYYY-MM". Contract: "sentinelx-q93-state/v1".
+    # value format: "YYYY-MM". Contract: "algofortis-q93-state/v1".
     # ------------------------------------------------------------------
 
-    Q93_CONTRACT_VERSION = "sentinelx-q93-state/v1"
+    Q93_CONTRACT_VERSION = "algofortis-q93-state/v1"
     _Q93_CONTRACT_KEY = "q93_contract_version"
     _Q93_LAST_OBSERVED_KEY = "q93_last_observed_ist_month"
     _Q93_MONTH_MIN_YEAR = 1970
@@ -4543,14 +4543,14 @@ class SQLitePaperStateStore:
     # Phase 8 / ADR §128.8–§128.10: durable per-strategy halt latch —
     # operational SAFETY-GATING authority in the EXISTING paper_metadata
     # facility.  Additive keys only: no DDL, no schema-version change, no
-    # migration.  Contract: "sentinelx-halt-state/v1".  Canonical
+    # migration.  Contract: "algofortis-halt-state/v1".  Canonical
     # structured owner serialization (no colon-concatenated identities).
     # Authoritative writes use the standard durable `transaction()`
     # semantics (the same class of transaction as save_safety_state), NOT
     # audit_only_transaction (§128.10).
     # ------------------------------------------------------------------
 
-    HALT_CONTRACT_VERSION = "sentinelx-halt-state/v1"
+    HALT_CONTRACT_VERSION = "algofortis-halt-state/v1"
     _HALT_CONTRACT_KEY = "halt_contract_version"
     _HALTED_OWNERS_KEY = "halted_strategy_owners"
 

@@ -28,7 +28,7 @@ from typing import Any, Iterator, Mapping
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_LOGGING_SCHEMA_VERSION = "sentinelx-logging-config/v1"
+SUPPORTED_LOGGING_SCHEMA_VERSION = "algofortis-logging-config/v1"
 
 _MAX_SEGMENT_BYTES_MIN = 1024
 _MAX_SEGMENT_BYTES_MAX = 1024 * 1024 * 1024

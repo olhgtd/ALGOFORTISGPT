@@ -4,9 +4,9 @@ $installDir = "C:\Program Files\AlgoFortis"
 $exeName = "AlgoFortis.exe"
 $appName = "AlgoFortis"
 if (-not (Test-Path "$installDir\$exeName")) {
-    $installDir = "C:\Program Files\SentinelX"
-    $exeName = "SentinelX.exe"
-    $appName = "SentinelX"
+    $installDir = "C:\Program Files\AlgoFortis"
+    $exeName = "AlgoFortis.exe"
+    $appName = "AlgoFortis"
 }
 
 $logFile = "$env:LOCALAPPDATA\$appName\logs\launcher.log"

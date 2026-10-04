@@ -14,7 +14,7 @@ from pathlib import Path
 from engine.strategy.base import Signal, StrategySignalGenerator
 from .strategy_validation import StrategyValidationError
 
-ADAPTER_VERSION = "sentinelx-bounded-strategy/v1"
+ADAPTER_VERSION = "algofortis-bounded-strategy/v1"
 
 
 def bar(data, field: str, lookback: int = 0) -> float:

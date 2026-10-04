@@ -4,7 +4,7 @@
 > **Document Status**: `PLAN ONLY — FROZEN SPECIFICATION — DO NOT EXECUTE`  
 > **Brand**: AlgoFortis  
 > **Tagline**: Trading Research & Risk OS  
-> **Scope**: Safe, staged transition from SentinelX development baseline to certified AlgoFortis V1 product.
+> **Scope**: Safe, staged transition from AlgoFortis development baseline to certified AlgoFortis V1 product.
 
 ---
 
@@ -69,7 +69,7 @@
   - `dashboard/backend/domain.py`
 - **Untouched Invariants**:
   - `READ_ONLY = true`, `DISARMED = true`, `live_global_hold = true`
-  - Existing SQLite database schema structures (`sentinelx_security.sqlite3`, `sentinelx_governance.sqlite3`, `core-audit.sqlite3`)
+  - Existing SQLite database schema structures (`algofortis_security.sqlite3`, `algofortis_governance.sqlite3`, `core-audit.sqlite3`)
 - **Required Tests**:
   - Path resolution regression tests verifying fallback and alias resolution.
 - **Rollback Point**: Git commit prior to path mapping updates.
@@ -81,8 +81,8 @@
 - **Objective**: Apply the AlgoFortis visual identity, typography, icons, titles, and layout styling across the UI, desktop launcher, and backend metadata surfaces.
 - **Affected Components**:
   - `dashboard/web/` (React components, branding headers, stylesheets, index.html)
-  - `build/tools/SentinelXLauncher.cs` → `AlgoFortisLauncher.cs`
-  - `sentinelx.ico` → `algofortis.ico`
+  - `build/tools/AlgoFortisLauncher.cs` → `AlgoFortisLauncher.cs`
+  - `algofortis.ico` → `algofortis.ico`
   - Window title, splash/loading screens, error panels
 - **Untouched Invariants**:
   - Internal database IDs (`SX-U-XXXX-XXXX` maintained internally with `AF-U-` presentation alias)
@@ -151,7 +151,7 @@
 - **Objective**: Implement the `AlgoFortisBackup/v1` manifest-based export/import engine and refine installer uninstallation scripts to preserve user data by default.
 - **Affected Components**:
   - `dashboard/backend/services.py`
-  - `build/tools/sentinelx_installer.iss` → `algofortis_installer.iss`
+  - `build/tools/algofortis_installer.iss` → `algofortis_installer.iss`
 - **Untouched Invariants**:
   - Exclusion of broker keys, device private keys, and session tokens from backups
   - NTFS DACL security on restored directories

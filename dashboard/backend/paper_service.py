@@ -1,4 +1,4 @@
-"""Authoritative Paper Trading Service for SentinelX.
+"""Authoritative Paper Trading Service for AlgoFortis.
 
 Orchestrates the authoritative paper trading pipeline:
 1. Enforces fail-closed strategy governance (HTTP 403 on admin suspension or owner hold).

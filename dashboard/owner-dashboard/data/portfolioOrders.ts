@@ -1,5 +1,5 @@
 /**
- * SentinelX Owner Dashboard — Portfolios, Positions, Live Orders & Reconciliation Oversight
+ * AlgoFortis Owner Dashboard — Portfolios, Positions, Live Orders & Reconciliation Oversight
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import type { OwnerAllowanceStatus } from "./strategies";

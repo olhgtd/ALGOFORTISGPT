@@ -1,5 +1,5 @@
 /**
- * SentinelX Dashboard V3 — Portfolio, Positions, Orders & Live Oversight Domain
+ * AlgoFortis Dashboard V3 — Portfolio, Positions, Orders & Live Oversight Domain
  */
 import type { Truth } from "../../shared/data/sharedTypes";
 import { STORAGE_KEYS, safeGetJson, safeSetJson } from "../../shared/data/storage";

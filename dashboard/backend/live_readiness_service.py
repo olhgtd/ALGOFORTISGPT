@@ -54,7 +54,7 @@ def classify_reconciliation_order(order: dict) -> str:
     mode = order.get("execution_mode", "")
     status = str(order.get("status", ""))
     if mode == "SHADOW" or status.startswith("SHADOW_"):
-        return "SENTINELX_SHADOW"
+        return "ALGOFORTIS_SHADOW"
     if mode == "PAPER" or ("session_id" in order and not mode):
         return "PAPER"
     return "BROKER_REAL"
@@ -188,8 +188,8 @@ class LiveReadinessService:
         # explicitly via resolve_operational_connection from the canonical
         # user_connections record.
         catalog = mapper = catalog_date = None
-        master_path = os.environ.get("SENTINELX_UPSTOX_INSTRUMENT_MASTER", "")
-        business_date = os.environ.get("SENTINELX_UPSTOX_CATALOG_DATE", "")
+        master_path = os.environ.get("ALGOFORTIS_UPSTOX_INSTRUMENT_MASTER", "")
+        business_date = os.environ.get("ALGOFORTIS_UPSTOX_CATALOG_DATE", "")
         if master_path and business_date:
             try:
                 catalog_date = date.fromisoformat(business_date)
@@ -423,7 +423,7 @@ class LiveReadinessService:
             canonical = SignalIntent(action=request["side"], confidence=1.0, symbol=request["instrument_token"],
                 timeframe=request["timeframe"], originating_timestamp=orig_ts,
                 strategy_id=request["strategy_id"], strategy_version=strategy["version"] if strategy else "UNAVAILABLE", metadata={})
-            intent_id = CanonicalCodec.fingerprint("sentinelx-live-validation-intent/v1" if mode == "LIVE" else "sentinelx-shadow-validation-intent/v1", (
+            intent_id = CanonicalCodec.fingerprint("algofortis-live-validation-intent/v1" if mode == "LIVE" else "algofortis-shadow-validation-intent/v1", (
                 ("user", user_id), ("mode", mode), ("signal", canonical.identity), ("quantity", request["quantity"])))
             idempotency_key = request.get("idempotency_key") or intent_id
             state = self.readiness(user_id)
