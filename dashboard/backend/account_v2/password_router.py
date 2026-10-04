@@ -66,6 +66,9 @@ def attach_password_account_routes(app: Any) -> Any:
         app.state.password_account_routes_error = "ACCOUNT_AUTHORITY_UNAVAILABLE"
         return app
 
+    # Canonicalize historical/local Owner identity before either local or
+    # roaming password resolution so OWNER-001 is stable on every install.
+    normalize_legacy_owner_activation(store)
     authority = PasswordAccountAuthority(store)
     app.state.password_accounts = authority
     app.state.password_account_routes_attached = True
