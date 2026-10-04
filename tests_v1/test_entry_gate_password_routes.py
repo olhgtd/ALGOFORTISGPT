@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from dashboard.backend.account_v2.password_router import attach_password_account_routes
 from dashboard.backend.domain import Lifecycle, Role, UserIdentity
+from dashboard.backend.identity import persisted_identity
 from dashboard.backend.api import create_app
 from dashboard.backend.security import SecurityConfiguration
 from dashboard.backend.security_store import SQLiteSecurityStore
@@ -194,4 +195,45 @@ def test_password_login_session_never_satisfies_fresh_step_up(app_client):
     session_row = store.load_session(token)
     assert session_row is not None
     assert session_row["step_up_satisfied"] == 0
+    assert res.json()["role"] == "OWNER"
+
+
+def test_password_login_falls_back_to_configured_roaming_owner_authority(app_client):
+    client, store, _ = app_client
+    owner_row = store.find_user_by_identifier("OWNER-001")
+    remote_owner = persisted_identity(owner_row)
+
+    class FakeRoamingOwner:
+        configured = True
+
+        def authenticate_password(self, *, identifier: str, password: str):
+            if identifier == "remote-owner@example.com" and password == "OwnerPassword123!":
+                return remote_owner
+            return None
+
+    client.app.state.roaming_identity = FakeRoamingOwner()
+    res = client.post(
+        "/api/v1/auth/password/login",
+        json={"identifier": "remote-owner@example.com", "password": "OwnerPassword123!"},
+    )
+    assert res.status_code == 200
+    assert res.json()["role"] == "OWNER"
+    assert res.json()["sx_id"] == "OWNER-001"
+
+
+def test_remote_login_is_not_used_when_local_credentials_are_valid(app_client):
+    client, _, _ = app_client
+
+    class ExplodingRoaming:
+        configured = True
+
+        def authenticate_password(self, **_kwargs):
+            raise AssertionError("remote authority must not run for valid local login")
+
+    client.app.state.roaming_identity = ExplodingRoaming()
+    res = client.post(
+        "/api/v1/auth/password/login",
+        json={"identifier": "OWNER-001", "password": "OwnerPassword123!"},
+    )
+    assert res.status_code == 200
     assert res.json()["role"] == "OWNER"

@@ -21,12 +21,15 @@ def test_role_installer_excludes_generic_launcher():
     assert 'Excludes: "AlgoFortis.exe"' in src
     assert "{#MyAppExeName}" in src
 
-def test_approved_fortress_master_is_build_authority():
+def test_final_owner_user_role_branding_is_build_authority():
     src=read("build/tools/build_owner_user_installers.ps1")
     stage=read("build/tools/stage_role_app.ps1")
-    assert "assets\\branding\\AlgoFortis\\AlgoFortis_Logo_Master.png" in src
+    assert "AlgoFortis_Owner_Logo.png" in src
+    assert "AlgoFortis_User_Logo.png" in src
+    assert "AlgoFortis_Owner_Logo.png" in stage
+    assert "AlgoFortis_User_Logo.png" in stage
     assert "generate_brand_assets.ps1" in stage
-    assert "ROLE_STAGE_BRAND=FORTRESS_MASTER" in stage
+    assert 'ROLE_STAGE_BRAND=$Role' in stage
 
 def test_frontend_role_is_locked_by_desktop_app():
     main=read("dashboard/web/src/main.tsx")
@@ -43,3 +46,10 @@ def test_real_install_certification_covers_both_roles_and_data_preservation():
     assert "LOCALAPPDATA" in cert
     assert "LOCAL_PRIVATE" in cert
     assert "READ_ONLY/DISARMED" in cert
+
+def test_role_package_certification_verifies_role_specific_web_brand():
+    cert=read("build/tools/certify_owner_user_installers.py")
+    assert "OWNER_BRAND" in cert
+    assert "USER_BRAND" in cert
+    assert 'dashboard"/"web"/"dist"/"algofortis_logo.png' in cert
+    assert 'dashboard"/"web"/"dist"/"favicon.png' in cert

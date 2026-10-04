@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { api, setSessionToken } from "../../api";
+import { api, clearSessionToken, setSessionToken } from "../../api";
 
 interface LocalLoginCardProps {
   onLoginSuccess: () => void;
+  onSwitchToOwnerSetup?: () => void;
 }
 
-export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState("");
+export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess, onSwitchToOwnerSetup }) => {
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,9 +17,9 @@ export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess }
     e.preventDefault();
     setErrorMessage(null);
 
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !cleanEmail.includes("@")) {
-      setErrorMessage("Please enter a valid email address.");
+    const cleanIdentifier = identifier.trim();
+    if (!cleanIdentifier) {
+      setErrorMessage("Owner ID or email is required.");
       return;
     }
     if (!password) {
@@ -28,12 +29,21 @@ export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess }
 
     setIsSubmitting(true);
     try {
-      const res = await api.localLogin({
-        email: cleanEmail,
+      const res = await api.passwordLogin({
+        identifier: cleanIdentifier,
         password,
       });
 
+      if (res.role !== "OWNER") {
+        clearSessionToken();
+        setPassword("");
+        setIsSubmitting(false);
+        setErrorMessage("This account is not the AlgoFortis Owner account.");
+        return;
+      }
+
       setSessionToken(res.access_token);
+      setPassword("");
       onLoginSuccess();
     } catch (err: any) {
       setIsSubmitting(false);
@@ -90,18 +100,18 @@ export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess }
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px", width: "100%" }}>
         <div className="form-field-group">
           <label htmlFor="login-email" className="field-label" style={{ fontSize: "11px", fontWeight: 600, color: "#cbd5e1" }}>
-            Email Address
+            Owner ID or Email
           </label>
           <div className="field-input-wrapper">
             <input
               id="login-email"
-              type="email"
+              type="text"
               className="field-input"
-              placeholder="owner@algofortis.internal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="OWNER-001 / registered email"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               disabled={isSubmitting}
-              autoComplete="email"
+              autoComplete="username"
               autoFocus
               required
             />
@@ -167,8 +177,16 @@ export const LocalLoginCard: React.FC<LocalLoginCardProps> = ({ onLoginSuccess }
         </button>
       </form>
 
+      {onSwitchToOwnerSetup && (
+        <div className="card-footer-actions" style={{ marginTop: "14px" }}>
+          <button type="button" className="footer-link-btn" onClick={onSwitchToOwnerSetup} id="nav-to-owner-create">
+            First time only? Create OWNER-001
+          </button>
+        </div>
+      )}
+
       <div style={{ marginTop: "18px", textAlign: "center", fontSize: "11.5px", color: "#64748b" }}>
-        Protected by AlgoFortis Local Security Vault
+        Protected by AlgoFortis Security Authority
       </div>
     </div>
   );

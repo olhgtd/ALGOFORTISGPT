@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { VerificationState } from "./types";
-import { api, setSessionToken } from "../../api";
+import { api, clearSessionToken, setSessionToken } from "../../api";
 
 interface ReturningUserFlowProps {
   sentinelxId: string;
@@ -12,6 +12,7 @@ interface ReturningUserFlowProps {
   onSwitchToAccessGate: () => void;
   onSwitchToOwnerSetup: () => void;
   onSwitchToRecovery: () => void;
+  requiredRole?: "OWNER" | "USER";
   onEnterWorkspace: (role?: "OWNER" | "USER") => void;
   isMobileLayout?: boolean;
 }
@@ -23,6 +24,7 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
   onVerifyFailure,
   onSwitchToAccessGate,
   onSwitchToRecovery,
+  requiredRole,
   onEnterWorkspace,
 }) => {
   const [identifier, setIdentifier] = useState(sentinelxId);
@@ -52,6 +54,16 @@ export const ReturningUserFlow: React.FC<ReturningUserFlowProps> = ({
     setIsVerifying(true);
     try {
       const result = await api.passwordLogin({ identifier: cleanIdentifier, password });
+      if (requiredRole && result.role !== requiredRole) {
+        clearSessionToken();
+        setPassword("");
+        const message = requiredRole === "USER"
+          ? "This account belongs to the Owner workspace. Open AlgoFortis Owner."
+          : "This account belongs to the User workspace.";
+        setErrorMessage(message);
+        onVerifyFailure(message);
+        return;
+      }
       setSessionToken(result.access_token);
       setPassword("");
       onVerifySuccess(result.access_token);

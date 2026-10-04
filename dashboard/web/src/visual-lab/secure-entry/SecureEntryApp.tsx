@@ -3,6 +3,7 @@ import { SentinelXCore } from "./SentinelXCore";
 import { ReturningUserFlow } from "./ReturningUserFlow";
 import { FirstTimeCustomerFlow } from "./FirstTimeCustomerFlow";
 import { LocalOwnerSetupCard } from "./LocalOwnerSetupCard";
+import { LocalLoginCard } from "./LocalLoginCard";
 import { api } from "../../api";
 import { HelpRecoveryFlow } from "./HelpRecoveryFlow";
 import { GlobalRealTimeClock } from "../../../../shared/utilities/V3Chrome";
@@ -15,12 +16,14 @@ import type {
 import "./secure-entry.css";
 
 interface SecureEntryAppProps {
+  appRole?: "owner" | "user";
   onEnterWorkspace?: (authenticatedSession?: boolean, workspace?: "user" | "owner") => void;
   onBackToWebsite?: () => void;
   onOpenDashboard?: () => void;
 }
 
 export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
+  appRole,
   onEnterWorkspace,
   onBackToWebsite,
   onOpenDashboard,
@@ -39,32 +42,55 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
 
   useEffect(() => {
     let active = true;
+
+    // The desktop launchers are intentionally role-specific. Keep the manual
+    // V1 entry experience intact, but never let the User launcher fall into an
+    // Owner provisioning state.
+    if (appRole === "user") {
+      setOwnerSetupAllowed(false);
+      setFlow("ACCESS_GATE");
+      return () => { active = false; };
+    }
+
     void Promise.all([api.securityStatus(), api.ownerBootstrapStatus()])
       .then(([, bootstrap]) => {
         if (!active) return;
-        setOwnerSetupAllowed(bootstrap.owner_setup_allowed === true);
+        const setupAllowed = bootstrap.owner_setup_allowed === true;
+        setOwnerSetupAllowed(setupAllowed);
+
+        if (appRole === "owner") {
+          // Owner login is always reachable. One-time Owner creation is shown
+          // only while the authoritative bootstrap policy explicitly permits it.
+          setFlow(setupAllowed && bootstrap.recommended_flow === "LOCAL_OWNER_SETUP"
+            ? "LOCAL_OWNER_SETUP"
+            : "LOCAL_LOGIN");
+          return;
+        }
+
         switch (bootstrap.recommended_flow) {
           case "LOCAL_LOGIN":
+            setFlow("LOCAL_LOGIN");
+            return;
           case "RETURNING_USER":
-            // Existing Owner and returning Users use the exact same canonical
-            // password gate. Backend identity determines the workspace.
             setFlow("RETURNING_USER");
             return;
           case "LOCAL_OWNER_SETUP":
-            setFlow(bootstrap.owner_setup_allowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
+            setFlow(setupAllowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
             return;
           default:
             setFlow("UNAVAILABLE");
         }
       })
       .catch(() => {
-        if (active) {
-          setOwnerSetupAllowed(false);
-          setFlow("UNAVAILABLE");
-        }
+        if (!active) return;
+        setOwnerSetupAllowed(false);
+        // A role-specific Owner package must still present the existing login
+        // card; authority failure is handled by the authentication request.
+        setFlow(appRole === "owner" ? "LOCAL_LOGIN" : "UNAVAILABLE");
       });
+
     return () => { active = false; };
-  }, []);
+  }, [appRole]);
 
   const [sentinelxId, setSentinelxId] = useState("");
   const [accessId, setAccessId] = useState("");
@@ -118,7 +144,8 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
   // only for the disabled developer preview controls and still obeys backend
   // ownerSetupAllowed authority.
   const requestOwnerSetup = () => {
-    setFlow(ownerSetupAllowed ? "LOCAL_OWNER_SETUP" : "UNAVAILABLE");
+    if (appRole === "user") return;
+    setFlow(ownerSetupAllowed ? "LOCAL_OWNER_SETUP" : "LOCAL_LOGIN");
   };
 
   return (
@@ -179,7 +206,17 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
             )}
 
             {flow === "LOCAL_OWNER_SETUP" && ownerSetupAllowed && (
-              <LocalOwnerSetupCard onSetupSuccess={() => handleWorkspaceTransition(true, "owner")} />
+              <LocalOwnerSetupCard
+                onSetupSuccess={() => handleWorkspaceTransition(true, "owner")}
+                onSwitchToLogin={() => { setFlow("LOCAL_LOGIN"); setVerificationState("ID_ENTRY"); }}
+              />
+            )}
+
+            {flow === "LOCAL_LOGIN" && (
+              <LocalLoginCard
+                onLoginSuccess={() => handleWorkspaceTransition(true, "owner")}
+                onSwitchToOwnerSetup={ownerSetupAllowed ? requestOwnerSetup : undefined}
+              />
             )}
 
             {flow === "ACCESS_GATE" && (
@@ -205,6 +242,7 @@ export const SecureEntryApp: React.FC<SecureEntryAppProps> = ({
                 onSwitchToAccessGate={() => { setFlow("ACCESS_GATE"); setGateStep("ENTER_ACCESS_ID"); }}
                 onSwitchToOwnerSetup={requestOwnerSetup}
                 onSwitchToRecovery={() => setFlow("HELP_RECOVERY")}
+                requiredRole={appRole === "user" ? "USER" : undefined}
                 onEnterWorkspace={(role) => handleWorkspaceTransition(true, role === "OWNER" ? "owner" : "user")}
                 isMobileLayout={isMobile}
               />

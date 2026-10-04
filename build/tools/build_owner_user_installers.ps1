@@ -12,7 +12,8 @@ $toolsDir=$PSScriptRoot
 $root=(Resolve-Path "$toolsDir\..\..").Path
 $installerDir=Join-Path $root "build\installer"
 $stageDir=Join-Path $root "build\stage"
-$brandMaster=Join-Path $root "assets\branding\AlgoFortis\AlgoFortis_Logo_Master.png"
+$ownerBrand=Join-Path $root "assets\branding\AlgoFortis\AlgoFortis_Owner_Logo.png"
+$userBrand=Join-Path $root "assets\branding\AlgoFortis\AlgoFortis_User_Logo.png"
 
 function Find-ISCC {
     if($env:ISCC_PATH -and (Test-Path $env:ISCC_PATH)){return (Resolve-Path $env:ISCC_PATH).Path}
@@ -48,7 +49,7 @@ function Sign-Artifact {
     return [string]$sig.SignerCertificate.Thumbprint
 }
 
-if(-not(Test-Path $brandMaster)){throw "Canonical fortress logo missing: $brandMaster"}
+foreach($brand in @($ownerBrand,$userBrand)){if(-not(Test-Path $brand)){throw "Final role logo missing: $brand"}}
 $iscc=Find-ISCC
 if(-not $iscc){throw "Inno Setup compiler ISCC.exe not found"}
 $effectivePublisher=if($Publisher){$Publisher}else{"AlgoFortis"}
@@ -59,9 +60,10 @@ if($RequireSignature){
 }
 New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
 
-# The approved fortress master is authoritative for web logo + favicon during this build.
-Copy-Item $brandMaster (Join-Path $root "dashboard\web\public\algofortis_logo.png") -Force
-Copy-Item $brandMaster (Join-Path $root "dashboard\web\public\favicon.png") -Force
+# The source web build uses the final light User brand. Role staging replaces
+# these public assets with the matching Owner/User brand before packaging.
+Copy-Item $userBrand (Join-Path $root "dashboard\web\public\algofortis_logo.png") -Force
+Copy-Item $userBrand (Join-Path $root "dashboard\web\public\favicon.png") -Force
 $npm=Get-Command npm.cmd -ErrorAction Stop
 & $npm.Source "--prefix" "$root\dashboard\web" "ci"
 if($LASTEXITCODE -ne 0){throw "dashboard npm ci failed"}
@@ -69,8 +71,8 @@ if($LASTEXITCODE -ne 0){throw "dashboard npm ci failed"}
 if($LASTEXITCODE -ne 0){throw "dashboard build failed"}
 
 $roles=@(
-    @{Role="OWNER";AppName="AlgoFortis Owner";Launcher="AlgoFortisOwner.exe";Output="AlgoFortis-Owner-Setup";Subdir="Owner";AppId="{{EF3180F8-1F78-4E45-81A0-90F7337B207C}"},
-    @{Role="USER";AppName="AlgoFortis User";Launcher="AlgoFortisUser.exe";Output="AlgoFortis-User-Setup";Subdir="User";AppId="{{412C7181-92E6-4315-A958-298F3ADF5BB3}"}
+    @{Role="OWNER";AppName="AlgoFortis Owner";Launcher="AlgoFortisOwner.exe";Output="AlgoFortis-Owner-Setup";Subdir="Owner";AppId="{{EF3180F8-1F78-4E45-81A0-90F7337B207C}";Brand=$ownerBrand},
+    @{Role="USER";AppName="AlgoFortis User";Launcher="AlgoFortisUser.exe";Output="AlgoFortis-User-Setup";Subdir="User";AppId="{{412C7181-92E6-4315-A958-298F3ADF5BB3}";Brand=$userBrand}
 )
 foreach($cfg in $roles){
     $stageArgs=@("-ExecutionPolicy","Bypass","-File","$toolsDir\stage_role_app.ps1","-Role",$cfg.Role,"-WebView2Version",$WebView2Version)
@@ -108,8 +110,8 @@ foreach($cfg in $roles){
       size_bytes=(Get-Item $setup).Length
       launcher=$cfg.Launcher
       launcher_sha256=(Get-FileHash $launcherPath -Algorithm SHA256).Hash.ToLowerInvariant()
-      canonical_brand_source="assets/branding/AlgoFortis/AlgoFortis_Logo_Master.png"
-      canonical_brand_sha256=(Get-FileHash $brandMaster -Algorithm SHA256).Hash.ToLowerInvariant()
+      canonical_brand_source=if($cfg.Role -eq "OWNER"){"assets/branding/AlgoFortis/AlgoFortis_Owner_Logo.png"}else{"assets/branding/AlgoFortis/AlgoFortis_User_Logo.png"}
+      canonical_brand_sha256=(Get-FileHash $cfg.Brand -Algorithm SHA256).Hash.ToLowerInvariant()
       launcher_signer_thumbprint=[string]$launcherThumb
       installer_signer_thumbprint=[string]$installerThumb
       require_signature=[bool]$RequireSignature
@@ -118,5 +120,5 @@ foreach($cfg in $roles){
     Write-Host "BUILT_ROLE_INSTALLER=$setup"
 }
 Write-Host "OWNER_USER_SPLIT=PASS"
-Write-Host "CANONICAL_FORTRESS_BRAND=PASS"
+Write-Host "ROLE_SPECIFIC_FINAL_BRANDING=PASS"
 Write-Host "LIVE_STATE=READ_ONLY/DISARMED"

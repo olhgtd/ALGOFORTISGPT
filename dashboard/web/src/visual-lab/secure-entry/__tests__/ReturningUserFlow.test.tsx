@@ -8,12 +8,13 @@ import { api, setSessionToken } from "../../../api";
 vi.mock("../../../api", () => ({
   api: { passwordLogin: vi.fn() },
   setSessionToken: vi.fn(),
+  clearSessionToken: vi.fn(),
 }));
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
-async function mount() {
+async function mount(requiredRole?: "OWNER" | "USER") {
   const onEnterWorkspace = vi.fn();
   const onSwitchToAccessGate = vi.fn();
   const onSwitchToRecovery = vi.fn();
@@ -32,6 +33,7 @@ async function mount() {
         onSwitchToAccessGate={onSwitchToAccessGate}
         onSwitchToOwnerSetup={() => {}}
         onSwitchToRecovery={onSwitchToRecovery}
+        requiredRole={requiredRole}
         onEnterWorkspace={onEnterWorkspace}
       />,
     );
@@ -112,6 +114,26 @@ describe("ReturningUserFlow shared password login", () => {
 
     expect(setSessionToken).toHaveBeenCalledWith("user-token");
     expect(onEnterWorkspace).toHaveBeenCalledWith("USER");
+  });
+
+
+  it("rejects an Owner account inside the role-locked User package", async () => {
+    vi.mocked(api.passwordLogin).mockResolvedValue({
+      access_token: "owner-token",
+      expires_at_utc: "2026-09-30T12:00:00+00:00",
+      subject: "owner-id",
+      role: "OWNER",
+      sx_id: "OWNER-001",
+      workspace_eligibility: { owner: true, user: true },
+    });
+    const { node, onEnterWorkspace } = await mount("USER");
+    await setValue("#sentinelx-id-input", "owner@example.com");
+    await setValue("#returning-password-input", "OwnerPassword123!");
+    await submit();
+
+    expect(setSessionToken).not.toHaveBeenCalled();
+    expect(onEnterWorkspace).not.toHaveBeenCalled();
+    expect(node.textContent).toContain("Open AlgoFortis Owner");
   });
 
   it("renders generic invalid credentials and cooldown failures", async () => {

@@ -3,9 +3,10 @@ import { api, setSessionToken } from "../../api";
 
 interface LocalOwnerSetupCardProps {
   onSetupSuccess: () => void;
+  onSwitchToLogin?: () => void;
 }
 
-export const LocalOwnerSetupCard: React.FC<LocalOwnerSetupCardProps> = ({ onSetupSuccess }) => {
+export const LocalOwnerSetupCard: React.FC<LocalOwnerSetupCardProps> = ({ onSetupSuccess, onSwitchToLogin }) => {
   const [displayName, setDisplayName] = useState("Super Owner");
   const [email, setEmail] = useState("");
   const [bootstrapToken, setBootstrapToken] = useState("");
@@ -220,6 +221,14 @@ export const LocalOwnerSetupCard: React.FC<LocalOwnerSetupCardProps> = ({ onSetu
           </button>
         </div>
       </form>
+
+      {onSwitchToLogin && (
+        <div className="card-footer-actions" style={{ marginTop: "14px" }}>
+          <button type="button" className="footer-link-btn" onClick={onSwitchToLogin} id="owner-setup-to-login">
+            OWNER-001 already exists? Sign in
+          </button>
+        </div>
+      )}
     </div>
   );
 };
