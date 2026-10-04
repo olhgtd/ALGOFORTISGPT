@@ -17,11 +17,12 @@ OLD_TITLE = "Sentinel" + "X"
 OLD_UPPER = "SENTINEL" + "X"
 OLD_RE = re.compile(re.escape(OLD_LOWER), re.IGNORECASE)
 
-# These three files have newer authoritative AlgoFortis successors already in-tree.
+# These files have newer authoritative AlgoFortis successors already in-tree.
 OBSOLETE_COLLISION_PATHS = {
     f"START_{OLD_UPPER}.pyw",
     f"build/tools/{OLD_TITLE}Launcher.cs",
     f"build/tools/{OLD_LOWER}_installer.iss",
+    f"{OLD_LOWER}.ico",
 }
 
 SUPERSEDED_AUDIT = "build/tools/brand_audit.py"
