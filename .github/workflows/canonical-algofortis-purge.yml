@@ -1,154 +1,42 @@
-name: Canonical AlgoFortis Full Brand Purge
+name: Canonical AlgoFortis Brand Guard
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'build/tools/migrate_canonical_brand.py'
-      - 'build/tools/check_canonical_brand.py'
-      - '.github/workflows/canonical-algofortis-purge.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: canonical-algofortis-purge-main
-  cancel-in-progress: false
+  group: canonical-algofortis-brand-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHONPATH: ${{ github.workspace }}
-  ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: '1'
 
 jobs:
-  migrate-qualify-commit:
-    name: Full purge + qualification + direct main commit
-    runs-on: windows-latest
-    timeout-minutes: 45
+  canonical-brand:
+    name: Repository-wide retired-brand firewall
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact seed head
+      - name: Checkout exact head
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 1
-
-      - name: Verify exact seed head
-        shell: pwsh
-        run: |
-          $actual = git rev-parse HEAD
-          if ($actual -ne '${{ github.sha }}') { throw "Expected ${{ github.sha }} but checked out $actual" }
-          Write-Host "BRAND_PURGE_SEED_HEAD=$actual"
-
-      - uses: actions/setup-python@v5
+      - name: Set up Python 3.13.14
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13.14'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install Python qualification dependencies
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-runtime.lock.txt
-          python -m pip install -r requirements-dashboard.in
-          python -m pip install -r requirements-test.in
-
-      - name: Apply repository-wide canonical brand migration
-        run: python build/tools/migrate_canonical_brand.py
-
-      - name: Zero-reference brand audit
+      - name: Zero-reference canonical brand audit
         run: python build/tools/check_canonical_brand.py
-
-      - name: Compile complete Python source tree
-        run: python -m compileall -q engine dashboard build tests_v1 strategies
-
-      - name: Preserve static safety and architecture gates
-        shell: pwsh
+      - name: Compile permanent brand guard
+        run: python -m compileall -q build/tools/check_canonical_brand.py tests_v1/test_canonical_brand.py
+      - name: Install test dependency
+        run: python -m pip install pytest
+      - name: Permanent regression test
+        run: python -m pytest tests_v1/test_canonical_brand.py -q
+      - name: Safety marker
         run: |
-          $guards = @(
-            'build/tools/check_module_boundaries.py',
-            'build/tools/check_phase1_foundation.py',
-            'build/tools/check_phase2_safety_spine.py',
-            'build/tools/check_phase3_data_v2.py',
-            'build/tools/check_phase4_research_backtest.py',
-            'build/tools/check_phase5_paper_recovery.py',
-            'build/tools/check_phase6_live_readonly.py',
-            'build/tools/check_phase7_portfolio_risk.py',
-            'build/tools/check_phase8_ai_shadow.py',
-            'build/tools/check_phase9_product_ops.py',
-            'build/tools/check_live_reunion_boundary.py',
-            'build/tools/check_riskgate_fast_path_boundary.py',
-            'build/tools/check_owner_admin_boundary.py',
-            'build/tools/check_ai_decision_intelligence_boundary.py',
-            'build/tools/check_ai_import_allowlist.py',
-            'build/tools/check_s2_account_gate.py',
-            'build/tools/check_s3_release_qualification.py',
-            'build/tools/check_canonical_brand.py'
-          )
-          foreach ($guard in $guards) {
-            Write-Host "=== $guard ==="
-            python $guard
-            if ($LASTEXITCODE -ne 0) { throw "$guard failed with exit code $LASTEXITCODE" }
-          }
-
-      - name: Full Python regression
-        run: python -m pytest tests_v1 -q
-
-      - name: Existing regression certification
-        run: python build/tools/run_regression_certification.py
-
-      - name: Install root Node package
-        run: npm ci
-
-      - name: Root dependency security audit
-        run: npm audit --audit-level=high
-
-      - name: Install dashboard package
-        run: npm ci --prefix dashboard/web
-
-      - name: Dashboard dependency security audit
-        run: npm audit --prefix dashboard/web --audit-level=high
-
-      - name: Dashboard regression
-        run: npm --prefix dashboard/web run test:user-dashboard
-
-      - name: Dashboard typecheck
-        run: npm run typecheck
-
-      - name: Dashboard production build
-        run: npm run build
-
-      - name: Final zero-reference and diff verification
-        shell: pwsh
-        run: |
-          python build/tools/check_canonical_brand.py
-          git diff --check
-          git status --short
-          if (-not (git status --porcelain)) { throw 'Migration produced no changes' }
-          Write-Host 'LIVE_STATE=READ_ONLY/DISARMED'
-          Write-Host 'CANONICAL_BRAND=ALGOFORTIS_ONLY'
-
-      - name: Commit qualified non-workflow migration directly to main
-        shell: pwsh
-        run: |
-          # GitHub Actions' GITHUB_TOKEN cannot update workflow files without the
-          # workflows permission. They are fully migrated and verified above, but
-          # are restored here so this qualified non-workflow commit can fast-forward
-          # main. The four workflow files are canonicalized immediately afterward
-          # through the connected GitHub write API.
-          $deferredWorkflows = @(
-            '.github/workflows/live-v1-v2-reunion-qualification.yml',
-            '.github/workflows/owner-admin-authoritative.yml',
-            '.github/workflows/riskgate-fast-path-qualification.yml',
-            '.github/workflows/v2-phase0-baseline.yml'
-          )
-          foreach ($workflowPath in $deferredWorkflows) {
-            git restore --source=HEAD -- $workflowPath
-            if ($LASTEXITCODE -ne 0) { throw "Failed to defer workflow path $workflowPath" }
-          }
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Purge legacy product branding and canonicalize AlgoFortis identifiers'
-          git push origin HEAD:main
+          echo 'CANONICAL_BRAND=ALGOFORTIS_ONLY'
+          echo 'LIVE_STATE=READ_ONLY/DISARMED'
