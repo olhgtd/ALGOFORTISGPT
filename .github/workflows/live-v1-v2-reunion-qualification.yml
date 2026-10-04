@@ -15,7 +15,6 @@ permissions:
 env:
   PYTHONPATH: ${{ github.workspace }}
   LIVE_STATE: READ_ONLY/DISARMED
-  SENTINELX_TEST_ALLOW_INSECURE_ACL: "1"
   ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
   QUALIFIED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
