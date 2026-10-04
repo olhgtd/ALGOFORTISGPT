@@ -16,8 +16,8 @@ concurrency:
 
 jobs:
   migrate:
-    name: Canonical AlgoFortis migration / Windows
-    runs-on: windows-2022
+    name: Canonical AlgoFortis migration / Linux
+    runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
       ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
@@ -35,61 +35,56 @@ jobs:
           node-version: "24"
 
       - name: Install RED-test dependency
-        shell: pwsh
         run: python -m pip install pytest
 
       - name: RED — prove legacy brand is currently detected
-        shell: pwsh
         run: |
+          set +e
           python -m pytest tests_v1/test_canonical_brand.py -q
-          if ($LASTEXITCODE -eq 0) {
-            throw "Expected canonical-brand regression to fail before migration, but it passed."
-          }
-          Write-Host "CANONICAL_BRAND_RED=CONFIRMED"
-          exit 0
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "Expected canonical-brand regression to fail before migration, but it passed."
+            exit 1
+          fi
+          echo "CANONICAL_BRAND_RED=CONFIRMED"
 
       - name: Run canonical brand migration
-        shell: pwsh
         run: python build/tools/migrate_canonical_brand.py
 
       - name: Install Python verification dependencies
-        shell: pwsh
         run: |
           python -m pip install -r requirements-runtime.lock.txt
-          if (Test-Path requirements-dashboard.lock.txt) {
+          if [ -f requirements-dashboard.lock.txt ]; then
             python -m pip install -r requirements-dashboard.lock.txt
-          } else {
+          else
             python -m pip install -r requirements-dashboard.in
-          }
+          fi
           python -m pip install -r requirements-test.in
 
       - name: Canonical brand audit
-        shell: pwsh
         run: python build/tools/brand_audit.py
 
       - name: GREEN — canonical brand regression
-        shell: pwsh
         run: python -m pytest tests_v1/test_canonical_brand.py -q
 
       - name: Full Python regression
-        shell: pwsh
         run: python -m pytest -q
 
       - name: Frontend install and build
-        shell: pwsh
         run: |
           npm ci --prefix dashboard/web
           npm --prefix dashboard/web run build
 
       - name: Commit verified migration directly to main
-        shell: pwsh
         run: |
           git config user.name "AlgoFortis Brand Migration"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          if (git diff --cached --quiet) {
-            throw "Migration produced no changes."
-          }
+          if git diff --cached --quiet; then
+            echo "Migration produced no changes."
+            exit 1
+          fi
           git commit -m "Complete canonical AlgoFortis brand migration"
           git push origin HEAD:main
