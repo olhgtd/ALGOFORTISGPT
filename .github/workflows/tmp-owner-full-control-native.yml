@@ -96,7 +96,7 @@ jobs:
         working-directory: dashboard/web
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
-          npx playwright install chromium
+          .\node_modules\.bin\playwright.cmd install chromium
       - name: Start dashboard Vite server
         shell: pwsh
         working-directory: dashboard/web
