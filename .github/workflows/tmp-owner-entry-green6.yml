@@ -58,7 +58,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix dashboard/web
       - name: Owner React GREEN
-        run: npm --prefix dashboard/web exec -- vitest run -c vitest.config.ts src/visual-lab/secure-entry/__tests__/LegacyOwnerSecureEntry.test.tsx
+        run: npm --prefix dashboard/web run test:user-dashboard -- src/visual-lab/secure-entry/__tests__/LegacyOwnerSecureEntry.test.tsx
       - name: Frontend typecheck and build
         run: |
           npm --prefix dashboard/web run typecheck
