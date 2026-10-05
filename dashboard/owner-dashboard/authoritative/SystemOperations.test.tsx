@@ -1,0 +1,21 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const client = readFileSync(resolve(here, "systemOps.ts"), "utf8");
+const screen = readFileSync(resolve(here, "SystemOperations.tsx"), "utf8");
+
+describe("Owner system operations", () => {
+  it("is source-backed and explicitly unavailable when commands do not exist", () => {
+    expect(client).toContain("/api/v1/product-ops/owner/health");
+    expect(screen).toContain("UNAVAILABLE");
+    expect(screen).toContain("No bounded command authority is attached");
+  });
+  it("has no terminal or arbitrary filesystem controls", () => {
+    for (const forbidden of ["powershell", "cmd.exe", "terminal", "Run shell", "Edit path", "file://"]) {
+      expect((client + screen).toLowerCase()).not.toContain(forbidden.toLowerCase());
+    }
+  });
+});
