@@ -1,0 +1,30 @@
+name: Temporary Apply Task 9 Owner Navigation
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  apply-task9:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded Task 9 patch
+        shell: pwsh
+        run: python build/tmp_task9_apply.py
+      - name: Commit product changes and remove temporary helpers
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-task9-apply.yml build/tmp_task9_apply.py
+          git add dashboard/owner-dashboard/OwnerDashboardApp.tsx
+          git diff --check
+          git commit -m "feat: complete Owner control-center navigation and authority UX"
+          git push origin HEAD:feat/owner-full-control-plane
