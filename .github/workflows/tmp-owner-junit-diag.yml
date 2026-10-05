@@ -1,0 +1,45 @@
+name: Temporary Owner Python JUnit Diagnostic
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Capture JUnit result
+        shell: pwsh
+        run: |
+          python -m pytest tests_v1 -q -p no:cacheprovider --junitxml=build/owner_diag.xml
+          exit 0
+      - name: Commit diagnostic and remove workflow
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-owner-junit-diag.yml
+          git add build/owner_diag.xml
+          git commit -m "chore: capture Owner control JUnit diagnostic"
+          git push origin HEAD:feat/owner-full-control-plane
