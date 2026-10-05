@@ -1,0 +1,30 @@
+name: Temporary Apply Task 4 Owner Paper
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  apply-task4:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded Task 4 patch
+        shell: pwsh
+        run: python build/tmp_task4_apply.py
+      - name: Commit product changes and remove temporary helpers
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-task4-apply.yml build/tmp_task4_apply.py
+          git add dashboard/backend/api.py dashboard/backend/owner_admin/step_up.py dashboard/owner-dashboard/OwnerDashboardApp.tsx
+          git diff --check
+          git commit -m "feat: add Owner Paper operations and protected hold release"
+          git push origin HEAD:feat/owner-full-control-plane
