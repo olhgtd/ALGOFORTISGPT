@@ -43,6 +43,7 @@ ROUTES: tuple[DestructiveRoute, ...] = (
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/historical/providers/(?P<resource>[^/]+)/toggle$"), "HISTORICAL_PROVIDER_CONFIG"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/historical/sync/schedule$"), "HISTORICAL_SYNC_POLICY", None),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/historical/gaps/repair$"), "HISTORICAL_DATA_REPAIR", None),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/safety/global-hold/release$"), "SAFETY_RELEASE", None),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/backtests/(?P<resource>[^/]+)/cancel$"), "BACKTEST_ADMIN"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/walkforward/jobs/(?P<resource>[^/]+)/cancel$"), "WALKFORWARD_ADMIN"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/connections/(?P<resource>[^/]+)/(?:allowance|capabilities/[^/]+/allowance)$"), "CONNECTION_GOVERNANCE"),

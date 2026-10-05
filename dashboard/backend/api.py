@@ -99,6 +99,7 @@ from .adapters import (
 )
 from .path_redaction import redact_server_paths, sanitize_report_for_client
 from .auth_policy import AuthPolicyManager
+from .owner_safety_adapter import OwnerSafetyAdapter
 
 
 class StrategySubmission(BaseModel):
@@ -714,6 +715,41 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         payload = body.model_dump()
         payload["execution_mode"] = "SHADOW"
         return live_call(service.validate, str(session.user.user_id), payload)
+
+    def _owner_safety_adapter() -> OwnerSafetyAdapter:
+        return OwnerSafetyAdapter(
+            security_store=app.state.security_store,
+            safe_mode=app.state.safe_mode,
+            live_readiness_service=app.state.live_readiness_service,
+        )
+
+    @app.get("/api/v1/owner/safety")
+    def owner_safety_snapshot(session=Depends(owner_session)) -> dict[str, Any]:
+        return _owner_safety_adapter().snapshot()
+
+    @app.post("/api/v1/owner/safety/safe-mode/engage")
+    def engage_owner_safe_mode(session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        result = _owner_safety_adapter().engage_safe_mode()
+        _record_security_audit(event_type="OWNER_SAFE_MODE_ENGAGED", actor_id=session.user.user_id, details={})
+        return result
+
+    @app.post("/api/v1/owner/safety/global-hold/engage")
+    def engage_owner_global_hold(session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        try:
+            result = _owner_safety_adapter().engage_global_hold(str(session.user.user_id))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        _record_security_audit(event_type="OWNER_GLOBAL_HOLD_ENGAGED", actor_id=session.user.user_id, details={})
+        return result
+
+    @app.post("/api/v1/owner/safety/global-hold/release")
+    def release_owner_global_hold(session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        try:
+            result = _owner_safety_adapter().release_global_hold(str(session.user.user_id))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        _record_security_audit(event_type="OWNER_GLOBAL_HOLD_RELEASED", actor_id=session.user.user_id, details={})
+        return result
 
     @app.get("/api/v1/owner/live-readiness")
     def owner_live_readiness(session=Depends(owner_session), service=Depends(live_authority)):

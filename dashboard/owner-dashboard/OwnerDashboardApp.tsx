@@ -19,6 +19,7 @@ import { ResearchOperations } from "./authoritative/ResearchOperations";
 import { PaperOperations } from "./authoritative/PaperOperations";
 import { DeploymentOperations } from "./authoritative/DeploymentOperations";
 import { DataOperations } from "./authoritative/DataOperations";
+import { RiskSafetyScreen } from "./authoritative/RiskSafetyScreen";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -59,8 +60,9 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "AI",
+    label: "SAFETY & INTELLIGENCE",
     items: [
+      { id: "risk-safety", label: "Risk & Safety", icon: "shield", badge: "Live disarmed", badgeTone: "warn" },
       { id: "ai-control", label: "AI Control Center", icon: "activity", badge: "Decision Intel", badgeTone: "dim" },
     ],
   },
@@ -182,6 +184,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "portfolio-oversight": return <OwnerPortfolioOrdersScreen />;
       case "reports": return <OwnerReportsAuditScreen />;
       case "product-operations": return <ProductOperationsScreen />;
+      case "risk-safety": return <RiskSafetyScreen />;
       case "ai-control": return <OwnerAIControlScreen />;
       case "system": return <OwnerSystemScreen />;
       case "security": return <OwnerSecurityScreen />;
