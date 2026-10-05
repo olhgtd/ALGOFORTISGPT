@@ -34,6 +34,9 @@ jobs:
           python -m pip install -r requirements-runtime.lock.txt
           python -m pip install -r requirements-dashboard.in
           python -m pip install -r requirements-test.in
+      - name: Owner control-plane targeted contracts
+        shell: pwsh
+        run: python -m pytest tests_v1/test_owner_full_control_contract.py tests_v1/test_owner_user_wiring_contract.py tests_v1/test_owner_admin_step_up_policy.py -q -p no:cacheprovider
       - name: Full Python regression
         shell: pwsh
         run: python -m pytest tests_v1 -q -p no:cacheprovider
@@ -62,6 +65,10 @@ jobs:
         shell: pwsh
         working-directory: dashboard/web
         run: npm ci
+      - name: Frontend targeted truth test
+        shell: pwsh
+        working-directory: dashboard/web
+        run: npx vitest run -c vitest.config.ts ../owner-dashboard/authoritative/OwnerControlTruth.test.ts
       - name: Frontend Vitest
         shell: pwsh
         working-directory: dashboard/web
