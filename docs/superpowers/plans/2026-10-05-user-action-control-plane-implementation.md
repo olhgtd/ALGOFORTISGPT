@@ -26,7 +26,7 @@
 
 1. **Double-click / duplicate mutation:** pending actions must disable repeat submission; add component tests that trigger once and assert one action call.
 2. **Backend rejection after valid-looking input:** preserve the previous read model and show the returned rejection; add tests for rejected backtest, WFO, Paper, strategy, and deployment actions.
-3. **Authority refresh failure after successful mutation:** show mutation success/receipt without fabricating refreshed state; add tests where action succeeds but `loadData()` refresh rejects.
+3. **Authority refresh failure after successful mutation:** preserve the accepted mutation receipt/message but do not fabricate refreshed rows; add one explicit test in each canonical action screen.
 4. **Unsafe execution-mode input:** no canonical control may submit `LIVE`; test deployment payload is exactly `LIVE_PAPER` even when existing records include `LIVE` read-only evidence.
 5. **Stale/unavailable reads with action controls:** controls requiring authority must disable or fail closed; tests must prove stale/unknown state is not promoted to actionable readiness.
 
@@ -40,16 +40,14 @@
 - `dashboard/user-dashboard/screens/UserTrades.tsx` — canonical Paper session create/start/stop controls while Live stays read-only.
 - `dashboard/user-dashboard/screens/UserStrategies.tsx` — strategy submission/promotion plus `LIVE_PAPER` deployment lifecycle controls.
 - `dashboard/user-dashboard/screens/UserFinishedSurfaces.test.tsx` — preserve current truth-state regression coverage and add canonical action assertions where useful.
+- `tests_v1/test_v1_salvage_user_dashboard_boundaries.py` — static no-legacy/no-Live-mutation boundary.
 
 **Create**
 - `dashboard/user-dashboard/screens/UserTestingActions.test.tsx` — focused Backtest/WFO mutation tests.
 - `dashboard/user-dashboard/screens/UserTradesActions.test.tsx` — focused Paper mutation tests.
 - `dashboard/user-dashboard/screens/UserStrategiesActions.test.tsx` — focused strategy/promotion/deployment tests.
+- `tests_v1/test_canonical_user_action_control_plane.py` — exact backend API contract regression for this slice.
 - `dashboard/web/scripts/user-action-control-smoke.mjs` — routed Chromium verification of canonical User action controls using canonical backend-contract fixtures.
-
-**Backend tests to extend only if contract gaps are discovered**
-- `tests_v1/test_area5_complete_product_workflows.py`
-- existing backtest/WFO/deployment/paper API tests nearest the changed contract.
 
 No new backend subsystem is planned in Slice A; existing endpoints are the source of truth.
 
@@ -62,7 +60,7 @@ No new backend subsystem is planned in Slice A; existing endpoints are the sourc
 - Create: `dashboard/user-dashboard/screens/UserStrategiesActions.test.tsx` (initial client-consumer contract cases; expanded again in Task 4)
 
 **Interfaces:**
-- Consumes existing: `executeBacktest(BacktestExecuteRequest)`, `cancelBacktestRun(runId)`, `createWalkForwardJob(WalkForwardCreateRequest)`, `cancelWalkForwardJob(jobId)`, `createPaperSession(PaperSessionCreateRequest)`, `startPaperSession(sessionId)`, `stopPaperSession(sessionId)`, `requestStrategyPromotion(strategyId, opts)`, `createUserDeployment(params)`, `pauseUserDeployment(id)`, `resumeUserDeployment(id)`, `stopUserDeployment(id)`.
+- Consumes existing: `executeBacktest(BacktestExecuteRequest)`, `cancelBacktestRun(runId)`, `createWalkForwardJob(WalkForwardCreateRequest)`, `cancelWalkForwardJob(jobId)`, `createPaperSession(PaperSessionCreateRequest)`, `startPaperSession(sessionId)`, `stopPaperSession(sessionId)`, `queryPaperSessions()`, `requestStrategyPromotion(strategyId, opts)`, `createUserDeployment(params)`, `pauseUserDeployment(id)`, `resumeUserDeployment(id)`, `stopUserDeployment(id)`.
 - Produces: `submitUserStrategy(source: string, protectivePolicyIdentity?: string | null): Promise<MutationResult<StrategySubmitReceipt>>` using `POST /api/v1/strategies` with `{ source, protective_policy_identity }` and no fallback success.
 
 - [ ] **Step 1: Write the failing mutation contract test**
@@ -109,6 +107,8 @@ Test an AVAILABLE testing surface renders a Backtest form with Strategy ID, Data
 
 Add a rejection case asserting backend error text is visible and existing run rows remain visible.
 
+Add a refresh-failure case: mutation returns accepted/success, the second `loadData()` rejects, the accepted mutation message remains visible, and no fabricated new run row appears.
+
 - [ ] **Step 2: Run focused Backtest tests and verify RED**
 
 Run: `npm run test:user-dashboard -- ../user-dashboard/screens/UserTestingActions.test.tsx`
@@ -151,12 +151,14 @@ Commit message: `feat: activate canonical user research controls`
 - Modify: `dashboard/user-dashboard/screens/UserFinishedSurfaces.test.tsx`
 
 **Interfaces:**
-- Consumes existing `createPaperSession`, `startPaperSession`, `stopPaperSession`, `queryPaperSessions` or equivalent existing Paper-session read client, and `loadTradingSurface`.
+- Consumes existing `createPaperSession`, `startPaperSession`, `stopPaperSession`, `queryPaperSessions`, and `loadTradingSurface`.
 - Produces canonical Paper actions while `ModeTrades(mode="LIVE")` remains observation-only with `READ_ONLY / DISARMED`.
 
 - [ ] **Step 1: Write RED create-session tests**
 
-Mount `UserTrades` with AVAILABLE Paper authority and injected mutation functions. Assert fields for Strategy ID, Instrument, Timeframe, Initial Capital, data-source mode and optional Dataset/Date Range as supported by `PaperSessionCreateRequest`. Click `Create Paper Session`; assert one exact mutation call and refresh.
+Mount `UserTrades` with AVAILABLE Paper authority and injected mutation/read functions. Assert fields for Strategy ID, Instrument, Timeframe, Initial Capital, data-source mode and optional Dataset/Date Range as defined by `PaperSessionCreateRequest`. Click `Create Paper Session`; assert one exact mutation call and authoritative refresh.
+
+Add a refresh-failure case: accepted creation stays acknowledged, session rows are not invented when the refresh rejects.
 
 - [ ] **Step 2: Verify RED**
 
@@ -165,7 +167,7 @@ Expected: FAIL because Paper controls are absent.
 
 - [ ] **Step 3: Implement Paper session control panel**
 
-Add injectable action props with shared-client defaults. Render authoritative sessions and allow Start only for startable states and Stop only for running states. Surface backend hold/suspension/RiskGate rejection without changing the visible read model optimistically.
+Add injectable action/read props with shared-client defaults. Read the session list through `queryPaperSessions()`. Render authoritative sessions and allow Start only for startable states and Stop only for running states. Surface backend hold/suspension/RiskGate rejection without changing the visible read model optimistically.
 
 - [ ] **Step 4: Add and GREEN start/stop/rejection tests**
 
@@ -200,6 +202,8 @@ Commit message: `feat: activate canonical paper session controls`
 - [ ] **Step 1: Write RED strategy-submission UI tests**
 
 Assert a source editor/textarea, optional protective policy field and `Submit Strategy` action. Assert exact call to `submitUserStrategy`, duplicate prevention, backend rejection rendering, and refresh on success.
+
+Add a refresh-failure case: accepted submission receipt remains visible while no new strategy row is invented if refreshed authority fails.
 
 - [ ] **Step 2: Implement strategy submission panel and GREEN it**
 
@@ -240,45 +244,52 @@ Commit message: `feat: activate strategy and live-paper deployment controls`
 ### Task 5: Backend Contract Regression + Routed Chromium Qualification
 
 **Files:**
-- Extend nearest existing Python API tests only where current contracts lack explicit proof.
+- Create: `tests_v1/test_canonical_user_action_control_plane.py`
 - Create: `dashboard/web/scripts/user-action-control-smoke.mjs`
-- Modify static boundary tests if necessary: `tests_v1/test_v1_salvage_user_dashboard_boundaries.py`
+- Modify: `tests_v1/test_v1_salvage_user_dashboard_boundaries.py`
 
 **Interfaces:**
-- Consumes completed canonical screens from Tasks 2–4.
+- Consumes completed canonical screens from Tasks 2–4 and the existing FastAPI endpoints.
 - Produces final Slice-A qualification evidence: real endpoint contract tests + routed browser action proof + preserved Live safety boundary.
 
-- [ ] **Step 1: Add missing backend contract tests only**
+- [ ] **Step 1: Write backend API contract tests**
 
-Pin these behaviors if not already directly tested: eligible User backtest creation/cancel; WFO create/cancel; Paper create/start/stop; deployment create/pause/resume/stop with `LIVE_PAPER`; strategy submission rejection/eligibility. Do not duplicate tests already proving the exact contract.
+In `tests_v1/test_canonical_user_action_control_plane.py`, use the established dashboard API test-fixture pattern to pin: eligible User Backtest create/cancel; WFO create/cancel; Paper create/start/stop; strategy submission success/rejection; deployment create/pause/resume/stop with `LIVE_PAPER`; and rejection of unsafe or ineligible operations. Assert responses come from backend authority, not fixture fallback.
 
-- [ ] **Step 2: Run focused Python tests**
+- [ ] **Step 2: Run the exact backend slice tests**
 
-Run the nearest test modules plus `tests_v1/test_area5_complete_product_workflows.py`.
+Run: `python -m pytest tests_v1/test_canonical_user_action_control_plane.py tests_v1/test_area5_complete_product_workflows.py -q`
 Expected: PASS.
 
 - [ ] **Step 3: Add static safety boundary assertions**
 
-Assert canonical User files do not import legacy sample modules or `UserScreens.tsx`; do not contain `/api/v1/live/arm`, broker order mutation paths, or hardcoded `ARMED & READY` safety copy; deployment create UI is `LIVE_PAPER` only.
+Extend `tests_v1/test_v1_salvage_user_dashboard_boundaries.py` to assert canonical User files do not import legacy sample modules or `UserScreens.tsx`; do not contain `/api/v1/live/arm`, broker order mutation paths, or hardcoded `ARMED & READY` safety copy; deployment create UI is `LIVE_PAPER` only.
+
+Run: `python -m pytest tests_v1/test_v1_salvage_user_dashboard_boundaries.py -q`
+Expected: PASS.
 
 - [ ] **Step 4: Create canonical routed Chromium smoke**
 
-In `user-action-control-smoke.mjs`, launch the actual `DashboardV3App` User path and provide deterministic canonical backend-contract responses. Exercise: Strategies submit; Testing run Backtest; WFO create; Trades Paper create/start/stop; Strategy `LIVE_PAPER` deployment create/pause/resume/stop. Assert outbound requests use the canonical endpoints and exact safe mode payloads. Assert Live still displays `READ_ONLY / DISARMED` and no Live mutation control exists.
+Implement `dashboard/web/scripts/user-action-control-smoke.mjs` following the existing `owner-browser-smoke.mjs` Playwright pattern and base `http://127.0.0.1:4173/?surface=dashboard-v3&workspace=user`. Route `/api/v1/**` with deterministic canonical-contract responses while recording outbound method/path/body. Exercise: Strategies submit; Testing run Backtest; WFO create; Trades Paper create/start/stop; Strategy `LIVE_PAPER` deployment create/pause/resume/stop. Assert exact canonical endpoints/payloads. Assert Live displays `READ_ONLY / DISARMED` and no Live mutation control exists. Print `USER_ACTION_CONTROL_SMOKE=PASS` only after all assertions pass.
 
 - [ ] **Step 5: Run the full frontend qualification**
 
-From `dashboard/web`:
+From `dashboard/web` run:
 - `npm run test:user-dashboard`
 - `npm run typecheck`
 - `npm run build`
-- run `node scripts/user-action-control-smoke.mjs` under the same Playwright/preview-server convention used by the existing Owner smoke.
 
-Expected: all PASS and smoke prints a stable marker such as `USER_ACTION_CONTROL_SMOKE=PASS`.
+Start the same Vite preview server convention used by Owner qualification on port `4173`, then run:
+- `node scripts/user-action-control-smoke.mjs`
+
+Expected: all commands PASS and smoke prints `USER_ACTION_CONTROL_SMOKE=PASS`.
 
 - [ ] **Step 6: Run full Python regression and safety qualification**
 
-Run the repository's current full pytest suite and the existing Live READ_ONLY / AI firewall / risk qualification checks used by current `main` CI.
-Expected: no regression; Live remains `READ_ONLY/DISARMED`; broker mutation absent.
+Run: `python -m pytest -q`
+Expected: full suite PASS with only already-known non-fatal warnings.
+
+Then run the repository's existing Phase-6 Live READ_ONLY, Phase-7 risk, Phase-8 AI firewall, and current static safety checks used by `main` qualification. Expected markers remain: Live `READ_ONLY/DISARMED`, broker mutation `ABSENT`, AI authority research/shadow-only where applicable.
 
 - [ ] **Step 7: Commit**
 
