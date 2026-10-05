@@ -219,4 +219,4 @@ index 0000000..3b2cfdd
 +y: radius * Math.sin(theta) * Math.sin(phi),
 +z: radius * Math.cos(theta),
 +baseRadius: radius,
-+theta:
++theta
