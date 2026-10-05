@@ -60,16 +60,20 @@ jobs:
         run: python build/tools/check_phase8_ai_shadow.py
       - name: Install frontend dependencies
         shell: pwsh
-        run: npm --prefix dashboard/web ci
+        working-directory: dashboard/web
+        run: npm ci
       - name: Frontend Vitest
         shell: pwsh
-        run: npm --prefix dashboard/web exec vitest run
+        working-directory: dashboard/web
+        run: npx vitest run -c vitest.config.ts
       - name: Frontend typecheck
         shell: pwsh
-        run: npm --prefix dashboard/web run typecheck
+        working-directory: dashboard/web
+        run: npm run typecheck
       - name: Frontend build
         shell: pwsh
-        run: npm --prefix dashboard/web run build
+        working-directory: dashboard/web
+        run: npm run build
       - name: Qualified SHA
         shell: pwsh
         run: git rev-parse HEAD
