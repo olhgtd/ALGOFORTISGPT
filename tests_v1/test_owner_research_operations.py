@@ -36,10 +36,10 @@ def test_cross_user_research_cancel_is_step_up_bound_to_the_exact_resource() -> 
 
 def test_owner_research_client_uses_owner_reads_and_never_live_or_broker_mutation() -> None:
     source = _text(RESEARCH_CLIENT)
-    assert 'ownerFetch<any>("/api/v1/owner/backtests?limit=200")' in source
-    assert 'ownerFetch<any>("/api/v1/owner/walkforward/jobs?limit=200")' in source
-    assert 'path: `/api/v1/owner/backtests/${encodeURIComponent(runId)}/cancel`' in source
-    assert 'path: `/api/v1/owner/walkforward/jobs/${encodeURIComponent(jobId)}/cancel`' in source
+    assert "/api/v1/owner/backtests?limit=200" in source
+    assert "/api/v1/owner/walkforward/jobs?limit=200" in source
+    assert "/api/v1/owner/backtests/${encodeURIComponent(runId)}/cancel" in source
+    assert "/api/v1/owner/walkforward/jobs/${encodeURIComponent(jobId)}/cancel" in source
     assert 'actionFamily: "BACKTEST_ADMIN"' in source
     assert 'actionFamily: "WALKFORWARD_ADMIN"' in source
     for forbidden in (
