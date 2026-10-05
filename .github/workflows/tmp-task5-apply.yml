@@ -1,0 +1,30 @@
+name: Temporary Apply Task 5 Owner Deployments
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  apply-task5:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded Task 5 patch
+        shell: pwsh
+        run: python build/tmp_task5_apply.py
+      - name: Commit product changes and remove temporary helpers
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-task5-apply.yml build/tmp_task5_apply.py
+          git add dashboard/backend/api.py dashboard/backend/owner_admin/step_up.py dashboard/owner-dashboard/OwnerDashboardApp.tsx
+          git diff --check
+          git commit -m "feat: add safe Owner deployment operations"
+          git push origin HEAD:feat/owner-full-control-plane
