@@ -220,26 +220,26 @@ export function App() {
   }
 
   if (surface === "secure-entry") {
-    if (lockedWorkspace === "user") {
+    if (lockedWorkspace === "user" || lockedWorkspace === "owner") {
       return (
         <LegacyUserSecureEntryApp
-          appTarget="user"
-          onEnterWorkspace={(_authenticatedSession = true, workspace = "user") => {
+          appTarget={lockedWorkspace}
+          onEnterWorkspace={(_authenticatedSession = true, workspace = lockedWorkspace) => {
             switchToDashboardV3(workspace);
           }}
           onBackToWebsite={switchToWebsite}
-          onOpenDashboard={() => switchToDashboardV3("user")}
+          onOpenDashboard={() => switchToDashboardV3(lockedWorkspace)}
         />
       );
     }
     return (
       <SecureEntryApp
-        appRole={lockedWorkspace ?? undefined}
+        appRole={undefined}
         onEnterWorkspace={(_authenticatedSession = true, workspace = "user") => {
           switchToDashboardV3(workspace);
         }}
         onBackToWebsite={switchToWebsite}
-        onOpenDashboard={() => switchToDashboardV3(lockedWorkspace ?? "user")}
+        onOpenDashboard={() => switchToDashboardV3("user")}
       />
     );
   }
