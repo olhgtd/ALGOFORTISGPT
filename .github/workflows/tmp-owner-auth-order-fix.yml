@@ -1,0 +1,30 @@
+name: Temporary Apply Owner Auth Order Fix
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply auth dependency order fix
+        shell: pwsh
+        run: python build/tmp_owner_auth_order_fix.py
+      - name: Commit and cleanup
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-owner-auth-order-fix.yml build/tmp_owner_auth_order_fix.py
+          git add dashboard/backend/api.py
+          git diff --check
+          git commit -m "fix: define Owner mutable auth before protected routes"
+          git push origin HEAD:feat/owner-full-control-plane
