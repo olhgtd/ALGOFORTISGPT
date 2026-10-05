@@ -1,0 +1,68 @@
+name: Temporary User Entry Donor Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.tmp/user-entry-donor-diag.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Reconstruct donor patch and inspect exact bytes
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem .tmp/user-entry-donor.patch.* | Sort-Object Name
+          if (-not $parts) { throw 'Donor patch parts missing' }
+          $bytes = New-Object System.Collections.Generic.List[byte]
+          foreach ($part in $parts) { $bytes.AddRange([System.IO.File]::ReadAllBytes($part.FullName)) }
+          $patchPath = Join-Path $env:RUNNER_TEMP 'user-entry-donor.patch'
+          [System.IO.File]::WriteAllBytes($patchPath, $bytes.ToArray())
+          $patchText = [System.IO.File]::ReadAllText($patchPath)
+          $patchText = [System.Text.RegularExpressions.Regex]::Replace($patchText, "`r+`n", "`n").Replace("`r", "`n")
+          [System.IO.File]::WriteAllText($patchPath, $patchText, [System.Text.UTF8Encoding]::new($false))
+          Write-Host "PATCH_SHA256=$((Get-FileHash $patchPath -Algorithm SHA256).Hash.ToLower())"
+          git apply --check $patchPath
+          git apply $patchPath
+          $core = 'dashboard/web/src/visual-lab/secure-entry/LegacyAlgoFortisCore.tsx'
+          Write-Host "CORE_SHA256=$((Get-FileHash $core -Algorithm SHA256).Hash.ToLower())"
+          $lines = Get-Content $core
+          for ($i=74; $i -le 90; $i++) { Write-Host ("{0,4}: {1}" -f ($i+1), $lines[$i]) }
+      - name: Install dashboard compiler
+        shell: pwsh
+        run: npm ci --prefix dashboard/web
+      - name: Show compiler and isolate parser behavior
+        shell: pwsh
+        run: |
+          npm --prefix dashboard/web exec tsc -- --version
+          @'
+          const theta = 1;
+          const phi = 2;
+          const p = { theta, phi };
+          console.log(p);
+          '@ | Set-Content -NoNewline -Encoding utf8 "$env:RUNNER_TEMP/shorthand.ts"
+          @'
+          const theta = 1;
+          const phi = 2;
+          const p = { theta: theta, phi: phi };
+          console.log(p);
+          '@ | Set-Content -NoNewline -Encoding utf8 "$env:RUNNER_TEMP/explicit.ts"
+          Write-Host '=== shorthand ==='
+          npm --prefix dashboard/web exec tsc -- --noEmit --skipLibCheck "$env:RUNNER_TEMP/shorthand.ts"
+          Write-Host '=== explicit ==='
+          npm --prefix dashboard/web exec tsc -- --noEmit --skipLibCheck "$env:RUNNER_TEMP/explicit.ts"
+          Write-Host '=== project ==='
+          npm run typecheck
