@@ -1178,6 +1178,45 @@ export async function restoreBackendStrategy(
   }
 }
 
+export interface StrategySubmitReceipt {
+  strategy_id: string;
+  version_id: string;
+  stage: string;
+  source_sha256?: string | null;
+}
+
+/** User submits strategy source to canonical governed backend. Fail-closed, no sample fallback. */
+export async function submitUserStrategy(
+  source: string,
+  protectivePolicyIdentity: string | null = null,
+): Promise<MutationResult<StrategySubmitReceipt>> {
+  const url = `${getApiBaseUrl()}/api/v1/strategies`;
+  if (!isBackendEnabled()) {
+    return { success: false, error: "BACKEND_AUTHORITY_UNAVAILABLE", isFallback: false };
+  }
+  try {
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      body: JSON.stringify({
+        source,
+        protective_policy_identity: protectivePolicyIdentity,
+      }),
+    });
+    let json: any = null;
+    try { json = await res.json(); } catch { json = null; }
+    if (res.ok && json) {
+      return { success: true, data: json as StrategySubmitReceipt, isFallback: false };
+    }
+    return {
+      success: false,
+      error: json?.detail || json?.error || `Strategy submission rejected (HTTP ${res.status})`,
+      isFallback: false,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Network error", isFallback: false };
+  }
+}
+
 export interface PromotionRequestReceipt {
   strategy_id: string;
   target_stage: string;
