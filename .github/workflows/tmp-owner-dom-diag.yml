@@ -1,0 +1,69 @@
+name: Temporary Owner DOM Diagnostic
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-owner-dom:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install frontend and Chromium
+        shell: pwsh
+        working-directory: dashboard/web
+        run: |
+          npm ci
+          .\node_modules\.bin\playwright.cmd install chromium
+      - name: Start Vite
+        shell: pwsh
+        working-directory: dashboard/web
+        run: |
+          $p = Start-Process -FilePath "npm.cmd" -ArgumentList "run","dev","--","--host","127.0.0.1","--port","4173" -PassThru
+          $p.Id | Set-Content "$env:RUNNER_TEMP\vite.pid"
+          for ($i=0; $i -lt 45; $i++) { try { Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:4173/" | Out-Null; break } catch { Start-Sleep 1 } }
+      - name: Dump Owner DOM state
+        shell: pwsh
+        working-directory: dashboard/web
+        run: |
+          @'
+          import { chromium } from "playwright";
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+          const seen = [];
+          page.on("console", msg => console.log("BROWSER_CONSOLE", msg.type(), msg.text()));
+          page.on("pageerror", err => console.log("PAGE_ERROR", err.message));
+          page.on("requestfailed", req => console.log("REQUEST_FAILED", req.method(), req.url(), req.failure()?.errorText));
+          await page.addInitScript(() => { window.__ALGOFORTIS_SESSION_TOKEN__ = "owner-smoke"; });
+          await page.route("**/api/v1/**", async route => {
+            const req = route.request(); const p = new URL(req.url()).pathname; seen.push(`${req.method()} ${p}`);
+            let body = {};
+            if (p === "/api/v1/users/current") body = { user_id: "00000000-0000-0000-0000-000000000001", sx_id: "SX-OWNER", role: "OWNER", lifecycle: "ACTIVE", account_status: "ACTIVE", service_status: "ACTIVE", display_name: "Owner Smoke", namespace: "owner", workspace_eligibility: { user: true, owner: true }, effective_access: true };
+            else if (p === "/api/v1/owner/admin/authority") body = { source: "BACKEND", trust: "FRESH", surfaces: { health:{authority_state:"AVAILABLE"}, access:{authority_state:"AVAILABLE",records:[]}, strategies:{authority_state:"AVAILABLE",strategies:[]}, connections:{authority_state:"AVAILABLE",connections:[]}, datasets:{authority_state:"AVAILABLE",datasets:[]}, security:{authority_state:"AVAILABLE"}, ai:{authority_state:"AVAILABLE"} }, incidents: [] };
+            await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+          });
+          await page.goto("http://127.0.0.1:4173/?surface=dashboard-v3&workspace=owner", { waitUntil: "networkidle" }).catch(e => console.log("GOTO_ERROR", e.message));
+          await page.waitForTimeout(1500);
+          console.log("FINAL_URL", page.url());
+          console.log("REQUESTS", JSON.stringify(seen));
+          console.log("BODY_TEXT_START\n" + (await page.locator("body").innerText()).slice(0,6000) + "\nBODY_TEXT_END");
+          console.log("ROOT_HTML_START\n" + (await page.locator("#root").innerHTML()).slice(0,12000) + "\nROOT_HTML_END");
+          console.log("OVERVIEW_BUTTON_COUNT", await page.getByRole("button", {name:/overview/i}).count());
+          console.log("V3_ROOT_COUNT", await page.locator(".v3-root").count());
+          console.log("SECURE_ROOT_COUNT", await page.locator(".secure-entry-root").count());
+          await browser.close();
+          '@ | Set-Content owner-dom-diag.mjs
+          node owner-dom-diag.mjs
+      - name: Stop Vite
+        if: always()
+        shell: pwsh
+        run: |
+          $f = "$env:RUNNER_TEMP\vite.pid"; if (Test-Path $f) { Stop-Process -Id (Get-Content $f) -Force -ErrorAction SilentlyContinue }
