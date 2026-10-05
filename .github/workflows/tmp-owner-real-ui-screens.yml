@@ -1,0 +1,76 @@
+name: Temporary Owner Real UI Screens
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tmp-owner-real-ui-screens.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+      - name: Install frontend
+        working-directory: dashboard/web
+        run: npm ci
+      - name: Install Chromium
+        working-directory: dashboard/web
+        run: npx playwright install --with-deps chromium
+      - name: Start AlgoFortis
+        working-directory: dashboard/web
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 --port 4173 >/tmp/vite.log 2>&1 &
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/vite.log
+          exit 1
+      - name: Capture current Owner UI
+        working-directory: dashboard/web
+        run: |
+          cat > capture-owner-ui.mjs <<'EOF'
+          import { chromium } from '@playwright/test';
+          import fs from 'node:fs';
+          fs.mkdirSync('owner-real-ui', { recursive: true });
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
+          await page.route('**/api/v1/identity/bootstrap-status', route => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              owner_presence: 'ABSENT_CONFIRMED',
+              owner_setup_allowed: true,
+              recommended_flow: 'LOCAL_OWNER_SETUP',
+              authority: 'SCREEN_CAPTURE',
+              reason: 'UI verification'
+            })
+          }));
+          await page.goto('http://127.0.0.1:4173/?app=owner&surface=secure-entry', { waitUntil: 'networkidle' });
+          await page.locator('#owner-setup-card').waitFor();
+          await page.screenshot({ path: 'owner-real-ui/01-owner-setup.png', fullPage: true });
+          await page.locator('#owner-setup-to-login').click();
+          await page.locator('#local-login-card').waitFor();
+          await page.screenshot({ path: 'owner-real-ui/02-owner-sign-in.png', fullPage: true });
+          await page.locator('#forgot-password-btn').click();
+          await page.screenshot({ path: 'owner-real-ui/03-owner-forgot-password.png', fullPage: true });
+          console.log('OWNER_REAL_UI_SCREENSHOTS_PASS');
+          await browser.close();
+          EOF
+          node capture-owner-ui.mjs
+          rm -f capture-owner-ui.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-real-ui-screens
+          path: dashboard/web/owner-real-ui/*.png
+          if-no-files-found: error
