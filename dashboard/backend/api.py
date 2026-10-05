@@ -617,6 +617,11 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="owner authorization required")
         return session
 
+    def owner_mutable_session(session=Depends(mutable_session)) -> Any:
+        if session.user.role is not Role.OWNER or session.user.account_status != AccountAccessStatus.ACTIVE:
+            raise HTTPException(status_code=403, detail="owner role and active account status required")
+        return session
+
     def _client_ip(req: Request) -> str:
         forwarded = req.headers.get("x-forwarded-for")
         if forwarded:
@@ -1608,11 +1613,6 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         if session.user.role is not Role.OWNER:
             raise HTTPException(status_code=403, detail="owner role required")
         return {"retention_duration": "UNCONFIRMED", "automatic_deletion": "DISABLED", "pii_anonymization": "INACTIVE", "lifecycle_states": ["ACTIVE", "SUSPENDED", "CLOSED", "ARCHIVED"]}
-
-    def owner_mutable_session(session=Depends(mutable_session)) -> Any:
-        if session.user.role is not Role.OWNER or session.user.account_status != AccountAccessStatus.ACTIVE:
-            raise HTTPException(status_code=403, detail="owner role and active account status required")
-        return session
 
     def _record_security_audit(event_type: str, actor_id: UUID, details: dict[str, Any], operation_id: str | None = None) -> str | None:
         audit = getattr(app.state, "core_security_audit", None)
