@@ -1,4 +1,4 @@
-name: Temporary Owner Settings Wiring RED 2
+name: Temporary Apply Owner Settings Wiring Fix
 
 on:
   push:
@@ -6,30 +6,54 @@ on:
       - fix/owner-settings-wiring
     paths:
       - '.github/workflows/tmp-owner-settings-baseline.yml'
-  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  red:
+  apply:
     runs-on: windows-latest
-    timeout-minutes: 30
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.13.14"
-      - name: Install Python dependencies
+          ref: fix/owner-settings-wiring
+          fetch-depth: 0
+      - name: Apply exact three production replacements
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-runtime.lock.txt
-          python -m pip install -r requirements-dashboard.in
-          python -m pip install -r requirements-test.in
-      - name: RED targeted wiring tests
+          $api = 'dashboard/owner-dashboard/authoritative/api.ts'
+          $text = Get-Content $api -Raw
+          $old = '"/api/v1/owner/settings"'
+          $new = '"/api/v1/settings"'
+          if (($text.Split($old).Count - 1) -ne 1) { throw "Unexpected api.ts replacement count" }
+          Set-Content $api ($text.Replace($old, $new)) -NoNewline
+
+          $mut = 'dashboard/owner-dashboard/authoritative/mutations.ts'
+          $text = Get-Content $mut -Raw
+          foreach ($pair in @(
+            @('"/api/v1/owner/settings/propose"', '"/api/v1/settings/propose"'),
+            @('"/api/v1/owner/settings/confirm"', '"/api/v1/settings/confirm"')
+          )) {
+            if (($text.Split($pair[0]).Count - 1) -ne 1) { throw "Unexpected mutations.ts replacement count: $($pair[0])" }
+            $text = $text.Replace($pair[0], $pair[1])
+          }
+          Set-Content $mut $text -NoNewline
+
+          $step = 'dashboard/backend/owner_admin/step_up.py'
+          $text = Get-Content $step -Raw
+          $old = 'r"^/api/v1/owner/settings/confirm$"'
+          $new = 'r"^/api/v1/settings/confirm$"'
+          if (($text.Split($old).Count - 1) -ne 1) { throw "Unexpected step_up.py replacement count" }
+          Set-Content $step ($text.Replace($old, $new)) -NoNewline
+
+          git diff --check
+          git diff -- dashboard/owner-dashboard/authoritative/api.ts dashboard/owner-dashboard/authoritative/mutations.ts dashboard/backend/owner_admin/step_up.py
+      - name: Commit exact production fix
         shell: pwsh
-        run: python -m pytest tests_v1/test_owner_user_wiring_contract.py tests_v1/test_owner_admin_step_up_policy.py -q -p no:cacheprovider
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/owner-dashboard/authoritative/api.ts dashboard/owner-dashboard/authoritative/mutations.ts dashboard/backend/owner_admin/step_up.py
+          git commit -m "Fix Owner settings wiring and step-up coverage"
+          git push origin HEAD:fix/owner-settings-wiring
