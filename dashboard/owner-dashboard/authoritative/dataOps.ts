@@ -63,7 +63,8 @@ export async function getHistoricalSchedule(instrument?: string, timeframe?: str
   if (instrument) params.set("instrument", instrument);
   if (timeframe) params.set("timeframe", timeframe);
   const qs = params.toString();
-  return ownerFetch<any>(`/api/v1/owner/historical/sync/schedule${qs ? `?${qs}` : ""}`);
+  const path = "/api/v1/owner/historical/sync/schedule";
+  return ownerFetch<any>(qs ? `${path}?${qs}` : path);
 }
 
 export async function configureHistoricalSchedule(input: HistoricalScheduleInput): Promise<any> {
