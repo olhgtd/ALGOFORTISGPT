@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../shared/icons/V3Icons";
 import { CommandPalette, GlobalRealTimeClock, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import {
-  OwnerAccessRegistryScreen,
   OwnerIncidentsScreen,
   OwnerOverviewScreen,
   OwnerPortfolioOrdersScreen,
@@ -11,7 +10,6 @@ import {
   OwnerSettingsScreen,
   OwnerStrategiesScreen,
 } from "./authoritative/screens";
-import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
 import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
 import { ResearchOperations } from "./authoritative/ResearchOperations";
@@ -20,6 +18,7 @@ import { DeploymentOperations } from "./authoritative/DeploymentOperations";
 import { DataOperations } from "./authoritative/DataOperations";
 import { RiskSafetyScreen } from "./authoritative/RiskSafetyScreen";
 import { SystemOperations } from "./authoritative/SystemOperations";
+import { UsersAccessScreen } from "./authoritative/UsersAccessScreen";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -42,21 +41,19 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
     label: "CONTROL",
     items: [
       { id: "control", label: "Overview", icon: "home", badge: "Root", badgeTone: "warn" },
-      { id: "users", label: "Users Oversight", icon: "users" },
-      { id: "access-registry", label: "Access Registry", icon: "shield" },
-      { id: "strategies", label: "Strategies Governance", icon: "code" },
+      { id: "users", label: "Users & Access", icon: "users" },
+      { id: "strategies", label: "Strategies", icon: "code" },
       { id: "plugins", label: "Connections & Data", icon: "plug" },
     ],
   },
   {
-    label: "OPERATIONS",
+    label: "RESEARCH & OPERATIONS",
     items: [
       { id: "research", label: "Backtests / Walk-Forward", icon: "play" },
       { id: "paper", label: "Paper Trading", icon: "layers" },
       { id: "deployments", label: "Deployments", icon: "activity" },
       { id: "portfolio-oversight", label: "Portfolio & Orders", icon: "chart" },
       { id: "reports", label: "Reports & Audit", icon: "file" },
-      { id: "product-operations", label: "Product Operations", icon: "activity", badge: "Read only", badgeTone: "dim" },
     ],
   },
   {
@@ -69,6 +66,7 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
   {
     label: "SYSTEM",
     items: [
+      { id: "product-operations", label: "Product Operations", icon: "activity", badge: "Read only", badgeTone: "dim" },
       { id: "system", label: "System Health", icon: "activity" },
       { id: "security", label: "Security Authority", icon: "shield" },
       { id: "incidents", label: "Security Incidents", icon: "file" },
@@ -79,13 +77,15 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
 
 export const MOBILE_OWNER_NAV: NavItem[] = [
   { id: "control", label: "Overview", icon: "home" },
-  { id: "users", label: "Users", icon: "users" },
-  { id: "strategies", label: "Strategies", icon: "code" },
-  { id: "ai-control", label: "AI", icon: "activity" },
+  { id: "users", label: "Users & Access", icon: "users" },
+  { id: "research", label: "Research", icon: "play" },
+  { id: "risk-safety", label: "Safety", icon: "shield" },
   { id: "more", label: "More", icon: "more" },
 ];
 
+const LEGACY_SCREEN_ALIASES: Record<string, string> = { "access-registry": "users" };
 const ALL_SCREEN_IDS = DESKTOP_OWNER_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.id));
+const canonicalScreenId = (id: string) => LEGACY_SCREEN_ALIASES[id] || id;
 
 export interface OwnerDashboardAppProps {
   theme: ThemeMode;
@@ -106,14 +106,15 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
   );
   const [screen, setScreen] = useState(() => {
     const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
-    return ALL_SCREEN_IDS.includes(hash) ? hash : "control";
+    const canonical = canonicalScreenId(hash);
+    return ALL_SCREEN_IDS.includes(canonical) ? canonical : "control";
   });
   const [moreOpen, setMoreOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     const onHash = () => {
-      const hash = window.location.hash.replace(/^#/, "");
+      const hash = canonicalScreenId(window.location.hash.replace(/^#/, ""));
       if (ALL_SCREEN_IDS.includes(hash)) setScreen(hash);
     };
     window.addEventListener("hashchange", onHash);
@@ -140,11 +141,12 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
 
   const go = useCallback((id: string) => {
     if (id === "more") { setMoreOpen((open) => !open); return; }
-    if (!ALL_SCREEN_IDS.includes(id)) return;
-    setScreen(id);
+    const canonical = canonicalScreenId(id);
+    if (!ALL_SCREEN_IDS.includes(canonical)) return;
+    setScreen(canonical);
     setMoreOpen(false);
     if (typeof window !== "undefined") {
-      window.location.hash = `#${id}`;
+      window.location.hash = `#${canonical}`;
       const url = new URL(window.location.href);
       url.searchParams.set("surface", "dashboard-v3");
       url.searchParams.set("workspace", "owner");
@@ -174,8 +176,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
   const renderScreen = () => {
     switch (screen) {
       case "control": return <OwnerOverviewScreen go={go} />;
-      case "users": return <OwnerUsersInspectionScreen />;
-      case "access-registry": return <OwnerAccessRegistryScreen />;
+      case "users": return <UsersAccessScreen />;
       case "strategies": return <OwnerStrategiesScreen />;
       case "plugins": return <DataOperations />;
       case "research": return <ResearchOperations />;
@@ -232,7 +233,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
         </nav>
       )}
 
-      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users", "product-operations", "research"].includes(screen) ? "wide" : ""}`}>
+      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users", "product-operations", "research", "paper", "deployments", "plugins", "risk-safety", "system"].includes(screen) ? "wide" : ""}`}>
         <div className="v3-screen" key={screen}>{renderScreen()}</div>
       </main>
 
