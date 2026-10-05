@@ -249,7 +249,9 @@ async function installMocks(page, state) {
         body = { success: true, deployment: created };
       }
     } else if (/^\/api\/v1\/user\/deployments\/[^/]+\/(pause|resume|stop)$/.test(p) && method === "POST") {
-      const [, , , , deploymentId, action] = p.split("/");
+      const parts = p.split("/");
+      const deploymentId = parts[5];
+      const action = parts[6];
       const nextStatus = action === "pause" ? "PAUSED" : action === "resume" ? "DEPLOYED" : "STOPPED";
       state.deployments = state.deployments.map((item) => item.deploymentId === deploymentId ? { ...item, status: nextStatus } : item);
       body = { success: true, deployment: state.deployments.find((item) => item.deploymentId === deploymentId) };
