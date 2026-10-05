@@ -32,6 +32,13 @@ const mount = async (node: React.ReactNode) => {
   return container;
 };
 
+const input = (node: HTMLElement, label: string): HTMLInputElement => {
+  const el = node.querySelector(`input[aria-label='${label}']`);
+  expect(el, `canonical input missing: ${label}`).not.toBeNull();
+  if (!(el instanceof HTMLInputElement)) throw new Error(`canonical input missing: ${label}`);
+  return el;
+};
+
 const setInput = async (el: HTMLInputElement, value: string) => {
   await act(async () => {
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -41,7 +48,9 @@ const setInput = async (el: HTMLInputElement, value: string) => {
   });
 };
 
-const click = async (el: Element) => {
+const click = async (el: Element | undefined | null, label = "control") => {
+  expect(el, `canonical control missing: ${label}`).toBeTruthy();
+  if (!el) throw new Error(`canonical control missing: ${label}`);
   await act(async () => {
     (el as HTMLElement).click();
     await Promise.resolve();
@@ -58,16 +67,15 @@ describe("canonical Testing & Validation actions", () => {
       executeBacktestAction={executeBacktestAction as any}
     />);
 
-    await setInput(node.querySelector("input[aria-label='Backtest strategy ID']") as HTMLInputElement, "strat-1");
-    await setInput(node.querySelector("input[aria-label='Backtest dataset ID']") as HTMLInputElement, "ds-1");
-    await setInput(node.querySelector("input[aria-label='Backtest instrument']") as HTMLInputElement, "NIFTY");
-    await setInput(node.querySelector("input[aria-label='Backtest timeframe']") as HTMLInputElement, "5m");
-    await setInput(node.querySelector("input[aria-label='Backtest initial capital']") as HTMLInputElement, "500000");
-    await setInput(node.querySelector("input[aria-label='Backtest date range']") as HTMLInputElement, "2026-01-05");
+    await setInput(input(node, "Backtest strategy ID"), "strat-1");
+    await setInput(input(node, "Backtest dataset ID"), "ds-1");
+    await setInput(input(node, "Backtest instrument"), "NIFTY");
+    await setInput(input(node, "Backtest timeframe"), "5m");
+    await setInput(input(node, "Backtest initial capital"), "500000");
+    await setInput(input(node, "Backtest date range"), "2026-01-05");
 
     const run = [...node.querySelectorAll("button")].find((button) => button.textContent === "Run Backtest");
-    expect(run).toBeTruthy();
-    await click(run!);
+    await click(run, "Run Backtest");
 
     expect(executeBacktestAction).toHaveBeenCalledTimes(1);
     expect(executeBacktestAction).toHaveBeenCalledWith({
@@ -94,10 +102,10 @@ describe("canonical Testing & Validation actions", () => {
     const executeBacktestAction = vi.fn().mockResolvedValue({ ok: false, error: "dataset not approved" });
     const node = await mount(<UserTesting loadData={loadData} executeBacktestAction={executeBacktestAction as any} />);
 
-    await setInput(node.querySelector("input[aria-label='Backtest strategy ID']") as HTMLInputElement, "strat-1");
-    await setInput(node.querySelector("input[aria-label='Backtest dataset ID']") as HTMLInputElement, "blocked-ds");
+    await setInput(input(node, "Backtest strategy ID"), "strat-1");
+    await setInput(input(node, "Backtest dataset ID"), "blocked-ds");
     const run = [...node.querySelectorAll("button")].find((button) => button.textContent === "Run Backtest");
-    await click(run!);
+    await click(run, "Run Backtest");
 
     expect(node.textContent).toContain("dataset not approved");
     expect(node.textContent).toContain("ORB");
@@ -120,18 +128,17 @@ describe("canonical Testing & Validation actions", () => {
       cancelWalkForwardAction={cancelWalkForwardAction as any}
     />);
 
-    await setInput(node.querySelector("input[aria-label='Walk-forward strategy ID']") as HTMLInputElement, "strat-1");
-    await setInput(node.querySelector("input[aria-label='Walk-forward dataset ID']") as HTMLInputElement, "ds-1");
-    await setInput(node.querySelector("input[aria-label='Walk-forward instrument']") as HTMLInputElement, "NIFTY");
-    await setInput(node.querySelector("input[aria-label='Walk-forward timeframe']") as HTMLInputElement, "5m");
-    await setInput(node.querySelector("input[aria-label='Walk-forward IS days']") as HTMLInputElement, "20");
-    await setInput(node.querySelector("input[aria-label='Walk-forward OOS days']") as HTMLInputElement, "5");
-    await setInput(node.querySelector("input[aria-label='Walk-forward max windows']") as HTMLInputElement, "8");
-    await setInput(node.querySelector("input[aria-label='Walk-forward initial capital']") as HTMLInputElement, "500000");
+    await setInput(input(node, "Walk-forward strategy ID"), "strat-1");
+    await setInput(input(node, "Walk-forward dataset ID"), "ds-1");
+    await setInput(input(node, "Walk-forward instrument"), "NIFTY");
+    await setInput(input(node, "Walk-forward timeframe"), "5m");
+    await setInput(input(node, "Walk-forward IS days"), "20");
+    await setInput(input(node, "Walk-forward OOS days"), "5");
+    await setInput(input(node, "Walk-forward max windows"), "8");
+    await setInput(input(node, "Walk-forward initial capital"), "500000");
 
     const run = [...node.querySelectorAll("button")].find((button) => button.textContent === "Run Walk-Forward");
-    expect(run).toBeTruthy();
-    await click(run!);
+    await click(run, "Run Walk-Forward");
     expect(createWalkForwardAction).toHaveBeenCalledWith({
       strategy_id: "strat-1",
       dataset_id: "ds-1",
@@ -144,8 +151,7 @@ describe("canonical Testing & Validation actions", () => {
     });
 
     const cancel = node.querySelector("button[aria-label='Cancel walk-forward wf-1']");
-    expect(cancel).toBeTruthy();
-    await click(cancel!);
+    await click(cancel, "Cancel walk-forward wf-1");
     expect(cancelWalkForwardAction).toHaveBeenCalledTimes(1);
     expect(cancelWalkForwardAction).toHaveBeenCalledWith("wf-1");
   });
@@ -158,6 +164,8 @@ describe("canonical Testing & Validation actions", () => {
     })} />);
     const backtestButton = [...node.querySelectorAll("button")].find((button) => button.textContent === "Run Backtest") as HTMLButtonElement | undefined;
     const wfButton = [...node.querySelectorAll("button")].find((button) => button.textContent === "Run Walk-Forward") as HTMLButtonElement | undefined;
+    expect(backtestButton, "Run Backtest control missing").toBeTruthy();
+    expect(wfButton, "Run Walk-Forward control missing").toBeTruthy();
     expect(backtestButton?.disabled).toBe(true);
     expect(wfButton?.disabled).toBe(true);
     expect(node.textContent).toContain("STALE");
