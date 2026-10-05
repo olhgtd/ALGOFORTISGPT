@@ -11,6 +11,15 @@ from dashboard.backend.security import SecurityConfiguration
 from dashboard.backend.security_store import SQLiteSecurityStore
 
 
+class RecordingAudit:
+    def __init__(self):
+        self.events = []
+
+    def record(self, **kwargs):
+        self.events.append(kwargs)
+        return f"audit-{len(self.events)}"
+
+
 def _client():
     temp = tempfile.TemporaryDirectory(prefix="af_owner_entry_recovery_")
     store = SQLiteSecurityStore(Path(temp.name) / "security.sqlite3", seed_governance=False, profile="test")
@@ -20,11 +29,13 @@ def _client():
         lifecycle=Lifecycle.ACTIVE,
         display_name="Pending Owner",
     )
+    audit = RecordingAudit()
     app = create_app(
         security_store=store,
         governance_store=store,
         owner=owner,
         config=SecurityConfiguration(normal_mtls_required=False),
+        core_security_audit=audit,
     )
     attach_password_account_routes(app)
     return temp, store, TestClient(app)
@@ -44,7 +55,7 @@ def test_first_owner_setup_returns_eight_single_use_recovery_codes_and_reset_wor
                 "confirm_password": "OwnerPass123!",
             },
         )
-        assert setup.status_code == 200
+        assert setup.status_code == 200, setup.text
         body = setup.json()
         assert body["role"] == "OWNER"
         assert len(body["recovery_codes"]) == 8
@@ -64,7 +75,7 @@ def test_first_owner_setup_returns_eight_single_use_recovery_codes_and_reset_wor
             "/api/v1/auth/local/recovery/verify",
             json={"email": "owner@test.invalid", "recovery_code": code},
         )
-        assert verify.status_code == 200
+        assert verify.status_code == 200, verify.text
         assert verify.json() == {"valid": True}
 
         reset = client.post(
@@ -76,7 +87,7 @@ def test_first_owner_setup_returns_eight_single_use_recovery_codes_and_reset_wor
                 "confirm_password": "NewOwnerPass456!",
             },
         )
-        assert reset.status_code == 200
+        assert reset.status_code == 200, reset.text
         assert reset.json()["success"] is True
 
         replay = client.post(
@@ -95,7 +106,7 @@ def test_first_owner_setup_returns_eight_single_use_recovery_codes_and_reset_wor
             "/api/v1/auth/local/login",
             json={"email": "owner@test.invalid", "password": "NewOwnerPass456!"},
         )
-        assert new_login.status_code == 200
+        assert new_login.status_code == 200, new_login.text
         assert new_login.json()["role"] == "OWNER"
     finally:
         store.close()
