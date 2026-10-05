@@ -69,7 +69,7 @@ export async function revokeAllOwnerUserDevices(identifier: string) {
 }
 
 export async function proposeOwnerSetting(key: string, proposedValue: unknown) {
-  return ownerFetch<any>("/api/v1/owner/settings/propose", {
+  return ownerFetch<any>("/api/v1/settings/propose", {
     method: "POST",
     body: JSON.stringify({ key, proposed_value: proposedValue }),
   });
@@ -78,7 +78,7 @@ export async function proposeOwnerSetting(key: string, proposedValue: unknown) {
 export async function confirmOwnerSetting(proposalId: string) {
   return ownerMutationWithStepUp<any>({
     actionFamily: "SETTINGS_APPLY",
-    path: "/api/v1/owner/settings/confirm",
+    path: "/api/v1/settings/confirm",
     body: { proposal_id: proposalId },
   });
 }

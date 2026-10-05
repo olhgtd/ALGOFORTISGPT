@@ -12,7 +12,7 @@ def test_destructive_owner_routes_are_step_up_classified() -> None:
         ("POST", "/api/v1/owner/strategies/ST-1/allowance"): ("STRATEGY_GOVERNANCE", "ST-1"),
         ("POST", "/api/v1/owner/connections/CN-1/allowance"): ("CONNECTION_GOVERNANCE", "CN-1"),
         ("POST", "/api/v1/owner/datasets/D-1/approval"): ("DATASET_GOVERNANCE", "D-1"),
-        ("POST", "/api/v1/owner/settings/confirm"): ("SETTINGS_APPLY", None),
+        ("POST", "/api/v1/settings/confirm"): ("SETTINGS_APPLY", None),
         ("POST", "/api/v1/owner/admin/ai/providers/P-1/metadata"): ("AI_PROVIDER_CONFIG", "P-1"),
         ("POST", "/api/v1/owner/admin/ai/providers/P-1/credential"): ("AI_PROVIDER_CREDENTIAL", "P-1"),
         ("POST", "/api/v1/owner/admin/ai/providers/P-1/verify"): ("AI_PROVIDER_VERIFY", "P-1"),
