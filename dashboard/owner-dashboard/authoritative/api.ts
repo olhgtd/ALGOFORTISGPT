@@ -105,7 +105,7 @@ export async function queryOwnerDevices(): Promise<any> {
 }
 
 export async function queryServerSettings(): Promise<any> {
-  return ownerFetch<any>("/api/v1/owner/settings");
+  return ownerFetch<any>("/api/v1/settings");
 }
 
 function base64Url(bytes: ArrayBuffer | null): string | null {
