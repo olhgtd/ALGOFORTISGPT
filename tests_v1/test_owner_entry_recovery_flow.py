@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from dashboard.backend.account_v2.password_router import attach_password_account_routes
 from dashboard.backend.api import create_app
 from dashboard.backend.domain import Lifecycle, Role, UserIdentity
 from dashboard.backend.security import SecurityConfiguration
@@ -25,6 +26,7 @@ def _client():
         owner=owner,
         config=SecurityConfiguration(normal_mtls_required=False),
     )
+    attach_password_account_routes(app)
     return temp, store, TestClient(app)
 
 
