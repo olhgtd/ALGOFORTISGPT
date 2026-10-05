@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import RLock
-from typing import Literal
+from typing import Any, Callable, Literal
 from uuid import UUID, uuid4
 
 from .domain import (
@@ -324,6 +324,14 @@ class SQLiteSecurityStore:
                 consumed_at_utc TEXT, created_at_utc TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(user_id)
             )""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS recovery_codes (
+                code_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                consumed_at_utc TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(user_id)
+            )""")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id)")
             cur.execute("""CREATE TABLE IF NOT EXISTS security_mutation_outbox (
                 operation_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, action TEXT NOT NULL,
                 resource_id TEXT, payload_json TEXT NOT NULL, stage_state TEXT NOT NULL,
@@ -1058,10 +1066,10 @@ class SQLiteSecurityStore:
         display_name: str,
         email: str,
         password: str,
-        now: datetime | None = None
+        now: datetime | None = None,
+        return_codes: bool = False,
     ):
-        """First-run owner password initialization. Validates and consumes the bootstrap token,
-        guaranteeing the single Super Owner invariant (OWNER-001)."""
+        """First-run owner password initialization with one-time recovery codes."""
         token = token or bootstrap_token
         if not token:
             raise ValueError("Bootstrap token is required")
@@ -1072,26 +1080,26 @@ class SQLiteSecurityStore:
         clean_name = display_name.strip() or "Super Owner"
         if len(password) < 8:
             raise ValueError("Password must be at least 8 characters long")
-
         if self.has_initialized_owner():
             raise SecurityStoreError("Super Owner is already initialized; re-provisioning forbidden")
 
-        owner_rows = [r for r in self.list_users() if r["role"] == "OWNER"]
+        owner_rows = [row for row in self.list_users() if row["role"] == "OWNER"]
         if len(owner_rows) > 1:
             raise SecurityStoreError("Ambiguous local Owner authority")
-
         if owner_rows:
             owner_uid = UUID(owner_rows[0]["user_id"])
         else:
-            auth_row = self._conn.execute("SELECT user_id FROM bootstrap_authorizations WHERE token_hash = ?", (self.token_hash(token),)).fetchone()
+            auth_row = self._conn.execute(
+                "SELECT user_id FROM bootstrap_authorizations WHERE token_hash = ?",
+                (self.token_hash(token),),
+            ).fetchone()
             if auth_row is None:
                 raise SecurityStoreError("invalid bootstrap authorization")
             owner_uid = UUID(auth_row["user_id"])
 
         self.validate_owner_bootstrap(token=token, user_id=owner_uid, now=now)
         self.consume_owner_bootstrap(token=token, user_id=owner_uid, now=now)
-
-        pw_hash, pw_salt = hash_password(password)
+        password_hash, password_salt = hash_password(password)
 
         with self._transaction() as cur:
             if owner_rows:
@@ -1099,7 +1107,7 @@ class SQLiteSecurityStore:
                     """UPDATE users
                        SET display_name = ?, bound_email = ?, password_hash = ?, password_salt = ?, password_updated_at_utc = ?
                        WHERE user_id = ?""",
-                    (clean_name, clean_email, pw_hash, pw_salt, now.isoformat(), str(owner_uid))
+                    (clean_name, clean_email, password_hash, password_salt, now.isoformat(), str(owner_uid)),
                 )
             else:
                 cur.execute(
@@ -1108,12 +1116,105 @@ class SQLiteSecurityStore:
                         sx_id, account_status, activation_status, service_status, bound_email,
                         password_hash, password_salt, password_updated_at_utc
                     ) VALUES (?, 'OWNER', 'ACTIVE', ?, ?, 'SECURED', 'OWNER-001', 'ACTIVE', 'ACTIVATED', 'ACTIVE', ?, ?, ?, ?)""",
-                    (str(owner_uid), clean_name, now.isoformat(), clean_email, pw_hash, pw_salt, now.isoformat())
+                    (str(owner_uid), clean_name, now.isoformat(), clean_email, password_hash, password_salt, now.isoformat()),
                 )
+            recovery_codes = self.create_recovery_codes(user_id=owner_uid, count=8, cur=cur)
 
         updated_row = self.get_user(owner_uid)
         from .identity import persisted_identity
-        return persisted_identity(updated_row)
+        identity = persisted_identity(updated_row)
+        return (identity, recovery_codes) if return_codes else identity
+
+    def create_recovery_codes(
+        self, *, user_id: UUID, count: int = 8, cur: sqlite3.Cursor | None = None
+    ) -> list[str]:
+        """Generate single-use codes while persisting only SHA-256 hashes."""
+        raw_codes = [f"RC-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}" for _ in range(count)]
+        created_at = _utc_now().isoformat()
+
+        def insert_rows(cursor) -> None:
+            for code in raw_codes:
+                code_hash = hashlib.sha256(code.strip().upper().encode("utf-8")).hexdigest()
+                cursor.execute(
+                    "INSERT INTO recovery_codes (code_hash, user_id, created_at_utc, consumed_at_utc) VALUES (?, ?, ?, NULL)",
+                    (code_hash, str(user_id), created_at),
+                )
+
+        if cur is not None:
+            insert_rows(cur)
+        else:
+            with self._transaction() as txn_cur:
+                insert_rows(txn_cur)
+        return raw_codes
+
+    def verify_recovery_code(self, *, email: str, recovery_code: str) -> dict[str, Any] | None:
+        clean_email = email.strip().lower()
+        clean_code = recovery_code.strip().upper()
+        if not clean_email or not clean_code:
+            return None
+        code_hash = hashlib.sha256(clean_code.encode("utf-8")).hexdigest()
+        owner = self._conn.execute(
+            "SELECT * FROM users WHERE role = 'OWNER' AND LOWER(TRIM(bound_email)) = ?",
+            (clean_email,),
+        ).fetchone()
+        if owner is None:
+            return None
+        code_row = self._conn.execute(
+            "SELECT code_hash FROM recovery_codes WHERE code_hash = ? AND user_id = ? AND consumed_at_utc IS NULL",
+            (code_hash, owner["user_id"]),
+        ).fetchone()
+        return dict(owner) if code_row is not None else None
+
+    def recover_password_with_code(
+        self,
+        *,
+        email: str,
+        recovery_code: str,
+        new_password: str,
+        now: datetime | None = None,
+        audit_recorder: Callable[[UUID], None] | None = None,
+    ):
+        now = now or _utc_now()
+        clean_email = email.strip().lower()
+        clean_code = recovery_code.strip().upper()
+        if not clean_email or not clean_code or len(new_password) < 8:
+            raise SecurityStoreError("Invalid recovery parameters")
+        code_hash = hashlib.sha256(clean_code.encode("utf-8")).hexdigest()
+        owner = self._conn.execute(
+            "SELECT * FROM users WHERE role = 'OWNER' AND LOWER(TRIM(bound_email)) = ?",
+            (clean_email,),
+        ).fetchone()
+        if owner is None:
+            raise SecurityStoreError("Invalid recovery credentials")
+        owner_uid = UUID(owner["user_id"])
+        code_row = self._conn.execute(
+            "SELECT code_hash FROM recovery_codes WHERE code_hash = ? AND user_id = ? AND consumed_at_utc IS NULL",
+            (code_hash, str(owner_uid)),
+        ).fetchone()
+        if code_row is None:
+            raise SecurityStoreError("Invalid recovery credentials")
+
+        password_hash, password_salt = hash_password(new_password)
+        with self._transaction() as cur:
+            cur.execute(
+                "UPDATE users SET password_hash = ?, password_salt = ?, password_updated_at_utc = ? WHERE user_id = ?",
+                (password_hash, password_salt, now.isoformat(), str(owner_uid)),
+            )
+            consumed = cur.execute(
+                "UPDATE recovery_codes SET consumed_at_utc = ? WHERE code_hash = ? AND consumed_at_utc IS NULL",
+                (now.isoformat(), code_hash),
+            )
+            if consumed.rowcount != 1:
+                raise SecurityStoreError("Recovery code already consumed or invalid")
+            cur.execute(
+                "UPDATE sessions SET revoked_at_utc = ? WHERE user_id = ? AND revoked_at_utc IS NULL",
+                (now.isoformat(), str(owner_uid)),
+            )
+            if audit_recorder is not None:
+                audit_recorder(owner_uid)
+
+        from .identity import persisted_identity
+        return persisted_identity(self.get_user(owner_uid))
 
     def verify_owner_password(self, email: str = "", password: str = ""):
         """Verifies owner password against stored scrypt hash in constant time."""

@@ -152,6 +152,7 @@ export const api = {
       subject: string;
       role: "OWNER" | "USER";
       sx_id: string;
+      recovery_codes?: string[];
     }>("/auth/local/setup", {
       method: "POST",
       body: JSON.stringify(data),

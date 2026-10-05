@@ -49,6 +49,20 @@ class PasswordOwnerBootstrapRequest(BaseModel):
     confirm_password: str = Field(min_length=8, max_length=256)
 
 
+class LocalRecoveryVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=3, max_length=320)
+    recovery_code: str = Field(min_length=1, max_length=128)
+
+
+class LocalRecoveryResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=3, max_length=320)
+    recovery_code: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=256)
+    confirm_password: str = Field(min_length=8, max_length=256)
+
+
 def _client_key(request: Request) -> str:
     host = request.client.host if request.client is not None else "unknown"
     return f"ip:{host}"
@@ -236,11 +250,12 @@ def attach_password_account_routes(app: Any) -> Any:
                 raise SecurityStoreError("Ambiguous local Owner authority")
 
             _audit(actor_id=actor_id, action="LOCAL_OWNER_PROVISIONING_AUTHORIZED")
-            initialized = store.initialize_owner_password(
+            initialized, recovery_codes = store.initialize_owner_password(
                 token=body.bootstrap_token.strip(),
                 display_name=body.display_name.strip(),
                 email=body.email.strip(),
                 password=body.password,
+                return_codes=True,
             )
             # The same request canonicalizes any legacy activation token and
             # guarantees OWNER-001 exists before the first returned session.
@@ -253,7 +268,9 @@ def attach_password_account_routes(app: Any) -> Any:
                 raise SecurityStoreError("Owner identity canonicalization failed")
             session = _issue_password_session(identity, request)
             _record_success(limiter, ip_key)
-            return _session_payload(session)
+            payload = _session_payload(session)
+            payload["recovery_codes"] = recovery_codes
+            return payload
         except HTTPException:
             raise
         except (SecurityStoreError, ValueError, TypeError, KeyError) as exc:
@@ -301,6 +318,48 @@ def attach_password_account_routes(app: Any) -> Any:
         return _bootstrap_owner(body, request)
 
     app.include_router(router)
+
+    @app.post("/api/v1/auth/local/recovery/verify")
+    def local_recovery_verify(body: LocalRecoveryVerifyRequest, request: Request) -> dict[str, bool]:
+        email = body.email.strip().lower()
+        ip_key = _client_key(request)
+        email_key = f"recovery:{email}"
+        limiter = _limiter("recovery_limiter")
+        _require_not_locked(limiter, ip_key, email_key)
+        if store.verify_recovery_code(email=email, recovery_code=body.recovery_code) is None:
+            _record_failure(limiter, ip_key, email_key)
+            raise HTTPException(status_code=400, detail="INVALID_RECOVERY_CREDENTIALS")
+        _record_success(limiter, ip_key, email_key)
+        return {"valid": True}
+
+    @app.post("/api/v1/auth/local/recovery/reset")
+    def local_recovery_reset(body: LocalRecoveryResetRequest, request: Request) -> dict[str, Any]:
+        if body.new_password != body.confirm_password:
+            raise HTTPException(status_code=422, detail="Passwords do not match")
+        email = body.email.strip().lower()
+        ip_key = _client_key(request)
+        email_key = f"recovery:{email}"
+        limiter = _limiter("recovery_limiter")
+        _require_not_locked(limiter, ip_key, email_key)
+        try:
+            identity = store.recover_password_with_code(
+                email=email,
+                recovery_code=body.recovery_code,
+                new_password=body.new_password,
+                audit_recorder=lambda actor_id: _audit(actor_id=actor_id, action="LOCAL_PASSWORD_RECOVERY_SUCCESS"),
+            )
+            sessions.revoke_user(identity.user_id)
+            _record_success(limiter, ip_key, email_key)
+            login_limiter = _limiter("login_limiter")
+            if login_limiter is not None:
+                login_limiter.record_success(f"password_login:{email}")
+                login_limiter.record_success(ip_key)
+            return {"success": True, "detail": "Password reset successfully"}
+        except HTTPException:
+            raise
+        except (SecurityStoreError, ValueError, TypeError, KeyError):
+            _record_failure(limiter, ip_key, email_key)
+            raise HTTPException(status_code=400, detail="INVALID_RECOVERY_CREDENTIALS") from None
 
     @app.middleware("http")
     async def legacy_local_password_bridge(request: Request, call_next):
