@@ -3,7 +3,6 @@ import { Icon, type IconName } from "../shared/icons/V3Icons";
 import { CommandPalette, GlobalRealTimeClock, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import {
   OwnerAccessRegistryScreen,
-  OwnerBacktestsScreen,
   OwnerConnectionsScreen,
   OwnerIncidentsScreen,
   OwnerOverviewScreen,
@@ -18,6 +17,7 @@ import {
 import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
 import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
+import { ResearchOperations } from "./authoritative/ResearchOperations";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -49,7 +49,7 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
   {
     label: "OPERATIONS",
     items: [
-      { id: "backtests", label: "Backtests Oversight", icon: "play" },
+      { id: "research", label: "Backtests / Walk-Forward", icon: "play" },
       { id: "paper", label: "Paper Sessions", icon: "layers" },
       { id: "portfolio-oversight", label: "Portfolio & Orders", icon: "chart" },
       { id: "reports", label: "Reports & Audit", icon: "file" },
@@ -174,7 +174,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "access-registry": return <OwnerAccessRegistryScreen />;
       case "strategies": return <OwnerStrategiesScreen />;
       case "plugins": return <OwnerConnectionsScreen />;
-      case "backtests": return <OwnerBacktestsScreen />;
+      case "research": return <ResearchOperations />;
       case "paper": return <OwnerPaperScreen />;
       case "portfolio-oversight": return <OwnerPortfolioOrdersScreen />;
       case "reports": return <OwnerReportsAuditScreen />;
@@ -226,7 +226,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
         </nav>
       )}
 
-      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users", "product-operations"].includes(screen) ? "wide" : ""}`}>
+      <main className={`v3-shell ${mobile ? "mobile" : ""} ${["control", "portfolio-oversight", "ai-control", "users", "product-operations", "research"].includes(screen) ? "wide" : ""}`}>
         <div className="v3-screen" key={screen}>{renderScreen()}</div>
       </main>
 

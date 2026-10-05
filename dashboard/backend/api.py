@@ -2826,6 +2826,29 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             raise HTTPException(status_code=503, detail="Walk-forward service unavailable")
         return service
 
+    @app.post("/api/v1/owner/backtests/{run_id}/cancel")
+    def cancel_owner_backtest_run(
+        run_id: str,
+        session=Depends(owner_mutable_session),
+    ) -> dict[str, Any]:
+        """Owner administrative cancellation over the canonical Backtest service."""
+        service = app.state.backtest_service
+        if service is None:
+            raise HTTPException(status_code=503, detail="Backtest service unavailable")
+        try:
+            cancelled = service.cancel_run(run_id, user_id=None)
+        except Exception as exc:
+            logger.exception("Owner backtest cancellation failed")
+            raise HTTPException(status_code=422, detail="BACKTEST_CANCEL_REJECTED") from exc
+        if not cancelled:
+            raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found or not cancellable")
+        _record_security_audit(
+            event_type="OWNER_BACKTEST_CANCELLED",
+            actor_id=session.user.user_id,
+            details={"run_id": run_id},
+        )
+        return {"success": True, "run_id": run_id, "cancel_requested": True}
+
     @app.post("/api/v1/walkforward/jobs", status_code=202)
     def create_walkforward_job(
         body: CreateWalkForwardRequest,
@@ -2893,6 +2916,26 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         if job is None:
             raise HTTPException(status_code=404, detail=f"Walk-forward job '{job_id}' not found")
         return {"job_id": job_id, "cancel_requested": True, "job": job}
+
+    @app.post("/api/v1/owner/walkforward/jobs/{job_id}/cancel")
+    def cancel_owner_walkforward_job(
+        job_id: str,
+        session=Depends(owner_mutable_session),
+    ) -> dict[str, Any]:
+        """Owner administrative cancellation over the canonical Walk-Forward service."""
+        service = _walkforward_authority()
+        try:
+            job = service.cancel_job(job_id, None)
+        except (WalkForwardError, SecurityStoreError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"Walk-forward job '{job_id}' not found")
+        _record_security_audit(
+            event_type="OWNER_WALKFORWARD_CANCELLED",
+            actor_id=session.user.user_id,
+            details={"job_id": job_id},
+        )
+        return {"success": True, "job_id": job_id, "cancel_requested": True, "job": job}
 
     @app.get("/api/v1/owner/walkforward/jobs")
     def list_owner_walkforward_jobs(
