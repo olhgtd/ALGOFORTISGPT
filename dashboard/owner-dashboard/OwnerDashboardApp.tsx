@@ -3,7 +3,6 @@ import { Icon, type IconName } from "../shared/icons/V3Icons";
 import { CommandPalette, GlobalRealTimeClock, type PaletteCmd } from "../shared/utilities/V3Chrome";
 import {
   OwnerAccessRegistryScreen,
-  OwnerConnectionsScreen,
   OwnerIncidentsScreen,
   OwnerOverviewScreen,
   OwnerPortfolioOrdersScreen,
@@ -19,6 +18,7 @@ import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen
 import { ResearchOperations } from "./authoritative/ResearchOperations";
 import { PaperOperations } from "./authoritative/PaperOperations";
 import { DeploymentOperations } from "./authoritative/DeploymentOperations";
+import { DataOperations } from "./authoritative/DataOperations";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -175,7 +175,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "users": return <OwnerUsersInspectionScreen />;
       case "access-registry": return <OwnerAccessRegistryScreen />;
       case "strategies": return <OwnerStrategiesScreen />;
-      case "plugins": return <OwnerConnectionsScreen />;
+      case "plugins": return <DataOperations />;
       case "research": return <ResearchOperations />;
       case "paper": return <PaperOperations />;
       case "deployments": return <DeploymentOperations />;
