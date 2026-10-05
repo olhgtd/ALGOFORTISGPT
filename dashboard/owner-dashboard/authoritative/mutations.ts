@@ -51,10 +51,18 @@ export async function ownerDatasetReplace(datasetId: string, replacementDatasetI
 }
 
 export async function ownerStrategyAssignment(strategyId: string, userId: string, revoke = false) {
+  if (revoke) {
+    return ownerMutationWithStepUp<any>({
+      actionFamily: "STRATEGY_GOVERNANCE",
+      resourceRef: strategyId,
+      path: `/api/v1/owner/strategies/${encodeURIComponent(strategyId)}/revoke-assignment`,
+      body: { user_id: userId },
+    });
+  }
   return ownerMutationWithStepUp<any>({
     actionFamily: "STRATEGY_GOVERNANCE",
     resourceRef: strategyId,
-    path: `/api/v1/owner/strategies/${encodeURIComponent(strategyId)}/${revoke ? "revoke-assignment" : "assign"}`,
+    path: `/api/v1/owner/strategies/${encodeURIComponent(strategyId)}/assign`,
     body: { user_id: userId },
   });
 }
