@@ -77,11 +77,11 @@ export async function queryOwnerIncidents(limit = 100): Promise<any> {
 }
 
 export async function queryOwnerBacktests(): Promise<any> {
-  return ownerFetch<any>("/api/v1/backtests?limit=200&offset=0");
+  return ownerFetch<any>("/api/v1/owner/backtests?limit=200");
 }
 
 export async function queryOwnerPaperSessions(): Promise<any> {
-  return ownerFetch<any>("/api/v1/paper/sessions?limit=200&offset=0");
+  return ownerFetch<any>("/api/v1/owner/paper/sessions?limit=200");
 }
 
 export async function queryOwnerOrdersPortfolio(mode: "PAPER" | "BACKTEST" | "LIVE" | "SHADOW" = "PAPER"): Promise<any> {
