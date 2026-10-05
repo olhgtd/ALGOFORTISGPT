@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from dashboard.backend.owner_admin.step_up import classify_destructive_route
 
@@ -23,8 +24,8 @@ def test_owner_deployment_routes_are_installation_wide_and_bounded() -> None:
         '@app.post("/api/v1/owner/deployments/{deployment_id}/stop")',
     ):
         assert route in source
-    assert "list_deployments(None" in source
-    assert "recovery_snapshot(None" in source
+    assert re.search(r"list_deployments\(\s*(?:user_id\s*=\s*)?None", source)
+    assert re.search(r"recovery_snapshot\(\s*(?:user_id\s*=\s*)?None", source)
 
 
 def test_resume_and_stop_are_step_up_bound() -> None:
