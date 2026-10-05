@@ -3574,6 +3574,54 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             raise HTTPException(status_code=503, detail="Deployment service unavailable")
         return app.state.deployment_service
 
+    @app.get("/api/v1/owner/deployments")
+    def list_owner_deployments(
+        limit: int = Query(default=200, ge=1, le=500),
+        status: str | None = None,
+        session=Depends(owner_session),
+    ) -> dict[str, Any]:
+        service = _deployment_authority()
+        rows = service.list_deployments(None, status=status)
+        return {"deployments": rows[:limit], "total_count": len(rows), "source": "BACKEND"}
+
+    @app.get("/api/v1/owner/deployments/recovery")
+    def owner_deployment_recovery(session=Depends(owner_session)) -> dict[str, Any]:
+        service = _deployment_authority()
+        return service.recovery_snapshot(None)
+
+    @app.post("/api/v1/owner/deployments/{deployment_id}/pause")
+    def pause_owner_deployment(deployment_id: str, session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        service = _deployment_authority()
+        actor = f"OWNER-{str(session.user.user_id)[:4]}"
+        try:
+            deployment = service.pause_deployment(deployment_id, None, actor=actor)
+        except DeploymentError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _record_security_audit(event_type="OWNER_DEPLOYMENT_PAUSED", actor_id=session.user.user_id, details={"deployment_id": deployment_id})
+        return {"success": True, "deployment": deployment}
+
+    @app.post("/api/v1/owner/deployments/{deployment_id}/resume")
+    def resume_owner_deployment(deployment_id: str, session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        service = _deployment_authority()
+        actor = f"OWNER-{str(session.user.user_id)[:4]}"
+        try:
+            deployment = service.resume_deployment(deployment_id, None, actor=actor)
+        except DeploymentError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _record_security_audit(event_type="OWNER_DEPLOYMENT_RESUMED", actor_id=session.user.user_id, details={"deployment_id": deployment_id})
+        return {"success": True, "deployment": deployment}
+
+    @app.post("/api/v1/owner/deployments/{deployment_id}/stop")
+    def stop_owner_deployment(deployment_id: str, session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        service = _deployment_authority()
+        actor = f"OWNER-{str(session.user.user_id)[:4]}"
+        try:
+            deployment = service.stop_deployment(deployment_id, None, actor=actor)
+        except DeploymentError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _record_security_audit(event_type="OWNER_DEPLOYMENT_STOPPED", actor_id=session.user.user_id, details={"deployment_id": deployment_id})
+        return {"success": True, "deployment": deployment}
+
     @app.post("/api/v1/user/deployments")
     def create_user_deployment(
         body: CreateDeploymentRequest,

@@ -18,6 +18,7 @@ import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
 import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
 import { ResearchOperations } from "./authoritative/ResearchOperations";
 import { PaperOperations } from "./authoritative/PaperOperations";
+import { DeploymentOperations } from "./authoritative/DeploymentOperations";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -50,7 +51,8 @@ export const DESKTOP_OWNER_NAV_GROUPS: NavGroup[] = [
     label: "OPERATIONS",
     items: [
       { id: "research", label: "Backtests / Walk-Forward", icon: "play" },
-      { id: "paper", label: "Paper Sessions", icon: "layers" },
+      { id: "paper", label: "Paper Trading", icon: "layers" },
+      { id: "deployments", label: "Deployments", icon: "activity" },
       { id: "portfolio-oversight", label: "Portfolio & Orders", icon: "chart" },
       { id: "reports", label: "Reports & Audit", icon: "file" },
       { id: "product-operations", label: "Product Operations", icon: "activity", badge: "Read only", badgeTone: "dim" },
@@ -176,6 +178,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "plugins": return <OwnerConnectionsScreen />;
       case "research": return <ResearchOperations />;
       case "paper": return <PaperOperations />;
+      case "deployments": return <DeploymentOperations />;
       case "portfolio-oversight": return <OwnerPortfolioOrdersScreen />;
       case "reports": return <OwnerReportsAuditScreen />;
       case "product-operations": return <ProductOperationsScreen />;
