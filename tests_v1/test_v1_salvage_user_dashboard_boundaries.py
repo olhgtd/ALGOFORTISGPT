@@ -30,15 +30,24 @@ LEGACY_SAMPLE_MODULES = (
     "data/optionsChain",
     "data/userAgents",
     "data/userSecurity",
+    "screens/UserScreens",
 )
 
 FORBIDDEN_EXECUTION_REFERENCES = (
     "engine.broker_adapters",
+    "/api/v1/live/arm",
     "/api/v1/live/orders",
+    "/api/v1/broker/orders",
     "place_order(",
     "modify_order(",
     "cancel_order(",
     "_mint_approved_order(",
+)
+
+FORBIDDEN_MISLEADING_SAFETY_COPY = (
+    "ARMED & READY",
+    "Max Single Order ₹1,00,000",
+    "Max Day Loss -₹25,000",
 )
 
 
@@ -71,6 +80,24 @@ def test_canonical_user_surface_cannot_become_direct_execution_authority() -> No
             if token in text:
                 violations.append(f"{path.relative_to(ROOT)} -> {token}")
     assert not violations, "direct execution/broker mutation reference found on canonical user surface:\n" + "\n".join(violations)
+
+
+def test_canonical_user_surface_never_reintroduces_hardcoded_safety_claims() -> None:
+    violations: list[str] = []
+    for path in CANONICAL_FILES:
+        text = _text(path)
+        for token in FORBIDDEN_MISLEADING_SAFETY_COPY:
+            if token in text:
+                violations.append(f"{path.relative_to(ROOT)} -> {token}")
+    assert not violations, "misleading hardcoded safety copy found on canonical user surface:\n" + "\n".join(violations)
+
+
+def test_canonical_deployment_creation_is_live_paper_only() -> None:
+    strategies = _text(USER_ROOT / "screens" / "UserStrategies.tsx")
+    assert 'execution_mode: "LIVE_PAPER"' in strategies
+    assert 'aria-label="Deployment execution mode"' not in strategies
+    assert "Create LIVE_PAPER Deployment" in strategies
+    assert "READ_ONLY / DISARMED" in strategies
 
 
 def test_user_surface_keeps_live_read_only_disarmed_and_fail_closed_copy() -> None:
