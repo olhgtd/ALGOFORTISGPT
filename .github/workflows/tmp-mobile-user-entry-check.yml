@@ -1,0 +1,170 @@
+name: Temporary Mobile User Entry Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-mobile-user-entry-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dashboard dependencies
+        run: npm ci --prefix dashboard/web
+
+      - name: Install Chromium
+        run: npm --prefix dashboard/web exec -- playwright install --with-deps chromium
+
+      - name: Start dashboard dev server
+        shell: bash
+        run: |
+          nohup npm --prefix dashboard/web run dev -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/vite.log" 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/vite.log"
+          exit 1
+
+      - name: Run 390x844 mobile User-entry smoke and screenshots
+        shell: bash
+        run: |
+          cat > dashboard/web/mobile-user-entry-check.mjs <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { mkdirSync, writeFileSync } from 'node:fs';
+
+          const out = 'mobile-entry-evidence';
+          mkdirSync(out, { recursive: true });
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 390, height: 844 },
+            deviceScaleFactor: 1,
+            isMobile: true,
+            hasTouch: true,
+          });
+          const page = await context.newPage();
+
+          await page.route('**/api/v1/**', async (route) => {
+            const req = route.request();
+            const url = new URL(req.url());
+            const path = url.pathname;
+            const json = (status, body) => route.fulfill({
+              status,
+              contentType: 'application/json',
+              body: JSON.stringify(body),
+            });
+
+            if (path === '/api/v1/auth/local/access/validate') {
+              let body = {};
+              try { body = req.postDataJSON() ?? {}; } catch {}
+              const id = String(body.access_id ?? '');
+              if (id === 'BAD-CODE') return json(200, { valid: false, access_id: id, user_id: '' });
+              return json(200, {
+                valid: true,
+                access_id: id,
+                user_id: 'mobile-test-user',
+                email: 'mobile@test.local',
+                display_name: 'Mobile Test User',
+                plan: 'TEST',
+              });
+            }
+
+            if (path === '/api/v1/auth/local/access/activate') {
+              return json(200, {
+                access_token: 'mobile-test-token',
+                expires_at_utc: '2026-10-05T23:59:59Z',
+                subject: 'mobile-test-user',
+                role: 'USER',
+                sx_id: 'AF-MOBILE-001',
+              });
+            }
+
+            if (path === '/api/v1/users/current') {
+              return json(200, {
+                user_id: 'mobile-test-user',
+                sx_id: 'AF-MOBILE-001',
+                role: 'USER',
+                lifecycle: 'ACTIVE',
+                account_status: 'ACTIVE',
+                activation_status: 'ACTIVE',
+                service_status: 'ACTIVE',
+                service_started_at: '2026-10-05T00:00:00Z',
+                service_expires_at: '2026-11-05T00:00:00Z',
+                service_term_type: 'CALENDAR_MONTHS',
+                custom_term_value: 1,
+                display_name: 'Mobile Test User',
+                namespace: 'user',
+                workspace_eligibility: { user: true, owner: false },
+                effective_access: true,
+              });
+            }
+
+            if (path === '/api/v1/health') {
+              return json(200, { status: 'ok' });
+            }
+
+            return json(503, { detail: 'Unavailable in temporary mobile visual smoke test' });
+          });
+
+          const base = 'http://127.0.0.1:4173/?app=user&surface=secure-entry';
+          await page.goto(base, { waitUntil: 'networkidle' });
+          await page.locator('#access-gate-form').waitFor({ state: 'visible' });
+          await page.screenshot({ path: `${out}/01-access-id.png`, fullPage: true });
+
+          await page.locator('#access-id-input').fill('AF-MOBILE-001');
+          await page.locator('#access-gate-continue-btn').click();
+          await page.locator('#account-login-form').waitFor({ state: 'visible' });
+          await page.screenshot({ path: `${out}/02-create-account.png`, fullPage: true });
+
+          await page.locator('#back-to-access-id-btn').click();
+          await page.locator('#access-id-input').fill('BAD-CODE');
+          await page.locator('#access-gate-continue-btn').click();
+          await page.locator('#access-denied-view').waitFor({ state: 'visible' });
+          await page.screenshot({ path: `${out}/03-access-denied.png`, fullPage: true });
+
+          await page.locator('#try-another-access-id-btn').click();
+          await page.locator('#access-id-input').fill('AF-MOBILE-001');
+          await page.locator('#access-gate-continue-btn').click();
+          await page.locator('#account-login-form').waitFor({ state: 'visible' });
+          await page.locator('#account-email-input').fill('mobile@test.local');
+          await page.locator('#account-password-input').fill('MobilePass123!');
+          await page.locator('#account-confirm-password-input').fill('MobilePass123!');
+          await page.locator('#account-activate-btn').click();
+          await page.waitForURL(/surface=dashboard-v3/, { timeout: 15000 });
+          await page.getByText('Home', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
+          await page.screenshot({ path: `${out}/04-dashboard-handoff.png`, fullPage: true });
+
+          writeFileSync(`${out}/evidence.json`, JSON.stringify({
+            viewport: { width: 390, height: 844 },
+            first_screen: 'AlgoFortis Access',
+            second_screen: 'Create Account',
+            invalid_screen: 'ACCESS NOT AUTHORIZED',
+            dashboard_handoff_url: page.url(),
+            dashboard_home_visible: true,
+          }, null, 2));
+
+          console.log('MOBILE_USER_ENTRY_SMOKE=PASS');
+          console.log(`DASHBOARD_HANDOFF_URL=${page.url()}`);
+          await browser.close();
+          NODE
+          node dashboard/web/mobile-user-entry-check.mjs
+
+      - name: Upload mobile visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-user-entry-evidence
+          path: mobile-entry-evidence
+          retention-days: 3
