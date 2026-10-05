@@ -23,8 +23,12 @@ import {
 } from "./api";
 import {
   confirmOwnerSetting,
+  ownerCapabilityAllowance,
   ownerConnectionAllowance,
   ownerDatasetApproval,
+  ownerDatasetReplace,
+  ownerDatasetRetire,
+  ownerStrategyAssignment,
   proposeOwnerSetting,
   revokeOwnerDevice,
   revokeOwnerSession,
@@ -169,6 +173,8 @@ export const OwnerAccessRegistryScreen: React.FC = () => {
             <AsyncActionButton label="Reissue" onRun={() => ownerAccountAction(row.sxId, "reissue-activation", { notes: "Owner reissue" })} onDone={refresh} />
             <AsyncActionButton label="Revoke invite" tone="danger" onRun={() => ownerAccountAction(row.sxId, "revoke-activation", { notes: "Owner activation revoke" })} onDone={refresh} />
             <AsyncActionButton label="+3 months" tone="warn" onRun={() => ownerAccountAction(row.sxId, "extend-service", { service_term_type: "3_MONTHS", notes: "Owner extension" })} onDone={refresh} />
+          <AsyncActionButton label="Renew 3 months" tone="warn" onRun={() => ownerAccountAction(row.sxId, "renew-service", { service_term_type: "3_MONTHS", notes: "Owner renewal" })} onDone={refresh} />
+          <AsyncActionButton label="Lifetime" tone="warn" onRun={() => ownerAccountAction(row.sxId, "convert-lifetime", { notes: "Owner lifetime conversion" })} onDone={refresh} />
           </div> },
         ]} />
       </section>
@@ -178,21 +184,34 @@ export const OwnerAccessRegistryScreen: React.FC = () => {
 
 export const OwnerStrategiesScreen: React.FC = () => {
   const { snapshot, loading, error, refresh } = useOwnerAuthority();
+  const [assignmentUserId, setAssignmentUserId] = useState("");
   if (loading) return <Panel>Loading strategy authority…</Panel>;
   const surface = snapshot?.surfaces.strategies;
   const state = asState(surface?.authority_state);
   const rows = state === "AVAILABLE" ? asRows(surface?.strategies) : [];
+  const userId = assignmentUserId.trim();
   return <>
     {screenHead("Strategies Governance", "Owner restrictions never bypass readiness, deterministic validation, or RiskGate authority.")}
     <AuthorityPanel title="Strategy Registry" state={surface ? state : "UNAVAILABLE"} reason={error || String(surface?.error || "")} onRefresh={refresh}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <input className="v3-input" value={assignmentUserId} onChange={(e) => setAssignmentUserId(e.target.value)} placeholder="User ID for assignment" />
+      </div>
       <SimpleTable rows={rows} columns={[
         { key: "strategy_id", label: "Strategy" }, { key: "name", label: "Name" }, { key: "version", label: "Version" },
         { key: "stage", label: "Stage" }, { key: "admin_status", label: "Admin" },
-        { key: "governance", label: "Governance", render: (row) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <AsyncActionButton label="Paper HOLD" tone="warn" onRun={() => ownerStrategyAction(row.strategy_id || row.id, "allowance", { sandbox: "paper", allowance: "HOLD", reason: "Owner hold" })} onDone={refresh} />
-          <AsyncActionButton label="Suspend" tone="danger" onRun={() => ownerStrategyAction(row.strategy_id || row.id, "suspend", { reason: "Owner suspension" })} onDone={refresh} />
-          <AsyncActionButton label="Restore" onRun={() => ownerStrategyAction(row.strategy_id || row.id, "restore", { notes: "Owner restore" })} onDone={refresh} />
-        </div> },
+        { key: "governance", label: "Governance", render: (row) => {
+          const strategyId = row.strategy_id || row.id;
+          return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <AsyncActionButton label="Paper HOLD" tone="warn" onRun={() => ownerStrategyAction(strategyId, "allowance", { sandbox: "paper", allowance: "HOLD", reason: "Owner hold" })} onDone={refresh} />
+            <AsyncActionButton label="Publish" onRun={() => ownerStrategyAction(strategyId, "visibility", { visibility: "GLOBAL" })} onDone={refresh} />
+            <AsyncActionButton label="Owner private" tone="warn" onRun={() => ownerStrategyAction(strategyId, "visibility", { visibility: "OWNER_PRIVATE" })} onDone={refresh} />
+            <AsyncActionButton label="Promote Paper" onRun={() => ownerStrategyAction(strategyId, "promote", { target_stage: "PAPER_ELIGIBLE", version: row.version, notes: "Owner Paper promotion" })} onDone={refresh} />
+            <AsyncActionButton label="Assign user" onRun={() => ownerStrategyAssignment(strategyId, userId, false)} onDone={refresh} disabled={!userId} />
+            <AsyncActionButton label="Revoke assignment" tone="warn" onRun={() => ownerStrategyAssignment(strategyId, userId, true)} onDone={refresh} disabled={!userId} />
+            <AsyncActionButton label="Suspend" tone="danger" onRun={() => ownerStrategyAction(strategyId, "suspend", { reason: "Owner suspension" })} onDone={refresh} />
+            <AsyncActionButton label="Restore" onRun={() => ownerStrategyAction(strategyId, "restore", { notes: "Owner restore" })} onDone={refresh} />
+          </div>;
+        } },
       ]} />
     </AuthorityPanel>
   </>;
@@ -200,6 +219,9 @@ export const OwnerStrategiesScreen: React.FC = () => {
 
 export const OwnerConnectionsScreen: React.FC = () => {
   const { snapshot, loading, error, refresh } = useOwnerAuthority();
+  const [capability, setCapability] = useState("");
+  const [replacementDatasetId, setReplacementDatasetId] = useState("");
+  const [datasetReason, setDatasetReason] = useState("Owner governance change");
   if (loading) return <Panel>Loading connections…</Panel>;
   const connections = snapshot?.surfaces.connections;
   const datasets = snapshot?.surfaces.datasets;
@@ -207,29 +229,51 @@ export const OwnerConnectionsScreen: React.FC = () => {
   const dataState = asState(datasets?.authority_state);
   const connRows = connState === "AVAILABLE" ? asRows(connections?.connections) : [];
   const dataRows = dataState === "AVAILABLE" ? asRows(datasets?.datasets) : [];
+  const capabilityName = capability.trim();
+  const replacementId = replacementDatasetId.trim();
+  const reason = datasetReason.trim() || "Owner governance change";
   return <>
     {screenHead("Connections & Datasets", "Broker/data governance only. A connected broker never implies Live armed.")}
     <div className="v3-grid">
       <section className="v3-region v3-sp12">
         <div className="v3-region-head"><span className="v3-region-title">Connections</span><AuthorityBadge state={connState} /></div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
+          <input className="v3-input" value={capability} onChange={(e) => setCapability(e.target.value)} placeholder="Capability (for example MARKET_DATA)" />
+        </div>
         {connState === "AVAILABLE" ? <SimpleTable rows={connRows} columns={[
           { key: "connection_id", label: "Connection" }, { key: "provider", label: "Provider" }, { key: "status", label: "Status" },
           { key: "owner_allowance", label: "Owner allowance" },
-          { key: "actions", label: "Governance", render: (row) => <div style={{ display: "flex", gap: 6 }}>
-            <AsyncActionButton label="ALLOW" onRun={() => ownerConnectionAllowance(row.connection_id || row.id, "ALLOWED", "Owner allow")} onDone={refresh} />
-            <AsyncActionButton label="HOLD" tone="warn" onRun={() => ownerConnectionAllowance(row.connection_id || row.id, "HOLD", "Owner hold")} onDone={refresh} />
-          </div> },
+          { key: "actions", label: "Governance", render: (row) => {
+            const connectionId = row.connection_id || row.id;
+            return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <AsyncActionButton label="ALLOW" onRun={() => ownerConnectionAllowance(connectionId, "ALLOWED", "Owner allow")} onDone={refresh} />
+              <AsyncActionButton label="HOLD" tone="warn" onRun={() => ownerConnectionAllowance(connectionId, "HOLD", "Owner hold")} onDone={refresh} />
+              <AsyncActionButton label="REVOKE" tone="danger" onRun={() => ownerConnectionAllowance(connectionId, "REVOKED", "Owner revoke")} onDone={refresh} />
+              <AsyncActionButton label="Capability ALLOW" onRun={() => ownerCapabilityAllowance(connectionId, capabilityName, "ALLOWED", "Owner capability allow")} onDone={refresh} disabled={!capabilityName} />
+              <AsyncActionButton label="Capability HOLD" tone="warn" onRun={() => ownerCapabilityAllowance(connectionId, capabilityName, "HOLD", "Owner capability hold")} onDone={refresh} disabled={!capabilityName} />
+            </div>;
+          } },
         ]} /> : <div className="owner-authority-message unavailable">{error || String(connections?.error || "Connection authority unavailable")}</div>}
       </section>
       <section className="v3-region v3-sp12">
         <div className="v3-region-head"><span className="v3-region-title">Datasets</span><AuthorityBadge state={dataState} /></div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
+          <input className="v3-input" value={replacementDatasetId} onChange={(e) => setReplacementDatasetId(e.target.value)} placeholder="Replacement dataset ID" />
+          <input className="v3-input" value={datasetReason} onChange={(e) => setDatasetReason(e.target.value)} placeholder="Governance reason" />
+        </div>
         {dataState === "AVAILABLE" ? <SimpleTable rows={dataRows} columns={[
           { key: "dataset_id", label: "Dataset" }, { key: "instrument", label: "Instrument" }, { key: "timeframe", label: "Timeframe" },
           { key: "owner_approval", label: "Approval" }, { key: "readiness", label: "Readiness" },
-          { key: "actions", label: "Governance", render: (row) => <div style={{ display: "flex", gap: 6 }}>
-            <AsyncActionButton label="Approve" onRun={() => ownerDatasetApproval(row.dataset_id || row.id, "APPROVED", "Owner approval")} onDone={refresh} />
-            <AsyncActionButton label="Hold" tone="warn" onRun={() => ownerDatasetApproval(row.dataset_id || row.id, "HOLD", "Owner hold")} onDone={refresh} />
-          </div> },
+          { key: "actions", label: "Governance", render: (row) => {
+            const datasetId = row.dataset_id || row.id;
+            return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <AsyncActionButton label="Approve" onRun={() => ownerDatasetApproval(datasetId, "APPROVED", "Owner approval")} onDone={refresh} />
+              <AsyncActionButton label="Hold" tone="warn" onRun={() => ownerDatasetApproval(datasetId, "HOLD", "Owner hold")} onDone={refresh} />
+              <AsyncActionButton label="Reject" tone="danger" onRun={() => ownerDatasetApproval(datasetId, "REJECTED", reason)} onDone={refresh} />
+              <AsyncActionButton label="Retire" tone="danger" onRun={() => ownerDatasetRetire(datasetId, reason)} onDone={refresh} />
+              <AsyncActionButton label="Replace" tone="warn" onRun={() => ownerDatasetReplace(datasetId, replacementId, reason)} onDone={refresh} disabled={!replacementId} />
+            </div>;
+          } },
         ]} /> : <div className="owner-authority-message unavailable">{String(datasets?.error || "Dataset authority unavailable")}</div>}
       </section>
     </div>
