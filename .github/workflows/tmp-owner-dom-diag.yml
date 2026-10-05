@@ -1,3 +1,4 @@
+# trigger: registered workflow
 name: Temporary Owner DOM Diagnostic
 
 on:
