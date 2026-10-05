@@ -1,0 +1,24 @@
+--- a/dashboard/web/src/api.ts
++++ b/dashboard/web/src/api.ts
+@@ -167,6 +167,21 @@
+       method: "POST",
+       body: JSON.stringify(data),
+     }),
++  localRecoveryVerify: (data: { email: string; recovery_code: string }) =>
++    request<{ valid: boolean }>("/auth/local/recovery/verify", {
++      method: "POST",
++      body: JSON.stringify(data),
++    }),
++  localRecoveryReset: (data: {
++    email: string;
++    recovery_code: string;
++    new_password: string;
++    confirm_password: string;
++  }) =>
++    request<{ success: boolean; detail: string }>("/auth/local/recovery/reset", {
++      method: "POST",
++      body: JSON.stringify(data),
++    }),
+   localAccessValidate: (data: { access_id: string }) =>
+     request<{
+       valid: boolean;
