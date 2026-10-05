@@ -1,0 +1,184 @@
+name: Temporary Owner Entry GREEN 4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-owner-entry-green4.yml'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+  LIVE_STATE: READ_ONLY/DISARMED
+
+jobs:
+  apply-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Explicitly transplant donor recovery authority
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # 1) Frontend setup response contract.
+          api = Path('dashboard/web/src/api.ts')
+          text = api.read_text(encoding='utf-8')
+          old = '''      role: "OWNER" | "USER";\n      sx_id: string;\n    }>("/auth/local/setup", {'''
+          new = '''      role: "OWNER" | "USER";\n      sx_id: string;\n      recovery_codes?: string[];\n    }>("/auth/local/setup", {'''
+          if old not in text:
+              raise SystemExit('api localOwnerSetup marker missing')
+          api.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # 2) Durable single-use recovery authority in the canonical security store.
+          store = Path('dashboard/backend/security_store.py')
+          text = store.read_text(encoding='utf-8')
+          if 'from typing import Literal\n' not in text:
+              raise SystemExit('security_store typing marker missing')
+          text = text.replace('from typing import Literal\n', 'from typing import Any, Callable, Literal\n', 1)
+
+          schema = '''            cur.execute("""CREATE TABLE IF NOT EXISTS bootstrap_authorizations (\n                token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at_utc TEXT NOT NULL,\n                consumed_at_utc TEXT, created_at_utc TEXT NOT NULL,\n                FOREIGN KEY(user_id) REFERENCES users(user_id)\n            )""")\n'''
+          schema_plus = schema + '''            cur.execute("""CREATE TABLE IF NOT EXISTS recovery_codes (\n                code_hash TEXT PRIMARY KEY,\n                user_id TEXT NOT NULL,\n                created_at_utc TEXT NOT NULL,\n                consumed_at_utc TEXT,\n                FOREIGN KEY(user_id) REFERENCES users(user_id)\n            )""")\n            cur.execute("CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id)")\n'''
+          if schema not in text:
+              raise SystemExit('security_store bootstrap schema marker missing')
+          text = text.replace(schema, schema_plus, 1)
+
+          start = text.index('    def initialize_owner_password(')
+          end = text.index('    def verify_owner_password(', start)
+          donor = '''    def initialize_owner_password(\n        self,\n        *,\n        token: str | None = None,\n        bootstrap_token: str | None = None,\n        display_name: str,\n        email: str,\n        password: str,\n        now: datetime | None = None,\n        return_codes: bool = False,\n    ):\n        """First-run owner password initialization with one-time recovery codes."""\n        token = token or bootstrap_token\n        if not token:\n            raise ValueError("Bootstrap token is required")\n        now = now or _utc_now()\n        clean_email = email.strip().lower()\n        if not clean_email or "@" not in clean_email:\n            raise ValueError("A valid email address is required")\n        clean_name = display_name.strip() or "Super Owner"\n        if len(password) < 8:\n            raise ValueError("Password must be at least 8 characters long")\n        if self.has_initialized_owner():\n            raise SecurityStoreError("Super Owner is already initialized; re-provisioning forbidden")\n\n        owner_rows = [row for row in self.list_users() if row["role"] == "OWNER"]\n        if len(owner_rows) > 1:\n            raise SecurityStoreError("Ambiguous local Owner authority")\n        if owner_rows:\n            owner_uid = UUID(owner_rows[0]["user_id"])\n        else:\n            auth_row = self._conn.execute(\n                "SELECT user_id FROM bootstrap_authorizations WHERE token_hash = ?",\n                (self.token_hash(token),),\n            ).fetchone()\n            if auth_row is None:\n                raise SecurityStoreError("invalid bootstrap authorization")\n            owner_uid = UUID(auth_row["user_id"])\n\n        self.validate_owner_bootstrap(token=token, user_id=owner_uid, now=now)\n        self.consume_owner_bootstrap(token=token, user_id=owner_uid, now=now)\n        password_hash, password_salt = hash_password(password)\n\n        with self._transaction() as cur:\n            if owner_rows:\n                cur.execute(\n                    """UPDATE users\n                       SET display_name = ?, bound_email = ?, password_hash = ?, password_salt = ?, password_updated_at_utc = ?\n                       WHERE user_id = ?""",\n                    (clean_name, clean_email, password_hash, password_salt, now.isoformat(), str(owner_uid)),\n                )\n            else:\n                cur.execute(\n                    """INSERT INTO users (\n                        user_id, role, lifecycle, display_name, created_at_utc, security_state,\n                        sx_id, account_status, activation_status, service_status, bound_email,\n                        password_hash, password_salt, password_updated_at_utc\n                    ) VALUES (?, 'OWNER', 'ACTIVE', ?, ?, 'SECURED', 'OWNER-001', 'ACTIVE', 'ACTIVATED', 'ACTIVE', ?, ?, ?, ?)""",\n                    (str(owner_uid), clean_name, now.isoformat(), clean_email, password_hash, password_salt, now.isoformat()),\n                )\n            recovery_codes = self.create_recovery_codes(user_id=owner_uid, count=8, cur=cur)\n\n        updated_row = self.get_user(owner_uid)\n        from .identity import persisted_identity\n        identity = persisted_identity(updated_row)\n        return (identity, recovery_codes) if return_codes else identity\n\n    def create_recovery_codes(\n        self, *, user_id: UUID, count: int = 8, cur: sqlite3.Cursor | None = None\n    ) -> list[str]:\n        """Generate single-use codes while persisting only SHA-256 hashes."""\n        raw_codes = [f"RC-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}" for _ in range(count)]\n        created_at = _utc_now().isoformat()\n\n        def insert_rows(cursor) -> None:\n            for code in raw_codes:\n                code_hash = hashlib.sha256(code.strip().upper().encode("utf-8")).hexdigest()\n                cursor.execute(\n                    "INSERT INTO recovery_codes (code_hash, user_id, created_at_utc, consumed_at_utc) VALUES (?, ?, ?, NULL)",\n                    (code_hash, str(user_id), created_at),\n                )\n\n        if cur is not None:\n            insert_rows(cur)\n        else:\n            with self._transaction() as txn_cur:\n                insert_rows(txn_cur)\n        return raw_codes\n\n    def verify_recovery_code(self, *, email: str, recovery_code: str) -> dict[str, Any] | None:\n        clean_email = email.strip().lower()\n        clean_code = recovery_code.strip().upper()\n        if not clean_email or not clean_code:\n            return None\n        code_hash = hashlib.sha256(clean_code.encode("utf-8")).hexdigest()\n        owner = self._conn.execute(\n            "SELECT * FROM users WHERE role = 'OWNER' AND LOWER(TRIM(bound_email)) = ?",\n            (clean_email,),\n        ).fetchone()\n        if owner is None:\n            return None\n        code_row = self._conn.execute(\n            "SELECT code_hash FROM recovery_codes WHERE code_hash = ? AND user_id = ? AND consumed_at_utc IS NULL",\n            (code_hash, owner["user_id"]),\n        ).fetchone()\n        return dict(owner) if code_row is not None else None\n\n    def recover_password_with_code(\n        self,\n        *,\n        email: str,\n        recovery_code: str,\n        new_password: str,\n        now: datetime | None = None,\n        audit_recorder: Callable[[UUID], None] | None = None,\n    ):\n        now = now or _utc_now()\n        clean_email = email.strip().lower()\n        clean_code = recovery_code.strip().upper()\n        if not clean_email or not clean_code or len(new_password) < 8:\n            raise SecurityStoreError("Invalid recovery parameters")\n        code_hash = hashlib.sha256(clean_code.encode("utf-8")).hexdigest()\n        owner = self._conn.execute(\n            "SELECT * FROM users WHERE role = 'OWNER' AND LOWER(TRIM(bound_email)) = ?",\n            (clean_email,),\n        ).fetchone()\n        if owner is None:\n            raise SecurityStoreError("Invalid recovery credentials")\n        owner_uid = UUID(owner["user_id"])\n        code_row = self._conn.execute(\n            "SELECT code_hash FROM recovery_codes WHERE code_hash = ? AND user_id = ? AND consumed_at_utc IS NULL",\n            (code_hash, str(owner_uid)),\n        ).fetchone()\n        if code_row is None:\n            raise SecurityStoreError("Invalid recovery credentials")\n\n        password_hash, password_salt = hash_password(new_password)\n        with self._transaction() as cur:\n            cur.execute(\n                "UPDATE users SET password_hash = ?, password_salt = ?, password_updated_at_utc = ? WHERE user_id = ?",\n                (password_hash, password_salt, now.isoformat(), str(owner_uid)),\n            )\n            consumed = cur.execute(\n                "UPDATE recovery_codes SET consumed_at_utc = ? WHERE code_hash = ? AND consumed_at_utc IS NULL",\n                (now.isoformat(), code_hash),\n            )\n            if consumed.rowcount != 1:\n                raise SecurityStoreError("Recovery code already consumed or invalid")\n            cur.execute(\n                "UPDATE sessions SET revoked_at_utc = ? WHERE user_id = ? AND revoked_at_utc IS NULL",\n                (now.isoformat(), str(owner_uid)),\n            )\n            if audit_recorder is not None:\n                audit_recorder(owner_uid)\n\n        from .identity import persisted_identity\n        return persisted_identity(self.get_user(owner_uid))\n\n'''
+          text = text[:start] + donor + text[end:]
+          store.write_text(text, encoding='utf-8')
+
+          # 3) Current canonical password router: keep singleton/bootstrap authority,
+          # but expose the donor recovery response and recovery endpoints.
+          router = Path('dashboard/backend/account_v2/password_router.py')
+          text = router.read_text(encoding='utf-8')
+
+          client_marker = '\n\ndef _client_key(request: Request) -> str:\n'
+          models = '''\n\nclass LocalRecoveryVerifyRequest(BaseModel):\n    model_config = ConfigDict(extra="forbid")\n    email: str = Field(min_length=3, max_length=320)\n    recovery_code: str = Field(min_length=1, max_length=128)\n\n\nclass LocalRecoveryResetRequest(BaseModel):\n    model_config = ConfigDict(extra="forbid")\n    email: str = Field(min_length=3, max_length=320)\n    recovery_code: str = Field(min_length=1, max_length=128)\n    new_password: str = Field(min_length=8, max_length=256)\n    confirm_password: str = Field(min_length=8, max_length=256)\n'''
+          if client_marker not in text:
+              raise SystemExit('password_router request model marker missing')
+          text = text.replace(client_marker, models + client_marker, 1)
+
+          bstart = text.index('    def _bootstrap_owner(')
+          bend = text.index('    @router.post("/activate")', bstart)
+          block = text[bstart:bend]
+          old_call = '''            initialized = store.initialize_owner_password(\n                token=body.bootstrap_token.strip(),\n                display_name=body.display_name.strip(),\n                email=body.email.strip(),\n                password=body.password,\n            )\n'''
+          new_call = '''            initialized, recovery_codes = store.initialize_owner_password(\n                token=body.bootstrap_token.strip(),\n                display_name=body.display_name.strip(),\n                email=body.email.strip(),\n                password=body.password,\n                return_codes=True,\n            )\n'''
+          old_return = '''            session = _issue_password_session(identity, request)\n            _record_success(limiter, ip_key)\n            return _session_payload(session)\n'''
+          new_return = '''            session = _issue_password_session(identity, request)\n            _record_success(limiter, ip_key)\n            payload = _session_payload(session)\n            payload["recovery_codes"] = recovery_codes\n            return payload\n'''
+          if old_call not in block or old_return not in block:
+              raise SystemExit('password_router Owner bootstrap markers missing')
+          block = block.replace(old_call, new_call, 1).replace(old_return, new_return, 1)
+          text = text[:bstart] + block + text[bend:]
+
+          middleware_marker = '    app.include_router(router)\n\n    @app.middleware("http")\n'
+          routes = '''    app.include_router(router)\n\n    @app.post("/api/v1/auth/local/recovery/verify")\n    def local_recovery_verify(body: LocalRecoveryVerifyRequest, request: Request) -> dict[str, bool]:\n        email = body.email.strip().lower()\n        ip_key = _client_key(request)\n        email_key = f"recovery:{email}"\n        limiter = _limiter("recovery_limiter")\n        _require_not_locked(limiter, ip_key, email_key)\n        if store.verify_recovery_code(email=email, recovery_code=body.recovery_code) is None:\n            _record_failure(limiter, ip_key, email_key)\n            raise HTTPException(status_code=400, detail="INVALID_RECOVERY_CREDENTIALS")\n        _record_success(limiter, ip_key, email_key)\n        return {"valid": True}\n\n    @app.post("/api/v1/auth/local/recovery/reset")\n    def local_recovery_reset(body: LocalRecoveryResetRequest, request: Request) -> dict[str, Any]:\n        if body.new_password != body.confirm_password:\n            raise HTTPException(status_code=422, detail="Passwords do not match")\n        email = body.email.strip().lower()\n        ip_key = _client_key(request)\n        email_key = f"recovery:{email}"\n        limiter = _limiter("recovery_limiter")\n        _require_not_locked(limiter, ip_key, email_key)\n        try:\n            identity = store.recover_password_with_code(\n                email=email,\n                recovery_code=body.recovery_code,\n                new_password=body.new_password,\n                audit_recorder=lambda actor_id: _audit(actor_id=actor_id, action="LOCAL_PASSWORD_RECOVERY_SUCCESS"),\n            )\n            sessions.revoke_user(identity.user_id)\n            _record_success(limiter, ip_key, email_key)\n            login_limiter = _limiter("login_limiter")\n            if login_limiter is not None:\n                login_limiter.clear(f"password_login:{email}")\n                login_limiter.clear(ip_key)\n            return {"success": True, "detail": "Password reset successfully"}\n        except HTTPException:\n            raise\n        except (SecurityStoreError, ValueError, TypeError, KeyError):\n            _record_failure(limiter, ip_key, email_key)\n            raise HTTPException(status_code=400, detail="INVALID_RECOVERY_CREDENTIALS") from None\n\n    @app.middleware("http")\n'''
+          if middleware_marker not in text:
+              raise SystemExit('password_router middleware marker missing')
+          text = text.replace(middleware_marker, routes, 1)
+          router.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Install complete Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+
+      - name: Owner entry focused GREEN
+        run: python -m pytest -q tests_v1/test_owner_entry_manual_parity.py tests_v1/test_owner_entry_recovery_flow.py tests_v1/test_local_desktop_auth.py tests_v1/test_entry_gate_security_boundaries.py tests_v1/test_entry_gate_password_routes.py
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix dashboard/web
+      - name: Owner React GREEN
+        run: npm --prefix dashboard/web exec -- vitest run -c vitest.config.ts src/visual-lab/secure-entry/__tests__/LegacyOwnerSecureEntry.test.tsx
+      - name: Frontend typecheck and build
+        run: |
+          npm --prefix dashboard/web run typecheck
+          npm --prefix dashboard/web run build
+      - name: Scope-check and commit backend donor transplant
+        shell: bash
+        run: |
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          changed = set(subprocess.check_output(['git','diff','--name-only'], text=True).splitlines())
+          allowed = {'dashboard/backend/security_store.py','dashboard/backend/account_v2/password_router.py','dashboard/web/src/api.ts'}
+          if changed != allowed:
+              raise SystemExit(f'Unexpected product scope: {sorted(changed)}')
+          PY
+          git config user.name "olhgtd"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/backend/security_store.py dashboard/backend/account_v2/password_router.py dashboard/web/src/api.ts
+          git commit -m "Restore manual Owner recovery-code entry flow"
+          git push origin HEAD:main
+
+  windows-full:
+    needs: apply-and-commit
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Compile Python
+        shell: pwsh
+        run: python -m compileall -q engine dashboard/backend build/tools tests_v1
+      - name: Focused Owner/security regression
+        shell: pwsh
+        run: python -m pytest -q tests_v1/test_owner_entry_manual_parity.py tests_v1/test_owner_entry_recovery_flow.py tests_v1/test_local_desktop_auth.py tests_v1/test_entry_gate_security_boundaries.py tests_v1/test_entry_gate_password_routes.py
+      - name: Canonical safety guards
+        shell: pwsh
+        run: |
+          python build/tools/check_owner_admin_boundary.py
+          python build/tools/check_phase6_live_readonly.py
+          python build/tools/check_s2_account_gate.py
+      - name: Full Python regression
+        shell: pwsh
+        run: python -m pytest tests_v1 -q
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: npm --prefix dashboard/web ci
+      - name: Full dashboard regression
+        shell: pwsh
+        run: npm --prefix dashboard/web run test:user-dashboard
+      - name: Typecheck and production build
+        shell: pwsh
+        run: |
+          npm --prefix dashboard/web run typecheck
+          npm --prefix dashboard/web run build
+      - name: Final invariants
+        shell: pwsh
+        run: |
+          Write-Host "OWNER_MANUAL_ENTRY=QUALIFIED"
+          Write-Host "USER_ENTRY=UNCHANGED"
+          Write-Host "DASHBOARD_INTERNALS=UNTOUCHED"
+          Write-Host "LIVE_STATE=READ_ONLY/DISARMED"
