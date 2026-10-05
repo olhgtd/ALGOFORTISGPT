@@ -1,0 +1,34 @@
+name: Temporary User Action Patch Runner
+
+on:
+  push:
+    branches:
+      - feat/user-action-control-plane-20261005
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: startsWith(github.event.head_commit.message, 'apply:')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/user-action-control-plane-20261005
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply patch script
+        run: python build/tmp/user_action_apply.py
+      - name: Commit applied product change
+        run: |
+          git config user.name "algofortis-native-runner"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 1
+          fi
+          git commit -m "feat: apply native user action change"
+          git push origin HEAD:feat/user-action-control-plane-20261005
