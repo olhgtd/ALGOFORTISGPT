@@ -10,6 +10,8 @@ def test_destructive_owner_routes_are_step_up_classified() -> None:
         ("POST", "/api/v1/owner/security/devices/C-1/revoke"): ("DEVICE_REVOKE", "C-1"),
         ("POST", "/api/v1/security/credentials/C-1/lifecycle"): ("CREDENTIAL_LIFECYCLE", "C-1"),
         ("POST", "/api/v1/owner/strategies/ST-1/allowance"): ("STRATEGY_GOVERNANCE", "ST-1"),
+        ("POST", "/api/v1/owner/strategies/ST-1/assign"): ("STRATEGY_GOVERNANCE", "ST-1"),
+        ("POST", "/api/v1/owner/strategies/ST-1/revoke-assignment"): ("STRATEGY_GOVERNANCE", "ST-1"),
         ("POST", "/api/v1/owner/connections/CN-1/allowance"): ("CONNECTION_GOVERNANCE", "CN-1"),
         ("POST", "/api/v1/owner/datasets/D-1/approval"): ("DATASET_GOVERNANCE", "D-1"),
         ("POST", "/api/v1/settings/confirm"): ("SETTINGS_APPLY", None),
