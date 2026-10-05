@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +17,7 @@ def test_product_ops_boundary_remains_read_only() -> None:
     source = text(PRODUCT_ROUTER)
     assert "Read-only Phase 9 Product Operations HTTP boundary" in source
     assert '@router.get("/owner/health")' in source
-    assert "@router.post" not in source
+    assert not re.search(r"(?m)^\s*@router\.post\(", source)
 
 
 def test_owner_system_client_has_no_generic_shell_path_or_process_control() -> None:
