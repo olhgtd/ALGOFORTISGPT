@@ -1,0 +1,65 @@
+name: Temporary Owner Failure Summary 2
+
+on:
+  push:
+    branches:
+      - feat/owner-full-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  summarize:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      ALGOFORTIS_TEST_ALLOW_INSECURE_ACL: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.lock.txt
+          python -m pip install -r requirements-dashboard.in
+          python -m pip install -r requirements-test.in
+      - name: Run and summarize failures
+        shell: pwsh
+        run: |
+          python -m pytest tests_v1 -q -p no:cacheprovider --junitxml=build/owner_diag_2.xml
+          @'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          root = ET.parse("build/owner_diag_2.xml").getroot()
+          suites = root.findall("testsuite") if root.tag == "testsuites" else [root]
+          lines = []
+          for suite in suites:
+              for case in suite.findall("testcase"):
+                  node = case.find("failure")
+                  if node is None:
+                      node = case.find("error")
+                  if node is None:
+                      continue
+                  lines.append(f"{case.attrib.get('classname','')}::{case.attrib.get('name','')}")
+                  lines.append("MESSAGE: " + (node.attrib.get('message') or '').strip().replace('\r',' ').replace('\n',' ')[:1200])
+                  lines.append("DETAIL: " + (node.text or '').strip().replace('\r',' ').replace('\n',' ')[:3500])
+                  lines.append("")
+          Path("build/owner_failure_summary_2.txt").write_text("\n".join(lines) if lines else "NO_FAILURES", encoding="utf-8")
+          '@ | Set-Content -Encoding utf8 build/parse_owner_failures_2.py
+          python build/parse_owner_failures_2.py
+          exit 0
+      - name: Commit summary and remove workflow
+        shell: pwsh
+        run: |
+          git config user.name "AlgoFortis Native Worker"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/tmp-owner-failure-summary-2.yml
+          git add build/owner_failure_summary_2.txt
+          git commit -m "chore: capture remaining Owner control failures"
+          git push origin HEAD:feat/owner-full-control-plane
