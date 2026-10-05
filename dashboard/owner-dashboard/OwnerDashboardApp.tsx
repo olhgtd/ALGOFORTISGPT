@@ -6,7 +6,6 @@ import {
   OwnerConnectionsScreen,
   OwnerIncidentsScreen,
   OwnerOverviewScreen,
-  OwnerPaperScreen,
   OwnerPortfolioOrdersScreen,
   OwnerReportsAuditScreen,
   OwnerSecurityScreen,
@@ -18,6 +17,7 @@ import { OwnerUsersInspectionScreen } from "./authoritative/UserInspection";
 import { OwnerAIControlScreen } from "./authoritative/AIControlCenter";
 import { ProductOperationsScreen } from "./authoritative/ProductOperationsScreen";
 import { ResearchOperations } from "./authoritative/ResearchOperations";
+import { PaperOperations } from "./authoritative/PaperOperations";
 import "./owner-dashboard.css";
 
 export type ThemeMode = "dark" | "light";
@@ -175,7 +175,7 @@ export const OwnerDashboardApp: React.FC<OwnerDashboardAppProps> = ({
       case "strategies": return <OwnerStrategiesScreen />;
       case "plugins": return <OwnerConnectionsScreen />;
       case "research": return <ResearchOperations />;
-      case "paper": return <OwnerPaperScreen />;
+      case "paper": return <PaperOperations />;
       case "portfolio-oversight": return <OwnerPortfolioOrdersScreen />;
       case "reports": return <OwnerReportsAuditScreen />;
       case "product-operations": return <ProductOperationsScreen />;

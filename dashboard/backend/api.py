@@ -3316,10 +3316,12 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         """Set or release Owner hold on a paper session."""
         if app.state.security_store is None or app.state.paper_service is None:
             raise HTTPException(status_code=503, detail="Paper service unavailable")
+        if not body.hold:
+            raise HTTPException(status_code=409, detail="Use protected release-hold authority to reduce Owner Paper restriction")
         updated = app.state.paper_service.set_session_hold(
             session_id,
-            hold=body.hold,
-            reason=body.reason or ("Owner hold applied" if body.hold else "Owner hold released"),
+            hold=True,
+            reason=body.reason or "Owner hold applied",
         )
         if not updated:
             raise HTTPException(status_code=404, detail=f"Paper session '{session_id}' not found")
@@ -3329,6 +3331,29 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             details={"session_id": session_id, "hold": body.hold, "reason": body.reason},
         )
         return {"success": True, "session_id": session_id, "hold": body.hold}
+
+    @app.post("/api/v1/owner/paper/sessions/{session_id}/release-hold")
+    def release_owner_paper_session_hold(
+        session_id: str,
+        body: ActionNotesRequest = ActionNotesRequest(),
+        session=Depends(owner_mutable_session),
+    ) -> dict[str, Any]:
+        """Reduce an Owner Paper restriction only through fresh step-up authority."""
+        if app.state.security_store is None or app.state.paper_service is None:
+            raise HTTPException(status_code=503, detail="Paper service unavailable")
+        updated = app.state.paper_service.set_session_hold(
+            session_id,
+            hold=False,
+            reason=body.notes or "Owner verified hold release",
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail=f"Paper session '{session_id}' not found")
+        _record_security_audit(
+            event_type="PAPER_SESSION_HOLD_RELEASED",
+            actor_id=session.user.user_id,
+            details={"session_id": session_id, "reason": body.notes},
+        )
+        return {"success": True, "session_id": session_id, "hold": False}
 
     # ── P1-A (R-03): strategy readiness authority ──
     # Backend-authoritative Backtest/Paper/Live readiness. Ordinary Backtest and

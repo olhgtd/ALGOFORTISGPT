@@ -37,6 +37,7 @@ ROUTES: tuple[DestructiveRoute, ...] = (
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/security/users/(?P<resource>[^/]+)/devices/revoke-all$"), "DEVICE_REVOKE_ALL"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/security/credentials/(?P<resource>[^/]+)/lifecycle$"), "CREDENTIAL_LIFECYCLE"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/strategies/(?P<resource>[^/]+)/(?:allowance|visibility|suspend|restore|promote|assign|revoke|revoke-assignment)$"), "STRATEGY_GOVERNANCE"),
+    DestructiveRoute("POST", re.compile(r"^/api/v1/owner/paper/sessions/(?P<resource>[^/]+)/release-hold$"), "PAPER_HOLD_RELEASE"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/backtests/(?P<resource>[^/]+)/cancel$"), "BACKTEST_ADMIN"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/walkforward/jobs/(?P<resource>[^/]+)/cancel$"), "WALKFORWARD_ADMIN"),
     DestructiveRoute("POST", re.compile(r"^/api/v1/owner/connections/(?P<resource>[^/]+)/(?:allowance|capabilities/[^/]+/allowance)$"), "CONNECTION_GOVERNANCE"),
