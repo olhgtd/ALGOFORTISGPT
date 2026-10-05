@@ -1,7 +1,7 @@
 # AlgoFortis Owner Full Control Plane — Design
 
 Date: 2026-10-05
-Status: OWNER-APPROVED DESIGN DRAFT — implementation not started
+Status: WRITTEN DESIGN FOR OWNER REVIEW — implementation not started
 Base: `main@da9e8f289be675b243f02cca07af0a328837e387`
 
 ## 1. Intent
@@ -17,7 +17,7 @@ These invariants remain unchanged:
 1. Real-money Live remains `READ_ONLY / DISARMED`.
 2. The Owner Dashboard must not gain broker order placement, modification, cancellation, or Live ARM authority.
 3. RiskGate remains the sole risk decision/order approval authority; the UI cannot bypass it.
-4. Kill-switch/emergency safety controls may move toward a truthful Owner control surface, but the UI may never provide a weaker path to disable safety than the canonical runtime policy permits.
+4. Kill-switch/emergency safety controls may move toward a truthful Owner control surface, but the UI may never provide a weaker path to disable safety than the canonical runtime policy permits. No kill-switch-disable control is introduced by this design.
 5. Destructive Owner mutations require Owner authorization and, where classified as destructive, fresh WebAuthn step-up.
 6. Every privileged mutation is auditable with actor, action, target, result, time, and evidence/reference where available.
 7. Missing/stale authority must fail closed and must never be rendered as healthy, safe, ready, zero, PASS, or armed.
@@ -227,10 +227,11 @@ Display only backend-authoritative values for:
 Control policy:
 
 - **Engage safety / increase restriction:** may be exposed when backed by canonical route and audited.
-- **Release safety / reduce restriction:** must require the strongest existing authorization/step-up policy and must never be added if the runtime has no canonical safe release contract.
+- **Release a non-Live operational hold:** allowed only where a canonical backend contract already permits it and must use the strongest existing authorization/step-up policy.
+- **Disable/bypass the canonical kill switch or arm Live:** not part of this design.
 - A missing kill-switch backend authority must render `NOT CONNECTED / UNAVAILABLE`, never `ARMED & READY`.
 
-If engine kill-switch code exists without a dashboard-safe backend contract, implementation must first add a narrow status/command adapter that preserves engine authority. Do not call engine internals directly from React.
+If engine kill-switch code exists without a dashboard-safe backend status contract, implementation may add a narrow **status/engage-only** adapter that preserves engine authority. Do not call engine internals directly from React, and do not introduce a kill-switch-disable route.
 
 ### 5.11 Settings
 
@@ -345,7 +346,7 @@ Owner role + mutable session + audit.
 ### Destructive/high-impact mutation
 Owner role + mutable session + fresh WebAuthn step-up + audit.
 
-Examples expected to require step-up include account revoke/suspend, device/session revoke as existing policy dictates, settings apply, releasing safety holds where permitted, destructive dataset operations, restore/rollback operations, and other actions already classified by `owner_admin/step_up.py`.
+Examples expected to require step-up include account revoke/suspend, device/session revoke as existing policy dictates, settings apply, release of permitted non-Live holds, destructive dataset operations, restore/rollback operations, and other actions already classified by `owner_admin/step_up.py`.
 
 The step-up policy must reference the real backend route, and automated contract tests must verify every classified route exists.
 
@@ -465,6 +466,7 @@ This sequence is a design-level rollout order, not the implementation task plan.
 - enabling real-money Live trading
 - Live ARM control
 - real broker order placement/modification/cancellation
+- kill-switch disable/bypass control
 - weakening RiskGate
 - generic terminal/shell in the dashboard
 - raw secret/token display
