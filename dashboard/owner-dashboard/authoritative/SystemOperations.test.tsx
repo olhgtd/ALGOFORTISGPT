@@ -13,9 +13,21 @@ describe("Owner system operations", () => {
     expect(screen).toContain("UNAVAILABLE");
     expect(screen).toContain("No bounded command authority is attached");
   });
-  it("has no terminal or arbitrary filesystem controls", () => {
-    for (const forbidden of ["powershell", "cmd.exe", "terminal", "Run shell", "Edit path", "file://"]) {
-      expect((client + screen).toLowerCase()).not.toContain(forbidden.toLowerCase());
+
+  it("has no executable terminal, shell, arbitrary filesystem, or process-control authority", () => {
+    const combined = `${client}\n${screen}`.toLowerCase();
+    for (const forbidden of [
+      "powershell",
+      "cmd.exe",
+      "file://",
+      "/terminal",
+      "/shell",
+      "/process/kill",
+      "run shell",
+      "edit path",
+    ]) {
+      expect(combined).not.toContain(forbidden);
     }
+    expect(screen).toContain("No terminal, arbitrary file path, or process-control authority is exposed.");
   });
 });
