@@ -156,7 +156,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  localLogin: (data: { email: string; password: string }) =>
+  localLogin: (data: { email: string; password: string; app_target?: string }) =>
     request<{
       access_token: string;
       expires_at_utc: string;
@@ -164,6 +164,49 @@ export const api = {
       role: "OWNER" | "USER";
       sx_id: string;
     }>("/auth/local/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  localRecoveryVerify: (data: { email: string; recovery_code: string }) =>
+    request<{ valid: boolean }>("/auth/local/recovery/verify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  localRecoveryReset: (data: {
+    email: string;
+    recovery_code: string;
+    new_password: string;
+    confirm_password: string;
+  }) =>
+    request<{ success: boolean; detail: string }>("/auth/local/recovery/reset", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  localAccessValidate: (data: { access_id: string }) =>
+    request<{
+      valid: boolean;
+      access_id: string;
+      user_id: string;
+      email?: string;
+      display_name?: string;
+      plan?: string;
+    }>("/auth/local/access/validate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  localAccessActivate: (data: {
+    access_id: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+  }) =>
+    request<{
+      access_token: string;
+      expires_at_utc: string;
+      subject: string;
+      role: "OWNER" | "USER";
+      sx_id: string;
+    }>("/auth/local/access/activate", {
       method: "POST",
       body: JSON.stringify(data),
     }),

@@ -1137,6 +1137,178 @@ class SQLiteSecurityStore:
         from .identity import persisted_identity
         return persisted_identity(row)
 
+    def _find_user_for_access_id(self, cur, access_id: str):
+        clean_id = (access_id or "").strip()
+        if not clean_id:
+            return None, None
+
+        # 1. Match sx_id directly (case insensitive)
+        row = cur.execute(
+            "SELECT * FROM users WHERE UPPER(TRIM(sx_id)) = UPPER(?)",
+            (clean_id,),
+        ).fetchone()
+        if row is not None:
+            issuance = cur.execute(
+                "SELECT * FROM activation_issuances WHERE user_id = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
+                (row["user_id"],),
+            ).fetchone()
+            return row, issuance
+
+        # 2. Match user_id (UUID)
+        row = cur.execute(
+            "SELECT * FROM users WHERE user_id = ?",
+            (clean_id,),
+        ).fetchone()
+        if row is not None:
+            issuance = cur.execute(
+                "SELECT * FROM activation_issuances WHERE user_id = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
+                (row["user_id"],),
+            ).fetchone()
+            return row, issuance
+
+        # 3. Match activation code in activation_issuances
+        code_hash = _hash_activation_code(clean_id)
+        issuance = cur.execute(
+            "SELECT * FROM activation_issuances WHERE code_hash = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
+            (code_hash,),
+        ).fetchone()
+        if issuance is not None:
+            row = cur.execute(
+                "SELECT * FROM users WHERE user_id = ?",
+                (issuance["user_id"],),
+            ).fetchone()
+            return row, issuance
+
+        return None, None
+
+    def validate_user_access_id(self, access_id: str) -> dict:
+        """Validates an invite-only Access ID for a prospective user."""
+        cur = self._conn.cursor()
+        user, issuance = self._find_user_for_access_id(cur, access_id)
+        if user is None:
+            raise SecurityStoreError("INVALID_ACCESS_ID: This AlgoFortis installation is invite-only. The presented Access ID was not recognized.")
+
+        if user["role"] in ("OWNER", "APPROVED_OWNER"):
+            raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not valid for user workstation.")
+
+        if user["account_status"] == "REVOKED" or user["lifecycle"] == "REVOKED":
+            raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked by administration.")
+
+        if user["account_status"] == "SUSPENDED":
+            raise SecurityStoreError("ACCESS_SUSPENDED: Access authorization is currently suspended.")
+
+        if user["activation_status"] == "REDEEMED":
+            raise SecurityStoreError("ALREADY_ACTIVATED: This invitation has already been redeemed. Please sign in.")
+
+        now = _utc_now()
+        if issuance is not None:
+            if issuance["revoked_at_utc"] is not None or issuance["status"] == "REVOKED":
+                raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked.")
+            if datetime.fromisoformat(issuance["expires_at_utc"]) <= now:
+                raise SecurityStoreError("ACCESS_EXPIRED: Access authorization token has expired. Contact your administrator for a new token.")
+
+        return {
+            "valid": True,
+            "access_id": user["sx_id"] or access_id.strip().upper(),
+            "user_id": user["user_id"],
+            "email": user["bound_email"] or "",
+            "display_name": user["display_name"] or "",
+            "plan": user["plan"] or "Quant Professional",
+        }
+
+    def activate_user_with_password(
+        self,
+        *,
+        access_id: str,
+        email: str,
+        password: str,
+        confirm_password: str,
+        audit_recorder = None,
+    ):
+        """Activates an unactivated invited user account with email and password."""
+        clean_id = (access_id or "").strip()
+        clean_email = (email or "").strip().lower()
+
+        if not clean_email or "@" not in clean_email or "." not in clean_email:
+            raise ValueError("A valid email address is required")
+
+        if password != confirm_password:
+            raise ValueError("Passwords do not match")
+
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        now = _utc_now()
+        pw_hash, pw_salt = hash_password(password)
+
+        with self._transaction() as cur:
+            user, issuance = self._find_user_for_access_id(cur, clean_id)
+            if user is None:
+                raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not recognized.")
+
+            if user["role"] in ("OWNER", "APPROVED_OWNER"):
+                raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not valid for user workstation.")
+
+            if user["account_status"] == "REVOKED" or user["lifecycle"] == "REVOKED":
+                raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked by administration.")
+
+            if user["account_status"] == "SUSPENDED":
+                raise SecurityStoreError("ACCESS_SUSPENDED: Access authorization is currently suspended.")
+
+            if user["activation_status"] == "REDEEMED":
+                raise SecurityStoreError("ALREADY_ACTIVATED: This invitation has already been redeemed. Please sign in.")
+
+            if issuance is not None:
+                if issuance["revoked_at_utc"] is not None or issuance["status"] == "REVOKED":
+                    raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked.")
+                if datetime.fromisoformat(issuance["expires_at_utc"]) <= now:
+                    raise SecurityStoreError("ACCESS_EXPIRED: Access authorization token has expired.")
+
+            # Check for email collision with other active users
+            other = cur.execute(
+                "SELECT 1 FROM users WHERE LOWER(TRIM(bound_email)) = ? AND user_id != ? AND lifecycle = 'ACTIVE'",
+                (clean_email, user["user_id"]),
+            ).fetchone()
+            if other is not None:
+                raise ValueError("Email address is already registered to another active account")
+
+            expiry = compute_service_expiry(now, user["service_term_type"], user["custom_term_value"], user["custom_term_unit"])
+            expiry_str = expiry.isoformat() if expiry else None
+
+            # 1. Update user
+            cur.execute(
+                """UPDATE users
+                   SET password_hash = ?, password_salt = ?, password_updated_at_utc = ?,
+                       bound_email = ?, activation_status = 'REDEEMED', account_status = 'ACTIVE',
+                       service_status = 'ACTIVE', service_started_at = ?, service_expires_at = ?,
+                       role = 'USER'
+                   WHERE user_id = ?""",
+                (
+                    pw_hash,
+                    pw_salt,
+                    now.isoformat(),
+                    clean_email,
+                    now.isoformat(),
+                    expiry_str,
+                    user["user_id"],
+                ),
+            )
+
+            # 2. Mark issuance redeemed if exists
+            if issuance is not None:
+                cur.execute(
+                    "UPDATE activation_issuances SET status = 'REDEEMED', redeemed_at_utc = ? WHERE issuance_id = ?",
+                    (now.isoformat(), issuance["issuance_id"]),
+                )
+
+            updated_row = cur.execute("SELECT * FROM users WHERE user_id = ?", (user["user_id"],)).fetchone()
+
+        if audit_recorder:
+            audit_recorder(actor_id=UUID(user["user_id"]))
+
+        from .identity import persisted_identity
+        return persisted_identity(updated_row)
+
     def update_sign_count(self, *, credential_id: bytes, previous: int, current: int) -> None:
         if previous and current <= previous:
             raise SecurityStoreError("authenticator sign-count rollback detected")

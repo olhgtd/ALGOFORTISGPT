@@ -15,6 +15,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AlgoFortisWebsite } from "./website/AlgoFortisWebsite";
 import { SecureEntryApp } from "./visual-lab/secure-entry/SecureEntryApp";
+import { LegacyUserSecureEntryApp } from "./visual-lab/secure-entry/LegacyUserSecureEntryApp";
 import { RuntimeAvailability } from "./RuntimeAvailability";
 import { DashboardV3App, type Workspace } from "./DashboardV3App";
 import { api, clearSessionToken, type AuthoritativeUserResponse } from "./api";
@@ -219,6 +220,18 @@ export function App() {
   }
 
   if (surface === "secure-entry") {
+    if (lockedWorkspace === "user") {
+      return (
+        <LegacyUserSecureEntryApp
+          appTarget="user"
+          onEnterWorkspace={(_authenticatedSession = true, workspace = "user") => {
+            switchToDashboardV3(workspace);
+          }}
+          onBackToWebsite={switchToWebsite}
+          onOpenDashboard={() => switchToDashboardV3("user")}
+        />
+      );
+    }
     return (
       <SecureEntryApp
         appRole={lockedWorkspace ?? undefined}
