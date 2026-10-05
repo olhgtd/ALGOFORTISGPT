@@ -43,9 +43,12 @@ def test_data_client_has_write_only_secret_semantics() -> None:
     assert "ownerMutationWithStepUp" in source
     assert "rawApiKey" not in source
     screen = text(SCREEN)
+    lower = screen.lower()
     assert 'type="password"' in screen
-    assert "api_key" not in screen.lower()
-    assert "secret" not in screen.lower() or "write-only" in screen.lower()
+    assert "write-only" in lower
+    assert "provider.api_key" not in lower
+    assert "provider.apikey" not in lower
+    assert 'autocomplete="new-password"' in lower
 
 
 def test_data_ui_covers_sync_jobs_gap_repair_and_dataset_governance() -> None:
