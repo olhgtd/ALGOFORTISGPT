@@ -3,7 +3,7 @@
 **Date:** 2026-10-05  
 **Repository:** `olhgtd/ALGOFORTISGPT`  
 **Baseline before this spec:** `853e04e8ec1fc71fd7ee77eada89c736521ede92`  
-**Status:** Approved conversational design captured as implementation specification  
+**Status:** Pending written-spec review before implementation planning  
 
 ## 1. Purpose
 
@@ -81,7 +81,7 @@ It must support:
 - pausing, resuming, and stopping User deployments through the existing deployment mutation clients;
 - refreshing the strategy/deployment evidence after a successful mutation.
 
-Deployment UI must not permit a real `LIVE` execution mode. The allowed mutation choices are limited to modes already safe under the current product boundary, such as `PAPER` / `LIVE_PAPER` where the backend accepts them. If backend authority rejects a mode, the UI surfaces the rejection rather than translating it into success.
+The canonical User deployment UI must submit **only `LIVE_PAPER`**. The backend may retain support for `LIVE` deployment records for governed future use, but the current User dashboard must not present or submit a `LIVE` deployment option. `LIVE_PAPER` remains subject to all backend eligibility, connection-readiness, artifact-integrity, RiskGate, and policy checks. Backend rejection is surfaced directly rather than translated into success.
 
 No direct broker mutation path may be imported into the Strategies screen.
 
@@ -335,7 +335,7 @@ Add or extend tests for:
 - User can create a backtest when eligible and invalid/suspended/held cases fail closed.
 - User can create and cancel Walk-Forward/OOS jobs according to backend rules.
 - User can create/start/stop Paper sessions, with RiskGate/policy rejection preserved.
-- User deployment create/pause/resume/stop remains limited to allowed execution modes.
+- User deployment create/pause/resume/stop remains restricted to `LIVE_PAPER` from the canonical User UI; real `LIVE` remains unavailable from the dashboard.
 - Non-Owner cannot stage a settings proposal.
 - Owner account lifecycle endpoints remain step-up/role protected.
 - Owner connection/capability allowance endpoints remain step-up/role protected.
@@ -371,7 +371,7 @@ Minimum browser flows:
 2. User → Testing & Validation → run Backtest → observe created run → cancel if cancellable.
 3. User → Testing & Validation → run WFO → observe created job.
 4. User → Trades → create Paper session → start → observe runtime evidence → stop.
-5. User → Strategies → create allowed deployment → pause/resume/stop.
+5. User → Strategies → create `LIVE_PAPER` deployment → pause/resume/stop.
 6. Owner → Users & Access → lifecycle action reaches correct API and rejection/step-up path is handled.
 7. Owner → Connections & Data → connection allowance action reaches correct API.
 8. Owner → Risk & Safety → disconnected kill-switch never renders ready; attached test authority can engage it.
@@ -458,7 +458,7 @@ This project does **not**:
 
 The project is complete only when all four statements are true:
 
-1. **User:** an eligible User can submit a strategy, run Backtest, run WFO/OOS, run a Paper session, and control allowed deployments entirely from canonical routed screens.
+1. **User:** an eligible User can submit a strategy, run Backtest, run WFO/OOS, run a Paper session, and control `LIVE_PAPER` deployments entirely from canonical routed screens.
 2. **Owner:** account lifecycle, service entitlement, connection/capability governance, datasets/providers, settings, AI, sessions/devices, audit, and safety controls that have approved backend authority are reachable from canonical Owner routes.
 3. **Truth:** no canonical screen fabricates risk/safety/readiness values; kill switch and RiskGate values come from backend authority or show unavailable.
 4. **Safety:** Live remains `READ_ONLY / DISARMED`, broker mutation stays absent, and all existing fail-closed regression gates continue to pass.
