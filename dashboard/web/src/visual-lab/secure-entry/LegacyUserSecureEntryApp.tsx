@@ -37,10 +37,11 @@ export const LegacyUserSecureEntryApp: React.FC<LegacyUserSecureEntryAppProps> =
 
   useEffect(() => {
     let active = true;
-    void api.securityStatus()
-      .then((status) => {
-        if (!active) return;
-        if (appTarget === "user") {
+
+    if (appTarget === "user") {
+      void api.securityStatus()
+        .then((status) => {
+          if (!active) return;
           // NF-P2-09: backend securityStatus is the authority for the user path.
           // The client localStorage flag is a hint only — it alone must never
           // select LOCAL_LOGIN. Fail closed to backend truth.
@@ -59,19 +60,30 @@ export const LegacyUserSecureEntryApp: React.FC<LegacyUserSecureEntryAppProps> =
             setFlow("ACCESS_GATE");
             setGateStep("ENTER_ACCESS_ID");
           }
-          return;
-        }
+        })
+        .catch(() => {
+          if (active) setFlow("UNAVAILABLE");
+        });
+      return () => { active = false; };
+    }
 
-        // Owner App entry logic: No Access ID gate
-        if (status.owner_initialized === false) {
-          setFlow("LOCAL_OWNER_SETUP");
-        } else {
-          setFlow("LOCAL_LOGIN");
-        }
+    // Keep the original/manual Owner screens, but use the authoritative
+    // singleton bootstrap decision so another PC never treats an empty local
+    // database as permission to create OWNER-001 again. Owner login remains
+    // reachable even when roaming/bootstrap authority is temporarily missing.
+    void api.ownerBootstrapStatus()
+      .then((bootstrap) => {
+        if (!active) return;
+        setFlow(
+          bootstrap.owner_setup_allowed === true && bootstrap.recommended_flow === "LOCAL_OWNER_SETUP"
+            ? "LOCAL_OWNER_SETUP"
+            : "LOCAL_LOGIN"
+        );
       })
       .catch(() => {
-        if (active) setFlow("UNAVAILABLE");
+        if (active) setFlow("LOCAL_LOGIN");
       });
+
     return () => { active = false; };
   }, [appTarget]);
 
@@ -153,6 +165,7 @@ export const LegacyUserSecureEntryApp: React.FC<LegacyUserSecureEntryAppProps> =
       {flow === "LOCAL_OWNER_SETUP" && (
         <LocalOwnerSetupCard
           onSetupSuccess={() => handleWorkspaceTransition(true, "owner")}
+          onSwitchToLogin={() => setFlow("LOCAL_LOGIN")}
         />
       )}
 
