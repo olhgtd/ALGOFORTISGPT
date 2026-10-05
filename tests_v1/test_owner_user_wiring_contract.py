@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 import dashboard.runtime.application as application
 from dashboard.backend.owner_admin.step_up import ROUTES as STEP_UP_ROUTES
@@ -51,7 +52,10 @@ def real_routes():
         application.CurrentUserAcl = _AllowAcl
         try:
             app = application.create_runtime_app(paths, "http://localhost:8000", "wiring-contract")
-            routes = list(_flatten(app.routes))
+            # Enter the real runtime lifespan so SQLite authorities are closed
+            # before TemporaryDirectory cleanup on Windows.
+            with TestClient(app):
+                routes = list(_flatten(app.routes))
         finally:
             application.CurrentUserAcl = original
         yield routes
