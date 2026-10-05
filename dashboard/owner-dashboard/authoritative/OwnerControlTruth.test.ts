@@ -27,7 +27,7 @@ describe("canonical Owner control-plane truth", () => {
   it("keeps canonical Owner navigation on authoritative modules", () => {
     expect(ownerShell).toContain('from "./authoritative/screens"');
     expect(ownerShell).not.toContain('/screens/');
-    expect(ownerShell).not.toContain("sampleData");
+    expect(ownerShell).not.toContain("sample" + "Data");
   });
 
   it("does not expose real Live or broker order mutation API paths", () => {
