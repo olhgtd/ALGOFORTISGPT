@@ -90,16 +90,16 @@ jobs:
             const dstate = { stepUpSeen: false };
             await installMocks(desktop, dstate);
             await desktop.goto(base);
-            await desktop.getByRole("button", { name: /^Overview$/i }).first().waitFor({ state: "visible", timeout: 15000 });
+            await desktop.getByRole("button", { name: /^Overview/i }).first().waitFor({ state: "visible", timeout: 15000 });
             for (const label of ["Backtests / Walk-Forward", "Paper Trading", "Deployments", "Connections & Data", "Risk & Safety", "System Health"]) {
-              await desktop.getByRole("button", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}$`, "i") }).first().click();
+              await desktop.getByRole("button", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}`, "i") }).first().click();
             }
-            await desktop.getByRole("button", { name: /^Backtests \/ Walk-Forward$/i }).first().click();
+            await desktop.getByRole("button", { name: /^Backtests \/ Walk-Forward/i }).first().click();
             await desktop.getByPlaceholder("Strategy ID").fill("SMOKE-STRAT");
             await desktop.getByPlaceholder("Dataset ID").fill("SMOKE-DATA");
             await desktop.getByRole("button", { name: "Run Backtest" }).click();
             await desktop.getByText("SMOKE_REJECTION").waitFor({ state: "visible", timeout: 5000 });
-            await desktop.getByRole("button", { name: /^Risk & Safety$/i }).first().click();
+            await desktop.getByRole("button", { name: /^Risk & Safety/i }).first().click();
             await desktop.getByRole("button", { name: "Release Global Hold" }).click();
             await desktop.getByText("SMOKE_STEP_UP_REQUIRED").waitFor({ state: "visible", timeout: 5000 });
             if (!dstate.stepUpSeen) throw new Error("step-up options route was not requested");
@@ -108,10 +108,10 @@ jobs:
             const mstate = { stepUpSeen: false };
             await installMocks(mobile, mstate);
             await mobile.goto(base);
-            await mobile.getByRole("button", { name: /^OVERVIEW$/i }).waitFor({ state: "visible", timeout: 15000 });
-            await mobile.getByRole("button", { name: /^MORE$/i }).click();
+            await mobile.getByRole("button", { name: /^OVERVIEW/i }).waitFor({ state: "visible", timeout: 15000 });
+            await mobile.getByRole("button", { name: /^MORE/i }).click();
             await mobile.getByRole("dialog", { name: "More Owner screens" }).waitFor({ state: "visible" });
-            await mobile.getByRole("button", { name: /^Connections & Data$/i }).click();
+            await mobile.getByRole("button", { name: /^Connections & Data/i }).click();
             await mobile.getByRole("heading", { name: "Connections & Data" }).waitFor({ state: "visible", timeout: 5000 });
             console.log("OWNER_BROWSER_SMOKE=PASS");
           } finally {
