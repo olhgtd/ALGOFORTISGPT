@@ -32,6 +32,33 @@ export async function ownerDatasetApproval(datasetId: string, approval: "APPROVE
   });
 }
 
+export async function ownerDatasetRetire(datasetId: string, reason: string) {
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "DATASET_GOVERNANCE",
+    resourceRef: datasetId,
+    path: `/api/v1/owner/datasets/${encodeURIComponent(datasetId)}/retire`,
+    body: { reason },
+  });
+}
+
+export async function ownerDatasetReplace(datasetId: string, replacementDatasetId: string | null, reason: string) {
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "DATASET_GOVERNANCE",
+    resourceRef: datasetId,
+    path: `/api/v1/owner/datasets/${encodeURIComponent(datasetId)}/replace`,
+    body: { replacement_dataset_id: replacementDatasetId, reason },
+  });
+}
+
+export async function ownerStrategyAssignment(strategyId: string, userId: string, revoke = false) {
+  return ownerMutationWithStepUp<any>({
+    actionFamily: "STRATEGY_GOVERNANCE",
+    resourceRef: strategyId,
+    path: `/api/v1/owner/strategies/${encodeURIComponent(strategyId)}/${revoke ? "revoke-assignment" : "assign"}`,
+    body: { user_id: userId },
+  });
+}
+
 export async function revokeOwnerSession(sessionRef: string) {
   return ownerMutationWithStepUp<any>({
     actionFamily: "SESSION_REVOKE",
