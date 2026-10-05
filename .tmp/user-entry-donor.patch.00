@@ -1,0 +1,177 @@
+diff --git a/dashboard/backend/api.py b/dashboard/backend/api.py
+index 681f7d3..727111c 100644
+--- a/dashboard/backend/api.py
++++ b/dashboard/backend/api.py
+@@ -3,6 +3,7 @@ from __future__ import annotations
+ 
+ from dataclasses import asdict
+ from datetime import datetime, timedelta, timezone
++import hashlib
+ import json
+ import logging
+ import os
+@@ -19,6 +20,39 @@ from pydantic import BaseModel, Field
+ 
+ logger = logging.getLogger(__name__)
+ 
++# P1 SEC-004: bound limiter-key length and cardinality. Access-id keyed
++# buckets must not grow unbounded (memory/bucket pollution).
++LIMITER_KEY_MAX_LEN = 64
++LIMITER_MAX_KEYS = 500
++
++
++def _bounded_limiter_key(prefix: str, raw: str) -> str:
++    """Return a fixed-max-length limiter key for untrusted input."""
++    cleaned = (raw or "").strip().lower()
++    if len(cleaned) > 32:
++        digest = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:32]
++        key = f"{prefix}:{digest}"
++    else:
++        safe = "".join(ch for ch in cleaned if ch.isalnum() or ch in ("-", "_", "@", "."))
++        key = f"{prefix}:{safe[:32]}"
++    return key[:LIMITER_KEY_MAX_LEN]
++
++
++def _bounded_access_key(tracker: Any, clean_id: str) -> str | None:
++    """Return bounded access-id limiter key, or None when cardinality cap is hit.
++
++    Existing keys keep working; new keys are refused once the tracker holds
++    LIMITER_MAX_KEYS entries so callers fall back to IP-only limiting.
++    """
++    key = _bounded_limiter_key("access_id", clean_id)
++    try:
++        records = getattr(tracker, "_records", None)
++        if records is not None and key not in records and len(records) >= LIMITER_MAX_KEYS:
++            return None
++    except Exception:
++        return None
++    return key
++
+ from .domain import (
+     AccessRoute,
+     AccountAccessStatus,
+@@ -163,6 +197,17 @@ class LocalLoginRequest(BaseModel):
+     password: str = Field(min_length=1, max_length=256)
+ 
+ 
++class LocalUserAccessValidateRequest(BaseModel):
++    access_id: str = Field(min_length=1, max_length=128)
++
++
++class LocalUserAccessActivateRequest(BaseModel):
++    access_id: str = Field(min_length=1, max_length=128)
++    email: str = Field(min_length=3, max_length=254)
++    password: str = Field(min_length=8, max_length=256)
++    confirm_password: str = Field(min_length=8, max_length=256)
++
++
+ class CredentialLifecycleChange(BaseModel):
+     disabled: bool = False
+     revoked: bool = False
+@@ -586,6 +631,32 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
+                 headers={"Retry-After": str(cooldown)},
+             )
+ 
++    class _NullLimiter:
++        def is_locked_out(self, key: str):
++            return False, 0
++        def record_failure(self, key: str):
++            return False, 0
++        def record_success(self, key: str) -> None:
++            return None
++        def clear(self, key: str) -> None:
++            return None
++        def record_request(self, key: str, max_requests=None, window_seconds: int = 60):
++            return False, 0
++
++    _NULL_LIMITER = _NullLimiter()
++
++    def _auth_limiter(name: str):
++        # P2-02/BUG-006: uniform non-optional guard; missing policy/limiter
++        # degrades to a no-op limiter instead of AttributeError.
++        try:
++            policy = getattr(app.state, "auth_policy", None)
++            if policy is None:
++                return _NULL_LIMITER
++            lim = getattr(policy, name, None)
++            return lim if lim is not None else _NULL_LIMITER
++        except Exception:
++            return _NULL_LIMITER
++
+     def _check_expensive_throttle(user_id: str | UUID) -> None:
+         if not hasattr(app.state, "auth_policy") or app.state.auth_policy is None:
+             return
+@@ -1000,6 +1071,117 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
+         except SecurityError as exc:
+             raise HTTPException(status_code=403, detail=str(exc)) from exc
+ 
++    @app.post("/api/v1/auth/local/access/validate")
++    def local_access_validate(body: LocalUserAccessValidateRequest, request: Request) -> dict[str, object]:
++        """Validate an invite-only Access ID for a prospective user."""
++        if app.state.security_store is None:
++            raise HTTPException(status_code=503, detail="Security store is unavailable")
++
++        clean_id = body.access_id.strip()
++        ip_key = f"ip:{_client_ip(request)}"
++        # P1 SEC-004: bound access-id limiter keys (length + cardinality).
++        access_key = _bounded_access_key(
++            _auth_limiter("login_limiter") if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None else None,
++            clean_id,
++        ) if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None else None
++
++        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++            _check_cooldown(_auth_limiter("login_limiter"), ip_key)
++            if access_key is not None:
++                _check_cooldown(_auth_limiter("login_limiter"), access_key)
++
++        try:
++            res = app.state.security_store.validate_user_access_id(clean_id)
++            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++                if access_key is not None:
++                    _auth_limiter("login_limiter").record_success(access_key)
++                _auth_limiter("login_limiter").record_success(ip_key)
++            return res
++        except (SecurityError, SecurityStoreError, ValueError) as exc:
++            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++                if access_key is not None:
++                    _auth_limiter("login_limiter").record_failure(access_key)
++                locked, rem = _auth_limiter("login_limiter").record_failure(ip_key)
++                if locked:
++                    raise HTTPException(
++                        status_code=429,
++                        detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s",
++                        headers={"Retry-After": str(rem)},
++                    ) from exc
++            detail_str = str(exc)
++            status_code = 403 if "ACCESS_REVOKED" in detail_str or "ACCESS_SUSPENDED" in detail_str or "ACCESS_EXPIRED" in detail_str else 404
++            raise HTTPException(status_code=status_code, detail=detail_str) from exc
++
++    @app.post("/api/v1/auth/local/access/activate")
++    def local_access_activate(body: LocalUserAccessActivateRequest, request: Request) -> dict[str, object]:
++        """Activate an invited user account with email and password, issuing a persistent session."""
++        if app.state.security_store is None:
++            raise HTTPException(status_code=503, detail="Security store is unavailable")
++
++        if body.password != body.confirm_password:
++            raise HTTPException(status_code=422, detail="Passwords do not match")
++
++        if len(body.password) < 8:
++            raise HTTPException(status_code=422, detail="Password must be at least 8 characters long")
++
++        clean_id = body.access_id.strip()
++        clean_email = body.email.strip().lower()
++        ip_key = f"ip:{_client_ip(request)}"
++        # P1 SEC-004: bound access-id limiter keys (length + cardinality).
++        access_key = _bounded_access_key(
++            _auth_limiter("login_limiter") if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None else None,
++            clean_id,
++        ) if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None else None
++
++        if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++            _check_cooldown(_auth_limiter("login_limiter"), ip_key)
++            if access_key is not None:
++                _check_cooldown(_auth_limiter("login_limiter"), access_key)
++
++        try:
++            def record_audit(actor_id: UUID) -> None:
++                mandatory_audit("LOCAL_USER_ACTIVATION_SUCCESS", actor_i

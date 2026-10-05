@@ -1,0 +1,175 @@
+d=actor_id)
++
++            user = app.state.security_store.activate_user_with_password(
++                access_id=clean_id,
++                email=clean_email,
++                password=body.password,
++                confirm_password=body.confirm_password,
++                audit_recorder=record_audit if getattr(app.state, "core_security_audit", None) is not None else None,
++            )
++
++            session = session_service.issue(
++                user=user,
++                route=AccessRoute.NORMAL,
++                mtls_verified=False,
++                step_up_satisfied=False,
++            )
++
++            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++                _auth_limiter("login_limiter").record_success(ip_key)
++                if access_key is not None:
++                    _auth_limiter("login_limiter").record_success(access_key)
++
++            return {
++                "access_token": session.token,
++                "expires_at_utc": session.expires_at.isoformat(),
++                "subject": str(session.user.user_id),
++                "role": session.user.role.value,
++                "sx_id": session.user.sx_id,
++            }
++        except (SecurityError, SecurityStoreError, ValueError) as exc:
++            if hasattr(app.state, "auth_policy") and app.state.auth_policy is not None:
++                if access_key is not None:
++                    _auth_limiter("login_limiter").record_failure(access_key)
++                locked, rem = _auth_limiter("login_limiter").record_failure(ip_key)
++                if locked:
++                    raise HTTPException(
++                        status_code=429,
++                        detail=f"RATE_LIMIT_COOLDOWN: Cooldown active for {rem}s",
++                        headers={"Retry-After": str(rem)},
++                    ) from exc
++            raise HTTPException(status_code=400, detail=str(exc)) from exc
++
+     @app.post("/api/v1/security/credentials/{credential_id}/lifecycle")
+     def credential_lifecycle(credential_id: str, change: CredentialLifecycleChange, session=Depends(mutable_session)) -> dict[str, object]:
+         if session.user.role is not Role.OWNER or app.state.security_store is None:
+diff --git a/dashboard/backend/security_store.py b/dashboard/backend/security_store.py
+index d3725d5..345cf30 100644
+--- a/dashboard/backend/security_store.py
++++ b/dashboard/backend/security_store.py
+@@ -1137,6 +1137,178 @@ class SQLiteSecurityStore:
+         from .identity import persisted_identity
+         return persisted_identity(row)
+ 
++    def _find_user_for_access_id(self, cur, access_id: str):
++        clean_id = (access_id or "").strip()
++        if not clean_id:
++            return None, None
++
++        # 1. Match sx_id directly (case insensitive)
++        row = cur.execute(
++            "SELECT * FROM users WHERE UPPER(TRIM(sx_id)) = UPPER(?)",
++            (clean_id,),
++        ).fetchone()
++        if row is not None:
++            issuance = cur.execute(
++                "SELECT * FROM activation_issuances WHERE user_id = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
++                (row["user_id"],),
++            ).fetchone()
++            return row, issuance
++
++        # 2. Match user_id (UUID)
++        row = cur.execute(
++            "SELECT * FROM users WHERE user_id = ?",
++            (clean_id,),
++        ).fetchone()
++        if row is not None:
++            issuance = cur.execute(
++                "SELECT * FROM activation_issuances WHERE user_id = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
++                (row["user_id"],),
++            ).fetchone()
++            return row, issuance
++
++        # 3. Match activation code in activation_issuances
++        code_hash = _hash_activation_code(clean_id)
++        issuance = cur.execute(
++            "SELECT * FROM activation_issuances WHERE code_hash = ? AND status = 'INVITED' ORDER BY issued_at_utc DESC LIMIT 1",
++            (code_hash,),
++        ).fetchone()
++        if issuance is not None:
++            row = cur.execute(
++                "SELECT * FROM users WHERE user_id = ?",
++                (issuance["user_id"],),
++            ).fetchone()
++            return row, issuance
++
++        return None, None
++
++    def validate_user_access_id(self, access_id: str) -> dict:
++        """Validates an invite-only Access ID for a prospective user."""
++        cur = self._conn.cursor()
++        user, issuance = self._find_user_for_access_id(cur, access_id)
++        if user is None:
++            raise SecurityStoreError("INVALID_ACCESS_ID: This AlgoFortis installation is invite-only. The presented Access ID was not recognized.")
++
++        if user["role"] in ("OWNER", "APPROVED_OWNER"):
++            raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not valid for user workstation.")
++
++        if user["account_status"] == "REVOKED" or user["lifecycle"] == "REVOKED":
++            raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked by administration.")
++
++        if user["account_status"] == "SUSPENDED":
++            raise SecurityStoreError("ACCESS_SUSPENDED: Access authorization is currently suspended.")
++
++        if user["activation_status"] == "REDEEMED":
++            raise SecurityStoreError("ALREADY_ACTIVATED: This invitation has already been redeemed. Please sign in.")
++
++        now = _utc_now()
++        if issuance is not None:
++            if issuance["revoked_at_utc"] is not None or issuance["status"] == "REVOKED":
++                raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked.")
++            if datetime.fromisoformat(issuance["expires_at_utc"]) <= now:
++                raise SecurityStoreError("ACCESS_EXPIRED: Access authorization token has expired. Contact your administrator for a new token.")
++
++        return {
++            "valid": True,
++            "access_id": user["sx_id"] or access_id.strip().upper(),
++            "user_id": user["user_id"],
++            "email": user["bound_email"] or "",
++            "display_name": user["display_name"] or "",
++            "plan": user["plan"] or "Quant Professional",
++        }
++
++    def activate_user_with_password(
++        self,
++        *,
++        access_id: str,
++        email: str,
++        password: str,
++        confirm_password: str,
++        audit_recorder = None,
++    ):
++        """Activates an unactivated invited user account with email and password."""
++        clean_id = (access_id or "").strip()
++        clean_email = (email or "").strip().lower()
++
++        if not clean_email or "@" not in clean_email or "." not in clean_email:
++            raise ValueError("A valid email address is required")
++
++        if password != confirm_password:
++            raise ValueError("Passwords do not match")
++
++        if len(password) < 8:
++            raise ValueError("Password must be at least 8 characters long")
++
++        now = _utc_now()
++        pw_hash, pw_salt = hash_password(password)
++
++        with self._transaction() as cur:
++            user, issuance = self._find_user_for_access_id(cur, clean_id)
++            if user is None:
++                raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not recognized.")
++
++            if user["role"] in ("OWNER", "APPROVED_OWNER"):
++                raise SecurityStoreError("INVALID_ACCESS_ID: Access ID not valid for user workstation.")
++
++            if user["account_status"] == "REVOKED" or user["lifecycle"] == "REVOKED":
++                raise SecurityStoreError("ACCESS_REVOKED: Access authorization has been revoked by administration.")
++
++            if user["account_status"] == "SUSPENDED":
++                raise SecurityStoreError("ACCESS_SUSPENDED: Access authorization is currently suspended.")
++
++            if user["activation_status"] == "REDEEMED":
++                raise SecurityStoreError("ALREADY_ACTIVATED: This invitation has already been redeemed. Please sign in.")
++
++

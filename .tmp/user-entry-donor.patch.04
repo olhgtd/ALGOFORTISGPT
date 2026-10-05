@@ -1,0 +1,227 @@
+gacyAlgoFortisCore } from "./LegacyAlgoFortisCore";
++import { GlobalRealTimeClock } from "../../../../shared/utilities/V3Chrome";
++import type { VerificationState, ViewportMode } from "./types";
++import "./secure-entry.css";
++
++export interface LegacyEntryShellProps {
++  appTarget?: "owner" | "user";
++  subhead?: string;
++  verificationState?: VerificationState;
++  introPhase?: number;
++  introElapsed?: number;
++  isCardVisible?: boolean;
++  viewportMode?: ViewportMode;
++  children: React.ReactNode;
++}
++
++export const LegacyEntryShell: React.FC<LegacyEntryShellProps> = ({
++  appTarget = "owner",
++  subhead = "Invite-Only Access",
++  verificationState = "ID_ENTRY",
++  introPhase = 3,
++  introElapsed = 5.0,
++  isCardVisible = true,
++  viewportMode = "DESKTOP",
++  children,
++}) => {
++  const isMobile = viewportMode === "MOBILE";
++  const coreSize = isMobile ? 200 : 280;
++
++  return (
++    <div className={`secure-entry-root ${introPhase >= 0 ? "intro-anim-fadein" : ""}`} id="secure-entry-root">
++      {/* Top Real-Time Clock Bar */}
++      <div className="access-gate-clock-bar">
++        <GlobalRealTimeClock isMobile={isMobile} />
++      </div>
++
++      {/* Viewport Chassis */}
++      <div className={`viewport-frame-wrapper mode-${viewportMode.toLowerCase().replace("_", "-")}`}>
++        <div className="secure-stage" id="desktop-secure-stage">
++          {/* Brand Header */}
++          <div className={`secure-entry-brand-header intro-identity-reveal ${isCardVisible ? "revealed" : ""}`}>
++            <div className="brand-wordmark-row">
++              <h1 className="brand-title">ALGOFORTIS</h1>
++            </div>
++            <p className="brand-subhead">{subhead}</p>
++          </div>
++
++          {/* Animated Multi-Color Core (NO center logo, NO shield, exact original AlgoFortis visual) */}
++          <div className="core-display-container">
++            <LegacyAlgoFortisCore
++              size={coreSize}
++              verificationState={verificationState}
++              introPhase={introPhase}
++              introElapsed={introElapsed}
++            />
++          </div>
++
++          {/* Child Auth Content */}
++          <div className={`intro-identity-reveal ${isCardVisible ? "revealed" : ""}`} style={{ width: "100%" }}>
++            {children}
++          </div>
++        </div>
++      </div>
++    </div>
++  );
++};
+diff --git a/dashboard/web/src/visual-lab/secure-entry/LegacyLocalRecoveryCard.tsx b/dashboard/web/src/visual-lab/secure-entry/LegacyLocalRecoveryCard.tsx
+new file mode 100644
+index 0000000..69652e9
+--- /dev/null
++++ b/dashboard/web/src/visual-lab/secure-entry/LegacyLocalRecoveryCard.tsx
+@@ -0,0 +1,368 @@
++import React, { useState } from "react";
++import { api } from "../../api";
++import { clearSessionToken } from "../../../../shared/services/sessionStore";
++
++interface LegacyLocalRecoveryCardProps {
++  onBackToLogin: () => void;
++  onRecoverySuccess?: () => void;
++}
++
++export const LegacyLocalRecoveryCard: React.FC<LegacyLocalRecoveryCardProps> = ({
++  onBackToLogin,
++  onRecoverySuccess,
++}) => {
++  const [step, setStep] = useState<"VERIFY" | "RESET" | "SUCCESS">("VERIFY");
++  const [email, setEmail] = useState("");
++  const [recoveryCode, setRecoveryCode] = useState("");
++  const [newPassword, setNewPassword] = useState("");
++  const [confirmPassword, setConfirmPassword] = useState("");
++  const [showPassword, setShowPassword] = useState(false);
++  const [isSubmitting, setIsSubmitting] = useState(false);
++  const [errorMessage, setErrorMessage] = useState<string | null>(null);
++
++  const handleVerify = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setErrorMessage(null);
++
++    const cleanEmail = email.trim();
++    const cleanCode = recoveryCode.trim();
++
++    if (!cleanEmail || !cleanEmail.includes("@")) {
++      setErrorMessage("Please enter a valid email address.");
++      return;
++    }
++    if (!cleanCode) {
++      setErrorMessage("Emergency recovery code is required.");
++      return;
++    }
++
++    setIsSubmitting(true);
++    try {
++      const res = await api.localRecoveryVerify({
++        email: cleanEmail,
++        recovery_code: cleanCode,
++      });
++
++      if (res.valid) {
++        setIsSubmitting(false);
++        setStep("RESET");
++      } else {
++        setIsSubmitting(false);
++        setErrorMessage("Invalid recovery credentials. Please verify your email and recovery code.");
++      }
++    } catch (err: any) {
++      setIsSubmitting(false);
++      let msg = "Invalid recovery credentials. Please verify your email and recovery code.";
++      if (err instanceof Error) {
++        if (err.message.includes("429") || err.message.toLowerCase().includes("cooldown") || err.message.toLowerCase().includes("too many")) {
++          msg = err.message;
++        }
++      }
++      setErrorMessage(msg);
++    }
++  };
++
++  const handleReset = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setErrorMessage(null);
++
++    if (newPassword.length < 8) {
++      setErrorMessage("Password must be at least 8 characters long.");
++      return;
++    }
++    if (newPassword !== confirmPassword) {
++      setErrorMessage("Passwords do not match.");
++      return;
++    }
++
++    setIsSubmitting(true);
++    try {
++      await api.localRecoveryReset({
++        email: email.trim(),
++        recovery_code: recoveryCode.trim(),
++        new_password: newPassword,
++        confirm_password: confirmPassword,
++      });
++
++      // Clear any cached local persistent session so user must sign in with new password
++      clearSessionToken();
++
++      setIsSubmitting(false);
++      setStep("SUCCESS");
++      if (onRecoverySuccess) {
++        onRecoverySuccess();
++      }
++    } catch (err: any) {
++      setIsSubmitting(false);
++      let msg = "Failed to reset password. Recovery code may be invalid or already used.";
++      if (err instanceof Error) {
++        if (err.message.includes("429") || err.message.toLowerCase().includes("cooldown")) {
++          msg = err.message;
++        }
++      }
++      setErrorMessage(msg);
++    }
++  };
++
++  return (
++    <div className="secure-access-card" id="local-recovery-card">
++      <div className="access-gate-badge" style={{ marginBottom: "12px" }}>
++        <span style={{ color: "#38bdf8" }}>●</span>
++        <span>EMERGENCY ACCESS</span>
++      </div>
++
++      <h2
++        className="card-title"
++        style={{ fontSize: "20px", fontWeight: 700, letterSpacing: "0.04em", color: "#f8fafc" }}
++      >
++        ALGOfORTIS ACCOUNT RECOVERY
++      </h2>
++      <p className="card-subtitle" style={{ fontSize: "12.5px", color: "#94a3b8", marginBottom: "20px" }}>
++        {step === "VERIFY" && "Verify your Super Owner identity using an emergency single-use recovery code."}
++        {step === "RESET" && "Create a new strong password. All previous sessions will be terminated."}
++        {step === "SUCCESS" && "Password reset complete. You can now sign in with your new password."}
++      </p>
++
++      {errorMessage && (
++        <div
++          role="alert"
++          id="recovery-error-alert"
++          style={{
++            background: "rgba(239, 68, 68, 0.12)",
++            border: "1px solid rgba(239, 68, 68, 0.35)",
++            borderRadius: "6px",
++            padding: "10px 14px",
++            marginBottom: "16px",
++            color: "#fca5a5",
++            fontSize: "12px",
++            lineHeight: 1.4,
++          }}
++        >
++          {errorMessage}
++        </div>
++      )}
++
++      {step === "VERIFY" && (
++        <form onSubmit={handleVerify} style={{ display: "flex", flexDirection: "column", gap: "14px", width: "100%" }}>
++          <div className="form-field-group">
++            <label htmlFor="recovery-email" className="field-label" style={{ fontSize: "11px", fontWeight: 600, color: "#cbd5e1" }}>
++              Email Address
++            </label>
++            <div className="field-input-wrapper">
++              <input
++                id="recovery-email"
++                type="email"
++   

@@ -1,0 +1,106 @@
+ } else if (elapsed < 3.0) {
++        setIntroPhase(2);
++      } else {
++        setIntroPhase(3);
++      }
++
++      if (elapsed >= 4.8) {
++        setIsIntroComplete(true);
++        setIntroElapsed(5.0);
++      } else {
++        introTimerRef.current = requestAnimationFrame(tick);
++      }
++    };
++
++    introTimerRef.current = requestAnimationFrame(tick);
++  }, []);
++
++  const handleWorkspaceTransition = (authenticatedSession = true, workspace: "user" | "owner" = "user") => {
++    setVerificationState("WORKSPACE_TRANSITION");
++    if (onEnterWorkspace) {
++      onEnterWorkspace(authenticatedSession, workspace);
++    } else if (onOpenDashboard) {
++      onOpenDashboard();
++    }
++  };
++
++  const isCardVisible = introElapsed >= 1.5 || isIntroComplete;
++
++  return (
++    <LegacyEntryShell
++      appTarget={appTarget}
++      subhead="Invite-Only Access"
++      verificationState={verificationState}
++      introPhase={introPhase}
++      introElapsed={introElapsed}
++      isCardVisible={isCardVisible}
++      viewportMode={viewportMode}
++    >
++      {(flow === "LOADING" || flow === "UNAVAILABLE") && (
++        <div className="secure-access-card" id="security-status-card" role={flow === "UNAVAILABLE" ? "alert" : "status"}>
++          <h2 className="card-title">{flow === "LOADING" ? "Checking security status..." : "Security status unavailable"}</h2>
++          <p className="card-subtitle">
++            {flow === "LOADING"
++              ? "Waiting for AlgoFortis security authority."
++              : "Unable to verify AlgoFortis security status. Reload to try again."}
++          </p>
++        </div>
++      )}
++
++      {flow === "LOCAL_OWNER_SETUP" && (
++        <LocalOwnerSetupCard
++          onSetupSuccess={() => handleWorkspaceTransition(true, "owner")}
++        />
++      )}
++
++      {flow === "LOCAL_LOGIN" && (
++        <LegacyUserLoginCard
++          appTarget={appTarget}
++          onLoginSuccess={() => handleWorkspaceTransition(true, appTarget === "owner" ? "owner" : "user")}
++          onForgotPassword={appTarget === "owner" ? () => setFlow("LOCAL_RECOVERY") : undefined}
++          onSwitchToAccessGate={appTarget === "user" ? () => {
++            setFlow("ACCESS_GATE");
++            setGateStep("ENTER_ACCESS_ID");
++          } : undefined}
++        />
++      )}
++
++      {flow === "LOCAL_RECOVERY" && (
++        <LegacyLocalRecoveryCard
++          onBackToLogin={() => setFlow("LOCAL_LOGIN")}
++          onRecoverySuccess={() => setFlow("LOCAL_LOGIN")}
++        />
++      )}
++
++      {flow === "ACCESS_GATE" && (
++        <LegacyUserFirstTimeCustomerFlow
++          accessId={accessId}
++          onAccessIdChange={setAccessId}
++          gateStep={gateStep}
++          onGateStepChange={setGateStep}
++          onSwitchToReturningUser={() => {
++            setFlow("LOCAL_LOGIN");
++          }}
++          onCompleteActivation={(_token, role) => {
++            handleWorkspaceTransition(true, role === "owner" ? "owner" : "user");
++          }}
++          isDevMode={isDevMode}
++        />
++      )}
++    </LegacyEntryShell>
++  );
++};
+diff --git a/dashboard/web/src/visual-lab/secure-entry/types.ts b/dashboard/web/src/visual-lab/secure-entry/types.ts
+index 94c6473..4770862 100644
+--- a/dashboard/web/src/visual-lab/secure-entry/types.ts
++++ b/dashboard/web/src/visual-lab/secure-entry/types.ts
+@@ -9,7 +9,8 @@ export type EntryFlow =
+   | "OWNER_SETUP"
+   | "HELP_RECOVERY"
+   | "LOCAL_OWNER_SETUP"
+-  | "LOCAL_LOGIN";
++  | "LOCAL_LOGIN"
++  | "LOCAL_RECOVERY";
+ 
+ export type AccessGateStep =
+   | "ENTER_ACCESS_ID"
