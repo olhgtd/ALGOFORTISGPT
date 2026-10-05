@@ -1,0 +1,28 @@
+name: Temporary User Action Native Qualification
+
+on:
+  push:
+    branches:
+      - feat/user-action-control-plane-20261005
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-user-action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+      - name: Install frontend dependencies
+        run: npm --prefix dashboard/web ci
+      - name: User dashboard regression
+        run: npm --prefix dashboard/web run test:user-dashboard
+      - name: Frontend typecheck
+        run: npm --prefix dashboard/web run typecheck
