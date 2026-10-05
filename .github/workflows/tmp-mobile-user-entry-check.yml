@@ -67,6 +67,20 @@ jobs:
               body: JSON.stringify(body),
             });
 
+            if (path === '/api/v1/security/status') {
+              return json(200, {
+                owner_initialized: true,
+                owner_id: 'OWNER-001',
+                password_authentication: 'READY',
+                webauthn: 'AVAILABLE',
+                webauthn_enrollment: 'OPTIONAL',
+                normal_mtls: 'NOT_REQUIRED',
+                break_glass: 'AVAILABLE',
+                owner_authenticators_ready: true,
+                normal_mtls_required: false
+              });
+            }
+
             if (path === '/api/v1/auth/local/access/validate') {
               let body = {};
               try { body = req.postDataJSON() ?? {}; } catch {}
@@ -163,6 +177,7 @@ jobs:
           node dashboard/web/mobile-user-entry-check.mjs
 
       - name: Upload mobile visual evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mobile-user-entry-evidence
