@@ -40,9 +40,13 @@ jobs:
           if (-not $parts) { throw 'Donor patch parts missing' }
           $bytes = New-Object System.Collections.Generic.List[byte]
           foreach ($part in $parts) { $bytes.AddRange([System.IO.File]::ReadAllBytes($part.FullName)) }
-          [System.IO.File]::WriteAllBytes((Join-Path $env:RUNNER_TEMP 'user-entry-donor.patch'), $bytes.ToArray())
-          git apply --check "$env:RUNNER_TEMP/user-entry-donor.patch"
-          git apply "$env:RUNNER_TEMP/user-entry-donor.patch"
+          $patchPath = Join-Path $env:RUNNER_TEMP 'user-entry-donor.patch'
+          [System.IO.File]::WriteAllBytes($patchPath, $bytes.ToArray())
+          $patchText = [System.IO.File]::ReadAllText($patchPath)
+          $patchText = [System.Text.RegularExpressions.Regex]::Replace($patchText, "`r+`n", "`n").Replace("`r", "`n")
+          [System.IO.File]::WriteAllText($patchPath, $patchText, [System.Text.UTF8Encoding]::new($false))
+          git apply --check $patchPath
+          git apply $patchPath
           Remove-Item .tmp/user-entry-donor.patch.* -Force
 
       - name: Verify donor screen sequence is present
