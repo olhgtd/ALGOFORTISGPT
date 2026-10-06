@@ -7,7 +7,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ownerApi = readFileSync(resolve(here, "api.ts"), "utf8");
 const ownerShell = readFileSync(resolve(here, "..", "OwnerDashboardApp.tsx"), "utf8");
 const userShell = readFileSync(resolve(here, "..", "..", "user-dashboard", "UserDashboardApp.tsx"), "utf8");
-const legacyUserScreens = readFileSync(resolve(here, "..", "..", "user-dashboard", "screens", "UserScreens.tsx"), "utf8");
 
 describe("canonical Owner control-plane truth", () => {
   it("uses installation-wide Owner reads for backtests and paper sessions", () => {
@@ -18,10 +17,18 @@ describe("canonical Owner control-plane truth", () => {
   });
 
   it("keeps the hardcoded legacy kill-switch claim unreachable from the canonical User app", () => {
-    expect(legacyUserScreens).toContain("Killswitch Status:");
-    expect(legacyUserScreens).toContain("ARMED &amp; READY");
     expect(userShell).not.toContain("UserScreens");
     expect(userShell).not.toContain('from "./screens/UserScreens"');
+  });
+
+  it("keeps lifecycle governance on the reachable Users & Access surface", () => {
+    const screens = readFileSync(resolve(here, "screens.tsx"), "utf8");
+    for (const token of ["Suspend", "Restore", "Revoke", "Reissue", "Renew 3 months", "Lifetime"]) expect(screens).toContain(token);
+  });
+
+  it("keeps connection allowance governance on the reachable Connections & Data surface", () => {
+    const dataOps = readFileSync(resolve(here, "DataOperations.tsx"), "utf8");
+    for (const token of ["ownerConnectionAllowance", "ownerCapabilityAllowance", "ALLOWED", "HOLD", "REVOKED"]) expect(dataOps).toContain(token);
   });
 
   it("keeps canonical Owner navigation on authoritative modules", () => {

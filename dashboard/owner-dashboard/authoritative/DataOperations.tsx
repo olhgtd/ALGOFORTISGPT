@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel } from "../../shared/utilities/V3Chrome";
 import { AsyncActionButton, AuthorityBadge, SimpleTable } from "./components";
 import { useAsyncResource, useOwnerAuthority } from "./hooks";
@@ -11,7 +11,8 @@ import {
   runHistoricalSync,
   toggleHistoricalProvider,
 } from "./dataOps";
-import { ownerDatasetApproval, ownerDatasetReplace, ownerDatasetRetire } from "./mutations";
+import { ownerCapabilityAllowance, ownerConnectionAllowance, ownerDatasetApproval, ownerDatasetReplace, ownerDatasetRetire } from "./mutations";
+import { queryOwnerConnections } from "./api";
 
 const rowsFrom = (payload: any, key: string): any[] => Array.isArray(payload) ? payload : Array.isArray(payload?.[key]) ? payload[key] : [];
 
@@ -33,18 +34,54 @@ export const DataOperations: React.FC = () => {
   const [frequency, setFrequency] = useState("DAILY");
   const [lookbackDays, setLookbackDays] = useState(7);
   const [replacement, setReplacement] = useState("");
+  const [capability, setCapability] = useState("");
+  const [connectionData, setConnectionData] = useState<any[] | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const providers = useMemo(() => rowsFrom(data?.providers, "providers"), [data]);
   const jobs = useMemo(() => rowsFrom(data?.jobs, "jobs"), [data]);
   const datasetSurface: any = authority.snapshot?.surfaces.datasets;
   const datasetState = datasetSurface?.authority_state || "UNAVAILABLE";
   const datasets = datasetState === "AVAILABLE" ? rowsFrom(datasetSurface, "datasets") : [];
-  const refreshAll = () => { void refresh(); void authority.refresh(); };
+  const loadConnections = async () => {
+    try {
+      const result = await queryOwnerConnections();
+      setConnectionData(rowsFrom(result, "connections"));
+      setConnectionError(null);
+    } catch (error) {
+      setConnectionData(null);
+      setConnectionError(error instanceof Error ? error.message : "CONNECTION_AUTHORITY_UNAVAILABLE");
+    }
+  };
+  useEffect(() => { void loadConnections(); }, []);
+  const refreshAll = () => { void refresh(); void authority.refresh(); void loadConnections(); };
 
   if (loading && !data) return <Panel>Loading data authority…</Panel>;
   return <>
     <div className="v3-screen-head"><div><h2 className="v3-screen-title">Connections & Data</h2><p className="v3-screen-sub">Historical provider credentials are write-only. Dataset and sync authority remains backend-owned.</p></div></div>
     {error && <div className="owner-authority-message unavailable"><strong>UNAVAILABLE</strong><div>{error}</div></div>}
+
+    <Panel>
+      <div className="v3-region-head"><span className="v3-region-title">Connection Allowance</span><span className="v3-region-note">Owner governance · step-up protected</span></div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <input className="v3-input" value={capability} onChange={(e) => setCapability(e.target.value)} placeholder="Capability (for example MARKET_DATA)" />
+      </div>
+      {connectionError && <div className="owner-authority-message unavailable"><strong>UNAVAILABLE</strong><div>{connectionError}</div></div>}
+      {!connectionError && connectionData && connectionData.length === 0 && <div className="v3-region-note">No authoritative Owner connections recorded.</div>}
+      {connectionData && connectionData.length > 0 && <SimpleTable rows={connectionData} columns={[
+        { key: "connection_id", label: "Connection" }, { key: "provider", label: "Provider" }, { key: "status", label: "Status" }, { key: "owner_allowance", label: "Allowance" },
+        { key: "actions", label: "Governance", render: (row) => {
+          const id = String(row.connection_id || row.id || "");
+          return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <AsyncActionButton label="ALLOW" onRun={() => ownerConnectionAllowance(id, "ALLOWED", "Owner allow")} onDone={loadConnections} disabled={!id} />
+            <AsyncActionButton label="HOLD" tone="warn" onRun={() => ownerConnectionAllowance(id, "HOLD", "Owner hold")} onDone={loadConnections} disabled={!id} />
+            <AsyncActionButton label="REVOKE" tone="danger" onRun={() => ownerConnectionAllowance(id, "REVOKED", "Owner revoke")} onDone={loadConnections} disabled={!id} />
+            <AsyncActionButton label="Capability ALLOW" onRun={() => ownerCapabilityAllowance(id, capability.trim(), "ALLOWED", "Owner capability allow")} onDone={loadConnections} disabled={!id || !capability.trim()} />
+            <AsyncActionButton label="Capability HOLD" tone="warn" onRun={() => ownerCapabilityAllowance(id, capability.trim(), "HOLD", "Owner capability hold")} onDone={loadConnections} disabled={!id || !capability.trim()} />
+          </div>;
+        } },
+      ]} />}
+    </Panel>
 
     <Panel>
       <div className="v3-region-head"><span className="v3-region-title">Providers</span></div>
