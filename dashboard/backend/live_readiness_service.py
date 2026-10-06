@@ -502,37 +502,6 @@ class LiveReadinessService:
             if request["side"] != "BUY": block("CLOSE_INTENT_AUTHORITY_UNAVAILABLE")
 
             conn = self.connections.get(user_id)
-                    status = "SHADOW_REJECTED" if any(r["code"] in ("RISK_REJECTED", "STRATEGY_NOT_LIVE_ELIGIBLE") for r in reasons) else "SHADOW_BLOCKED"
-                    would_be = None
-
-                result = {
-                    "intent_id": intent_id,
-                    "idempotency_key": idempotency_key,
-                    "canonical_signal_id": canonical.identity,
-                    "user_id": user_id,
-                    "execution_mode": "SHADOW",
-                    "strategy_id": canonical.strategy_id,
-                    "instrument_token": request["instrument_token"],
-                    "canonical_instrument": entry.identity.instrument if entry else None,
-                    "side": canonical.action,
-                    "quantity": str(request["quantity"]),
-                    "status": status,
-                    "checked_at": self.clock().isoformat(),
-                    "arming_state": "READ_ONLY",
-                    "reasons": reasons,
-                    "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE",
-                    "broker_mutation_sent": False,
-                    "would_be_payload": would_be,
-                    "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None,
-                }
-                result["audit_id"] = self._audit(user_id, "SHADOW_INTENT_VALIDATED", {
-                    "intent_id": intent_id, "idempotency_key": idempotency_key, "status": status,
-                    "reasons": [r["code"] for r in reasons], "broker_mutation_sent": False},
-                    rejected=status != "SHADOW_READY")
-                self.store.save_live_observation(user_id, "intent:" + intent_id, result)
-                self.store.save_live_observation(user_id, "shadow:" + intent_id, result)
-                return result
-            else:
                 block("BROKER_CAPABILITY_MISSING", "Live mutation connector is intentionally absent")
                 block("EXECUTION_DISABLED")
                 result = {"intent_id": intent_id, "canonical_signal_id": canonical.identity, "user_id": user_id,
