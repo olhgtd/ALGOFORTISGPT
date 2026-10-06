@@ -9,11 +9,13 @@ const state = (value: any) => value === "AVAILABLE" || value === "STALE" || valu
 export const RiskSafetyScreen: React.FC = () => {
   const load = useCallback(() => queryOwnerSafety(), []);
   const { data, loading, error, refresh } = useAsyncResource(load);
+  const [killReason, setKillReason] = useState("Owner emergency safety hold");
+
   if (loading && !data) return <Panel>Loading safety authority…</Panel>;
   const safe = data?.safe_mode || { state: "UNAVAILABLE", enabled: null };
   const hold = data?.global_hold || { state: "UNAVAILABLE", enabled: null };
   const risk = data?.risk_gate || { state: "UNAVAILABLE" };
-  const kill = data?.kill_switch || { state: "NOT_CONNECTED" };\n  const [killReason, setKillReason] = useState("Owner emergency safety hold");
+  const kill = data?.kill_switch || { state: "NOT_CONNECTED" };
   return <>
     <div className="v3-screen-head"><div><h2 className="v3-screen-title">Risk & Safety</h2><p className="v3-screen-sub">Truthful safety authority only. Live is permanently READ_ONLY/DISARMED in this runtime.</p></div></div>
     {error && <div className="owner-authority-message unavailable"><strong>UNAVAILABLE</strong><div>{error}</div></div>}
