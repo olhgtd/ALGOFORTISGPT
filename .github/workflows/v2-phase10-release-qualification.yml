@@ -126,7 +126,7 @@ jobs:
             'build/tools/check_phase5_paper_recovery.py',
             'build/tools/check_phase6_live_readonly.py',
             'build/tools/check_phase7_portfolio_risk.py',
-            'build/tools/check_phase8_ai_shadow.py',
+            'build/tools/check_phase8_ai_intelligence.py',
             'build/tools/check_phase9_product_ops.py',
             'build/tools/check_live_reunion_boundary.py',
             'build/tools/check_riskgate_fast_path_boundary.py',
