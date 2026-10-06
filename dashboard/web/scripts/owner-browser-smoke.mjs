@@ -30,7 +30,7 @@ const productOps = {
   active_policy_versions: [],
   runbook_status: "UNAVAILABLE",
   live_state: "READ_ONLY/DISARMED",
-  ai_authority: "RESEARCH_SHADOW_ONLY",
+  ai_authority: "INDEPENDENT_CANDIDATE_SOURCE",
 };
 
 async function installMocks(page, state) {
