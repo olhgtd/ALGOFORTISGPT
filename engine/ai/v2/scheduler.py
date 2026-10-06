@@ -1,6 +1,6 @@
-"""Bounded research/shadow scheduler for Phase 8.
+"""Bounded intelligence scheduler for AI/Laya market monitoring and research.
 
-The scheduler has no broker/order job vocabulary or execution authority.
+The scheduler has no broker mutation or execution authority.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _aware(value: object, name: str) -> datetime:
 
 class ResearchJobKind(str, Enum):
     RESEARCH = "RESEARCH"
-    SHADOW = "SHADOW"
+    INTELLIGENCE = "INTELLIGENCE"
 
 
 class SchedulerRejectReason(str, Enum):
