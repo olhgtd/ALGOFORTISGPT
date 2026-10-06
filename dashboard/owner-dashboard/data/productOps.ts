@@ -13,7 +13,7 @@ export interface ProductOpsHealthDto {
   active_policy_versions: string[];
   runbook_status?: string | null;
   live_state: "READ_ONLY/DISARMED";
-  ai_authority: "RESEARCH_SHADOW_ONLY";
+  ai_authority: "INDEPENDENT_CANDIDATE_SOURCE";
 }
 
 export interface OwnerProductOpsSurfaceData {

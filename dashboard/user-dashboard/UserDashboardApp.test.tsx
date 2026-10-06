@@ -30,9 +30,14 @@ const mount = async (loadShell = unavailableShell) => {
   document.body.appendChild(container);
   root = createRoot(container);
 
-  await act(async () => {
+  act(() => {
     root?.render(<UserDashboardApp theme="dark" toggleTheme={() => {}} loadShell={loadShell} shellRefreshMs={0} />);
-    await Promise.resolve();
+  });
+
+  // Flush the read-only shell authority effect without nesting the initial
+  // synchronous render inside an async act scope (which can hang under the
+  // Windows Vitest/React environment).
+  await act(async () => {
     await Promise.resolve();
   });
 

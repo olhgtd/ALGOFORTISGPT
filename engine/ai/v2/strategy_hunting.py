@@ -58,7 +58,7 @@ class StrategyHuntingOrchestrator:
             job_id=job,
             provider_id=provider.provider_id,
             dataset_ref=dataset,
-            execution_scope="RESEARCH_BACKTEST_PAPER_ONLY",
+            execution_scope="RISK_GATED_CANDIDATE",
             ready_request=ready,
         )
 

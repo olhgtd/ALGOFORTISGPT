@@ -19,6 +19,6 @@ Observed hosted evidence:
 - `G9_FULL_REPOSITORY_PRESERVATION=PASS`.
 - `G9_DASHBOARD_QUALIFICATION=PASS`.
 
-Phase 9 authority remains privacy/product operations only. Identity authority is S2 DeviceSessionGate. Privacy incidents reuse FailureIncident and the existing alert path. Local backup remains `AlgoFortisBackup/v1`; central privacy backup is a separate allowlisted boundary. Dashboards are read-model/service clients only. ApprovedOrder authority remains RiskGateV2. Live remains `READ_ONLY/DISARMED` and AI remains `RESEARCH_SHADOW_ONLY`.
+Phase 9 authority remains privacy/product operations only. Identity authority is S2 DeviceSessionGate. Privacy incidents reuse FailureIncident and the existing alert path. Local backup remains `AlgoFortisBackup/v1`; central privacy backup is a separate allowlisted boundary. Dashboards are read-model/service clients only. ApprovedOrder authority remains RiskGateV2. Live remains `READ_ONLY/DISARMED` and AI/Laya are `INDEPENDENT_CANDIDATE_SOURCE` inputs to the common deterministic candidate/risk lifecycle.
 
 Legal/compliance review is a separate evidence gate. `G9_LEGAL_REVIEW_STATUS.md` remains `PENDING_EXTERNAL_REVIEW`; successful software tests do not establish legal compliance or authorize external production release.

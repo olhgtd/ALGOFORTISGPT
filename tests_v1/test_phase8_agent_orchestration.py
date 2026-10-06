@@ -13,15 +13,15 @@ def test_only_three_v2_roles_exist():
 
 def test_challenger_veto_or_unresolved_disagreement_forces_hold():
  from engine.ai.v2.agents import ChallengeDecision
- from engine.ai.v2.orchestrator import ResearchShadowOrchestrator
- o=ResearchShadowOrchestrator(validator())
+ from engine.ai.v2.orchestrator import IntelligenceCandidateOrchestrator
+ o=IntelligenceCandidateOrchestrator(validator())
  assert o.evaluate(cand(),challenge=ChallengeDecision.VETO).effective_action is TradeCandidateAction.HOLD
  assert o.evaluate(cand(),challenge=None).effective_action is TradeCandidateAction.HOLD
 
 def test_challenger_pass_is_not_mint_authority_and_validator_still_controls():
  from engine.ai.v2.agents import ChallengeDecision
- from engine.ai.v2.orchestrator import ResearchShadowOrchestrator
- o=ResearchShadowOrchestrator(validator())
+ from engine.ai.v2.orchestrator import IntelligenceCandidateOrchestrator
+ o=IntelligenceCandidateOrchestrator(validator())
  assert o.evaluate(cand(),challenge=ChallengeDecision.PASS).effective_action is TradeCandidateAction.BUY_CE
  assert o.evaluate(cand(valid=0),challenge=ChallengeDecision.PASS).effective_action is TradeCandidateAction.HOLD
 
@@ -36,6 +36,6 @@ def test_agent_provider_and_tool_scope_are_explicit():
 def test_orchestrator_result_has_no_order_authority_fields():
  from dataclasses import fields
  from engine.ai.v2.agents import ChallengeDecision
- from engine.ai.v2.orchestrator import ResearchShadowOrchestrator
- r=ResearchShadowOrchestrator(validator()).evaluate(cand(),challenge=ChallengeDecision.PASS)
+ from engine.ai.v2.orchestrator import IntelligenceCandidateOrchestrator
+ r=IntelligenceCandidateOrchestrator(validator()).evaluate(cand(),challenge=ChallengeDecision.PASS)
  assert {'approved_order','order_intent','broker_order','quantity'}.isdisjoint({f.name for f in fields(type(r))})

@@ -212,7 +212,7 @@ class TradeCandidate:
 
 @dataclass(frozen=True, slots=True)
 class IntelligenceCandidate:
-    """AI/Laya candidate evidence for research, backtest and paper only."""
+    """AI/Laya candidate source for the common risk-gated decision path."""
 
     candidate_id: str
     instrument_ref: str
@@ -229,7 +229,7 @@ class IntelligenceCandidate:
     conflicting_evidence_refs: tuple[str, ...]
     policy_refs: tuple[str, ...]
     schema_version: str
-    execution_scope: str = "RESEARCH_BACKTEST_PAPER_ONLY"
+    execution_scope: str = "RISK_GATED_CANDIDATE"
 
     def __post_init__(self) -> None:
         for name in ("candidate_id", "instrument_ref", "regime", "entry_context_ref", "invalidation_ref"):
@@ -250,8 +250,8 @@ class IntelligenceCandidate:
         object.__setattr__(self, "conflicting_evidence_refs", _text_tuple(self.conflicting_evidence_refs, "conflicting_evidence_refs", allow_empty=True))
         object.__setattr__(self, "policy_refs", _text_tuple(self.policy_refs, "policy_refs"))
         object.__setattr__(self, "schema_version", _semver(self.schema_version, "schema_version"))
-        if self.execution_scope != "RESEARCH_BACKTEST_PAPER_ONLY":
-            raise AIContractError("IntelligenceCandidate execution_scope is fixed to research/backtest/paper")
+        if self.execution_scope != "RISK_GATED_CANDIDATE":
+            raise AIContractError("IntelligenceCandidate execution_scope is fixed to the common risk-gated candidate path")
 
 
 __all__ = [

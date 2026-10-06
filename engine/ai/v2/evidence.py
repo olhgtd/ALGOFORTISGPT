@@ -1,4 +1,4 @@
-"""Deterministic G8 evidence for Phase-8 AI research/shadow qualification."""
+"""Deterministic G8 evidence for independent AI/Laya candidate qualification."""
 from __future__ import annotations
 from dataclasses import dataclass
 from engine.reproducibility.codec import CanonicalCodec
@@ -6,7 +6,7 @@ from engine.reproducibility.codec import CanonicalCodec
 class G8EvidenceError(ValueError): pass
 
 REQUIRED_G8_MARKERS=(
-    'AI_AUTHORITY=RESEARCH_SHADOW_ONLY',
+    'AI_AUTHORITY=INDEPENDENT_CANDIDATE_SOURCE',
     'APPROVED_ORDER_AUTHORITY=RISK_GATE_V2_ONLY',
     'PROVIDER_SCOPE=ONE_LOCAL_ONE_CLOUD',
     'COMMITTEE_ENSEMBLE=DEFERRED_T2',

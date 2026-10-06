@@ -51,7 +51,7 @@ def test_owner_health_requires_active_owner_and_returns_only_read_model_plus_saf
     assert body["unresolved_incidents"] == 2
     assert body["alert_health"] == "DEGRADED"
     assert body["live_state"] == "READ_ONLY/DISARMED"
-    assert body["ai_authority"] == "RESEARCH_SHADOW_ONLY"
+    assert body["ai_authority"] == "INDEPENDENT_CANDIDATE_SOURCE"
     assert "broker" not in body and "approved_order" not in body
 
 

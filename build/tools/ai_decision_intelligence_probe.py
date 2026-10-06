@@ -244,7 +244,7 @@ def main() -> int:
         dataset_ref="dataset:probe",
         payload={"instrument": "NIFTY"},
     )
-    assert allowed.execution_scope == "RESEARCH_BACKTEST_PAPER_ONLY"
+    assert allowed.execution_scope == "RISK_GATED_CANDIDATE"
 
     # S2-backed entitlements fail closed when the session/device authority is not VALID.
     store = _EntitlementStore()

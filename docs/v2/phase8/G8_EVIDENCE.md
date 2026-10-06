@@ -1,8 +1,8 @@
-# AlgoFortis V2 — G8 AI / Agents Research + Shadow Evidence
+# AlgoFortis V2 — G8 AI / Agents Intelligence Evidence (legacy qualification record)
 
 **Date:** 2026-09-27  
 **Status:** **NOT QUALIFIED — HOSTED EXECUTION EVIDENCE UNAVAILABLE**  
-**Mode:** Research + Shadow only  
+**Mode:** Independent intelligence candidates  
 **Live:** `READ_ONLY / DISARMED`
 
 ## 1. Dependency and implementation heads
@@ -26,7 +26,7 @@ Phase 8 implements the approved V2.0 Research + Shadow boundary:
 - untrusted-content / prompt-injection boundary;
 - bounded market-intelligence scheduler with no broker/order job vocabulary;
 - per-user policy-bound memory with forbidden secret/account/trade-log classes;
-- append-only non-executable shadow log and outcome evidence;
+- independent candidate evidence is routed into the common deterministic candidate/risk lifecycle;
 - safe AI audit/replay and fail-closed provider fallback;
 - deterministic G8 evidence/probe + dual-Windows qualification workflow.
 
@@ -50,7 +50,7 @@ These focused local results are development evidence only. They are **not** a su
 
 The G8 probe binds the following markers:
 
-- `AI_AUTHORITY=RESEARCH_SHADOW_ONLY`
+- `AI_AUTHORITY=INDEPENDENT_CANDIDATE_SOURCE`
 - `APPROVED_ORDER_AUTHORITY=RISK_GATE_V2_ONLY`
 - `PROVIDER_SCOPE=ONE_LOCAL_ONE_CLOUD`
 - `COMMITTEE_ENSEMBLE=DEFERRED_T2`
@@ -98,7 +98,7 @@ Until those steps actually execute successfully, G8 remains **NOT QUALIFIED**.
 Current and required standing state remains:
 
 - Live = `READ_ONLY / DISARMED`;
-- AI = research/shadow advisory evidence only;
+- AI/Laya = independent candidate/intelligence source;
 - no direct AI -> broker/order path;
 - no AI `ApprovedOrder` mint authority;
 - no cloud egress without positive licensing/provenance + policy/redaction evidence;

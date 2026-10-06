@@ -310,7 +310,7 @@ def attach_owner_decision_intelligence(app: Any) -> Any:
                 "enabled": body.enabled,
                 "data_policy_ref": body.data_policy_ref,
                 "od16_required": True,
-                "execution_scope": "RESEARCH_BACKTEST_PAPER_ONLY",
+                "execution_scope": "RISK_GATED_CANDIDATE",
             },
         )
 

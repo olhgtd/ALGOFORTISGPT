@@ -70,15 +70,15 @@ def test_queue_and_concurrency_are_bounded():
         provider_budget=Budget(True), tool_budget=Budget(True), dispatch=lambda j: None,
     )
     assert scheduler.submit(_job(api, now)).accepted is True
-    second = api.ResearchJob("job-2", api.ResearchJobKind.SHADOW, now, now+timedelta(minutes=5), "p", "pp", "tp")
+    second = api.ResearchJob("job-2", api.ResearchJobKind.INTELLIGENCE, now, now+timedelta(minutes=5), "p", "pp", "tp")
     decision = scheduler.submit(second)
     assert decision.accepted is False
     assert decision.reason == api.SchedulerRejectReason.QUEUE_FULL
 
 
-def test_only_research_and_shadow_job_kinds_exist():
+def test_research_and_intelligence_job_kinds_are_non_execution_authorities():
     api = _api()
-    assert {k.value for k in api.ResearchJobKind} == {"RESEARCH", "SHADOW"}
+    assert {k.value for k in api.ResearchJobKind} == {"RESEARCH", "INTELLIGENCE"}
     assert all("ORDER" not in k.value and "BROKER" not in k.value for k in api.ResearchJobKind)
 
 

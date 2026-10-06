@@ -18,7 +18,7 @@ _REQUIRED_ARTIFACTS = (
     "build/tools/phase8_ai_probe.py",
     "tests_v1/test_phase8_ai_evidence.py",
     "tests_v1/test_phase8_ai_qualification_guard.py",
-    ".github/workflows/v2-phase8-ai-shadow.yml",
+    ".github/workflows/v2-phase8-ai-intelligence.yml",
 )
 
 
@@ -70,14 +70,14 @@ def main() -> int:
     root = Path.cwd()
     findings = list(scan_phase8_tree(root))
     findings.extend(f"missing qualification artifact: {path}" for path in check_qualification_artifacts(root))
-    findings.extend(check_g8_workflow(root / ".github" / "workflows" / "v2-phase8-ai-shadow.yml"))
+    findings.extend(check_g8_workflow(root / ".github" / "workflows" / "v2-phase8-ai-intelligence.yml"))
     if findings:
         for item in findings:
             print(f"PHASE8_FIREWALL_FAIL={item}")
         return 1
     print("PHASE8_FIREWALL=PASS")
     print("G8_QUALIFICATION_ARTIFACTS=PASS")
-    print("AI_AUTHORITY=RESEARCH_SHADOW_ONLY")
+    print("AI_AUTHORITY=INDEPENDENT_CANDIDATE_SOURCE")
     print("LIVE_STATE=READ_ONLY/DISARMED")
     return 0
 

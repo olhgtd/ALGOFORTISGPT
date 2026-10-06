@@ -38,7 +38,7 @@ def _candidate(**overrides):
 
 def test_intelligence_candidate_is_immutable_research_paper_evidence() -> None:
     candidate = _candidate()
-    assert candidate.execution_scope == "RESEARCH_BACKTEST_PAPER_ONLY"
+    assert candidate.execution_scope == "RISK_GATED_CANDIDATE"
     assert candidate.source_participants == ("laya",)
     with pytest.raises(Exception):
         candidate.instrument_ref = "NSE:BANKNIFTY:CE"  # type: ignore[misc]

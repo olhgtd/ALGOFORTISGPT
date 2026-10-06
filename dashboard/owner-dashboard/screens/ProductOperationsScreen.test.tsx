@@ -40,14 +40,14 @@ describe("ProductOperationsScreen", () => {
         rollback_status: "PASS",
         active_policy_versions: ["privacy-notice/1.0.0"],
         live_state: "READ_ONLY/DISARMED",
-        ai_authority: "RESEARCH_SHADOW_ONLY",
+        ai_authority: "INDEPENDENT_CANDIDATE_SOURCE",
       },
     })} />);
     expect(node.querySelector("[data-testid='product-operations-surface']")).not.toBeNull();
     expect(node.textContent).toContain("Product Operations");
     expect(node.textContent).toContain("DEGRADED");
     expect(node.textContent).toContain("READ_ONLY/DISARMED");
-    expect(node.textContent).toContain("RESEARCH_SHADOW_ONLY");
+    expect(node.textContent).toContain("INDEPENDENT_CANDIDATE_SOURCE");
     expect(node.textContent).not.toContain("Arm Live");
     expect(node.textContent).not.toContain("Place Order");
   });
