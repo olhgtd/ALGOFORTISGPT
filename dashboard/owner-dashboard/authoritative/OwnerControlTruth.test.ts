@@ -21,6 +21,16 @@ describe("canonical Owner control-plane truth", () => {
     expect(userShell).not.toContain('from "./screens/UserScreens"');
   });
 
+  it("keeps lifecycle governance on the reachable Users & Access surface", () => {
+    const screens = readFileSync(resolve(here, "screens.tsx"), "utf8");
+    for (const token of ["Suspend", "Restore", "Revoke", "Reissue", "Renew 3 months", "Lifetime"]) expect(screens).toContain(token);
+  });
+
+  it("keeps connection allowance governance on the reachable Connections & Data surface", () => {
+    const dataOps = readFileSync(resolve(here, "DataOperations.tsx"), "utf8");
+    for (const token of ["ownerConnectionAllowance", "ownerCapabilityAllowance", "ALLOWED", "HOLD", "REVOKED"]) expect(dataOps).toContain(token);
+  });
+
   it("keeps canonical Owner navigation on authoritative modules", () => {
     expect(ownerShell).toContain('from "./authoritative/screens"');
     expect(ownerShell).not.toContain('/screens/');
