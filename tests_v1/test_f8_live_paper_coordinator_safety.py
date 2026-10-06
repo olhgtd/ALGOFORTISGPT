@@ -78,6 +78,11 @@ class _FakeSafety:
     def derive_effective_state(self, **_: object) -> object:
         return self._state
 
+    def emit_alert(self, _alert: object) -> None:
+        # Test double for the coordinator's alert side-effect.  Production
+        # safety authority remains the real SafetyManager.
+        return None
+
 
 class _FakePhase8:
     def __init__(self, approved: bool, failed: list[str] | None = None) -> None:
@@ -113,6 +118,7 @@ def _minimal_coordinator(*, phase8: object | None = None, persistence: object | 
     coord._live_feed = SimpleNamespace(connection_state=FeedConnectionState.CONNECTED)
     coord._paper_broker = SimpleNamespace(pending_orders=[])
     coord._has_received_quote = has_quote
+    coord._reconnected_waiting_for_quote = False
     coord._latest_market_timestamp = (
         datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc) if has_quote else None
     )
