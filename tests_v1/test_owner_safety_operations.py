@@ -18,7 +18,9 @@ def test_safety_snapshot_never_invents_killswitch_or_live_readiness() -> None:
     source = text(ADAPTER)
     assert '"live_state": "READ_ONLY/DISARMED"' in source
     assert '"broker_mutation": "ABSENT"' in source
-    assert '"kill_switch": {"state": "NOT_CONNECTED"' in source
+    assert "def _kill_switch_snapshot" in source
+    assert "CANONICAL_KILL_SWITCH_BRIDGE_NOT_ATTACHED" in source
+    assert '"kill_switch": self._kill_switch_snapshot()' in source
     assert "ARMED & READY" not in source
     assert "disable_kill" not in source.lower()
 

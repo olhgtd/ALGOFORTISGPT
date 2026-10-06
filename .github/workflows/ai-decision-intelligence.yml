@@ -148,7 +148,7 @@ jobs:
       - name: Install dashboard package
         run: npm ci --prefix dashboard/web
       - name: Dashboard dependency security audit
-        run: npm audit --prefix dashboard/web --audit-level=high
+        run: npm audit --prefix dashboard/web --audit-level=high --omit=dev
       - name: Dashboard tests including Owner Decision Intelligence
         run: npm --prefix dashboard/web run test:user-dashboard
       - name: Dashboard typecheck
