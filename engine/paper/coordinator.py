@@ -3865,7 +3865,9 @@ class LivePaperCoordinator:
                         if "session_time_regression" not in failed_prereqs:
                             failed_prereqs.append("session_time_regression")
                 except Exception:
-                    pass
+                    # Fail closed: cannot prove session integrity during resume.
+                    if "persistence_check_failed" not in failed_prereqs:
+                        failed_prereqs.append("persistence_check_failed")
 
         if failed_prereqs:
             if self._persistence_store is not None and self.is_persistence_healthy:
@@ -3893,7 +3895,10 @@ class LivePaperCoordinator:
                     )
                     self._persistence_store.append_audit_events([rej_ev])
                 except Exception:
-                    pass
+                    logger.critical(
+                        "failed to append RESUME_REJECTED audit during kill-switch resume rejection",
+                        exc_info=True,
+                    )
 
             alert = SafetyAlert(
                 alert_id=str(uuid.uuid4()),
