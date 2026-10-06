@@ -29,7 +29,7 @@ def test_g9_workflow_preserves_full_stack_and_dashboard_qualification():
         "check_phase5_paper_recovery.py",
         "check_phase6_live_readonly.py",
         "check_phase7_portfolio_risk.py",
-        "check_phase8_ai_shadow.py",
+        "check_phase8_ai_intelligence.py",
         "check_phase9_product_ops.py",
         "npm run typecheck",
         "npm run build",
