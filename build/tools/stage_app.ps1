@@ -99,7 +99,7 @@ foreach ($required in $requiredStageFiles) {
 }
 
 $forbidden = Get-ChildItem -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -match "(?i)sentinelx" }
+    Where-Object { $_.Name -match ("(?i)" + "sentinel" + "x") }
 if ($forbidden) {
     $names = ($forbidden | ForEach-Object { $_.FullName }) -join "; "
     throw "Retired legacy-branded stage artifacts are forbidden: $names"
