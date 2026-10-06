@@ -29,10 +29,29 @@ def test_owner_safety_routes_are_narrow_and_release_is_step_up_bound() -> None:
     api = text(API)
     assert '@app.get("/api/v1/owner/safety")' in api
     assert '@app.post("/api/v1/owner/safety/safe-mode/engage")' in api
+    assert '@app.post("/api/v1/owner/safety/safe-mode/release")' in api
     assert '@app.post("/api/v1/owner/safety/global-hold/engage")' in api
     assert '@app.post("/api/v1/owner/safety/global-hold/release")' in api
     assert '@app.post("/api/v1/owner/safety/kill-switch/engage")' in api
     assert classify_destructive_route("POST", "/api/v1/owner/safety/global-hold/release") == ("SAFETY_RELEASE", None)
+    assert classify_destructive_route("POST", "/api/v1/owner/safety/safe-mode/release") == ("SAFETY_RELEASE", None)
+
+
+def test_legacy_safe_mode_and_hold_cannot_release_without_step_up_route() -> None:
+    """Old endpoints must not silently release safety restrictions."""
+    api = text(API)
+    # Disable via legacy paths must be rejected (409) with pointer to step-up release routes
+    assert "safe-mode release requires POST /api/v1/owner/safety/safe-mode/release" in api
+    assert "global-hold release requires POST /api/v1/owner/safety/global-hold/release" in api
+    # Adapter exposes explicit release_safe_mode
+    adapter = text(ADAPTER)
+    assert "def release_safe_mode" in adapter
+    # Release routes are step-up classified
+    assert classify_destructive_route("POST", "/api/v1/owner/safety/safe-mode/release") == ("SAFETY_RELEASE", None)
+    assert classify_destructive_route("POST", "/api/v1/owner/safety/global-hold/release") == ("SAFETY_RELEASE", None)
+    # Legacy disable paths must NOT be classified as open (they reject body-level disable)
+    assert classify_destructive_route("POST", "/api/v1/settings/safe-mode") is None
+    assert classify_destructive_route("POST", "/api/v1/owner/live-readiness/hold") is None
 
 
 def test_owner_safety_client_contains_no_restriction_bypass_or_broker_mutation() -> None:
