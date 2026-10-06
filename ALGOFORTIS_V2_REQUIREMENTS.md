@@ -141,7 +141,7 @@ Each requirement is verified by the evidence named in `ALGOFORTIS_V2_TEST_AND_RE
 - **AF2-AIA-004 [T1]** Continuous market intelligence is research-only; hypotheses enter the normal strategy lifecycle; retrieved/web content is untrusted and prompt-injection-defended.
 - **AF2-AIA-005 [T1]** Agent safety: capability permissions, read/write separation, tool/path/command allowlists, full action logging, agent-written code needs tests, agents cannot self-promote to live, rollback/cancel controls.
 - **AF2-AIA-006 [T1]** Agent memory: per-user boundaries, approved long-term facts only, provenance, correction/deletion, no secrets.
-- **AF2-AIA-007 [T1]** Shadow mode: AI decisions logged and compared with outcomes without placing orders. Paper validation mandatory before any AI-assisted live eligibility.
+- **AF2-AIA-007 [T1]** Independent candidate intelligence: AI/Laya decisions produce risk-gated candidates and evidence without direct broker mutation or ApprovedOrder authority. Paper validation remains mandatory before any AI-assisted live eligibility.
 - **AF2-AIA-008 [T2]** Multi-agent committee (3–5+ agents) with independent assessments, challenger role, disagreement → NO-TRADE, correlated-model awareness, calibration tracking, full decision replay.
 - **AF2-AIA-009 [T2]** Full agent-role catalogue (MC §11.2). Start with Prime, Risk-challenger and Research agents; add the rest incrementally.
 - **AF2-AIA-010 [T1] [NEW]** Build-time agent governance (coding agents used to develop AlgoFortis): slice-scoped prompts, no self-selected build order, path/command allowlists, verification gate per slice, Owner approval at phase exits. (Implementation Plan §6)
