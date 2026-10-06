@@ -80,6 +80,44 @@ export const OwnerAIControlScreen: React.FC = () => {
       <span>RESEARCH / BACKTEST / PAPER INTELLIGENCE · Owner-controlled scope · Live READ_ONLY/DISARMED · no broker mutation</span>
     </div>
 
+    <section className="v3-region v3-sp12" style={{ marginBottom: 12 }}>
+      <div className="v3-region-head"><span className="v3-region-title">Authority & Safety</span><AuthorityBadge state={state} /></div>
+      <div className="v3-grid" style={{ marginTop: 12 }}>
+        {[["Strategy","INDEPENDENT"],["Laya","MARKET INTELLIGENCE"],["AI Providers",String(providers.length)+" CONFIGURED"],["Candidates",String(asRows(payload.candidates).length)],["RiskGateV2","ORDER AUTHORITY"],["Portfolio","CAPITAL AUTHORITY"],["Broker mutation","DISABLED"],["Live","READ_ONLY / DISARMED"],["Shadow","RETIRED"]].map(([label,value]) => <div key={label} className="v3-region v3-sp6"><strong>{label}</strong><div className="v3-region-note" style={{ marginTop: 4 }}>{value}</div></div>)}
+      </div>
+    </section>
+
+    <section className="v3-region v3-sp12" style={{ marginBottom: 12 }}>
+      <div className="v3-region-head"><span className="v3-region-title">Laya — Market Intelligence Engine</span><span className="v3-region-note">First-class intelligence source · independent candidate scan</span></div>
+      <div className="v3-grid" style={{ marginTop: 12 }}>
+        <div className="v3-region v3-sp6"><strong>Monitoring</strong><div className="v3-region-note">Policy: {String(payload.market_watch_policy?.authority_state || "UNKNOWN")}</div><div className="v3-region-note">Provider: {String(payload.market_watch_policy?.value?.provider_id || "—")}</div><div className="v3-region-note">Model: {String(payload.market_watch_policy?.value?.model_id || "—")}</div></div>
+        <div className="v3-region v3-sp6"><strong>Intelligence modes</strong><div className="v3-region-note">Regime events · active candidate review · independent candidate scan</div><div className="v3-region-note">Strategy Hunting · scheduled monitoring · research</div></div>
+        <div className="v3-region v3-sp6"><strong>Current safety boundary</strong><div className="v3-region-note">Laya creates intelligence/candidates only. It cannot mint ApprovedOrder or mutate a broker.</div></div>
+        <div className="v3-region v3-sp6"><strong>Provider health</strong><div className="v3-region-note">{providers.filter((row) => row.authority_state === "AVAILABLE").length} available · {providers.filter((row) => row.authority_state === "UNAVAILABLE").length} unavailable · {providers.length} total</div></div>
+      </div>
+    </section>
+
+    <section className="v3-region v3-sp12" style={{ marginBottom: 12 }}>
+      <div className="v3-region-head"><span className="v3-region-title">Intelligence Pipeline</span></div>
+      <div className="v3-grid" style={{ marginTop: 12 }}>
+        {["MARKET / DATA","LAYA + 0..N AI","INTELLIGENCE","CANDIDATE POOL","EVIDENCE + LINEAGE","PORTFOLIO ARBITRATION","RISKGATE V2","PAPER / EXECUTION BOUNDARY"].map((stage, index) => <div key={stage} className="v3-region v3-sp6"><strong>{index + 1}. {stage}</strong><div className="v3-region-note">{index < 4 ? "Intelligence source / candidate generation" : index === 4 ? "Traceable evidence and correlated lineage" : "Deterministic authority boundary"}</div></div>)}
+      </div>
+    </section>
+
+    <section className="v3-region v3-sp12" style={{ marginBottom: 12 }}>
+      <div className="v3-region-head"><span className="v3-region-title">Candidate Board</span><span className="v3-region-note">{asRows(payload.candidates).length} candidate records</span></div>
+      <SimpleTable rows={asRows(payload.candidates)} columns={[
+        { key: "candidate_id", label: "Candidate" },
+        { key: "source", label: "Source", render: (row) => row.source || row.origin || "—" },
+        { key: "direction", label: "Direction" },
+        { key: "strategy_id", label: "Strategy" },
+        { key: "provider_id", label: "Provider" },
+        { key: "model_id", label: "Model" },
+        { key: "evidence_ref", label: "Evidence" },
+        { key: "status", label: "Status" },
+      ]} />
+    </section>
+
     <div className="v3-grid">
       <DecisionIntelligenceControls />
 
@@ -183,7 +221,7 @@ export const OwnerAIControlScreen: React.FC = () => {
       </section>
 
       <section className="v3-region v3-sp12">
-        <div className="v3-region-head"><span className="v3-region-title">Decision Intelligence Jobs</span></div>
+        <div className="v3-region-head"><span className="v3-region-title">Decision Intelligence Jobs</span><span className="v3-region-note">orchestration / review / research</span></div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <select className="v3-input" value={jobType} onChange={(e) => setJobType(e.target.value)}>
             <option value="MARKET_INTELLIGENCE">Laya · Market intelligence</option>
