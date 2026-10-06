@@ -170,10 +170,17 @@ class OwnerUserInspectionService:
             ) if entitlement_service is not None else _unavailable("USER_INTELLIGENCE_ENTITLEMENT_AUTHORITY_UNAVAILABLE")
         )
 
-        # The current report endpoint is system-wide. Until a tenant-scoped
-        # report read port exists, fail closed rather than filtering an
-        # ambiguous system report projection in the presentation layer.
-        reports = _unavailable("PER_USER_REPORT_AUTHORITY_NOT_EXPOSED")
+        # Use the same backend-owned report authority already exposed by
+        # the authenticated report API. The reader is attached by runtime
+        # composition; presentation code never filters a system-wide list.
+        report_reader = getattr(self._app.state, "authoritative_report_reader", None)
+        if callable(report_reader):
+            try:
+                reports = _surface(report_reader(user_id, False))
+            except Exception:
+                reports = _unavailable("USER_REPORT_AUTHORITY_UNAVAILABLE")
+        else:
+            reports = _unavailable("PER_USER_REPORT_AUTHORITY_NOT_EXPOSED")
 
         return {
             "source": "BACKEND",
