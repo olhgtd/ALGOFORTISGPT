@@ -94,7 +94,7 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
           <button className="v3-btn ghost" disabled={busy || !strategy || Number(quantity) <= 0} onClick={() => void validate()}>Validate intent</button>
         </div><KV k="Risk authority" v={data.risk_state} /><KV k="Execution Mode" v="LIVE — READ_ONLY / DISARMED" />
         {receipt && <div role="status" data-testid="live-intent-result" style={{ marginTop: 16 }}>
-          <h3>{receipt.status} · {receipt.execution_mode || "SHADOW"}</h3>
+          <h3>{receipt.status} · {receipt.execution_mode || "LIVE"}</h3>
           <p style={{ overflowWrap: "anywhere" }}>{receipt.intent_id}</p>
           {Boolean(receipt.reasons?.length) && <ul>{receipt.reasons.map((r, i) => <li key={i}>{r.code} — {r.detail}</li>)}</ul>}
           {receipt.would_be_payload && <div data-testid="would-be-payload" style={{ marginTop: 12, padding: 12, background: "rgba(0,0,0,0.2)", borderRadius: 6 }}>
