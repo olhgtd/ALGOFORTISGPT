@@ -39,7 +39,7 @@ export const ProductOperationsScreen: React.FC<ProductOperationsScreenProps> = (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <TruthChip kind={surface?.state === "AVAILABLE" ? "REAL" : "DISABLED"} title={surface?.state ?? "LOADING"} />
           <span className="v3-chip disabled">{data?.live_state ?? "READ_ONLY/DISARMED"}</span>
-          <span className="v3-chip disabled">{data?.ai_authority ?? "RESEARCH_SHADOW_ONLY"}</span>
+          <span className="v3-chip disabled">{data?.ai_authority ?? "INDEPENDENT_CANDIDATE_SOURCE"}</span>
         </div>
       </div>
 
