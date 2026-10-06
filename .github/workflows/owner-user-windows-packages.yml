@@ -1,6 +1,8 @@
 name: AlgoFortis Owner-User Windows Packages
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
