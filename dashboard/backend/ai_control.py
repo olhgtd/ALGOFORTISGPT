@@ -1,6 +1,6 @@
 """Authoritative Owner AI control service.
 
-The service owns registry/configuration and research/shadow job evidence only.
+The service owns registry/configuration and research and intelligence job evidence only.
 It never invokes broker mutation, Live arm, RiskGate approval, or account/billing
 mutation. Actual model execution is an injected adapter and is unavailable by
 default. Provider/model availability can only be asserted by that backend
@@ -35,7 +35,7 @@ class UnavailableAIExecutionAdapter:
 
 
 _ALLOWED_STATES = {item.value for item in AIAvailability}
-_ALLOWED_JOB_TYPES = {"MARKET_INTELLIGENCE", "STRATEGY_RESEARCH", "EVIDENCE_RESEARCH", "RISK_CHALLENGE", "ORCHESTRATE"}
+_ALLOWED_JOB_TYPES = {"MARKET_INTELLIGENCE", "STRATEGY_REVIEW", "INDEPENDENT_CANDIDATE", "STRATEGY_HUNTING", "STRATEGY_RESEARCH", "EVIDENCE_RESEARCH", "RISK_CHALLENGE", "ORCHESTRATE"}
 
 
 class AIControlService:
@@ -81,6 +81,7 @@ class AIControlService:
         models = self._repository.list_models()
         bindings = self._repository.list_bindings()
         jobs = [self._public_job(row) for row in self._repository.list_jobs(limit=50)]
+        candidates = self._candidate_board(jobs)
 
         provider_map = {row["provider_id"]: row for row in raw_providers}
         model_map = {row["model_id"]: row for row in models}
@@ -113,6 +114,7 @@ class AIControlService:
         return {
             "source": "BACKEND",
             "trust": "FRESH",
+            "candidates": candidates,
             "authority_state": overall,
             "live_state": "READ_ONLY/DISARMED",
             "broker_mutation": "ABSENT",
@@ -123,6 +125,53 @@ class AIControlService:
             "bindings": bindings,
             "jobs": jobs,
         }
+
+    @staticmethod
+    def _candidate_board(jobs: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        """Project only persisted independent-candidate evidence into the UI board.
+
+        A queued/blocked job is never presented as an approved order or trade.
+        If a model adapter returns a structured candidate payload, that payload is
+        preserved; otherwise the board exposes the job envelope with an explicit
+        candidate_job status so the UI cannot imply execution authority.
+        """
+        rows: list[dict[str, Any]] = []
+        for job in jobs:
+            if str(job.get("job_type") or "").upper() != "INDEPENDENT_CANDIDATE":
+                continue
+            output = job.get("output") if isinstance(job.get("output"), Mapping) else None
+            raw_candidates = output.get("candidates") if output else None
+            if raw_candidates is None and output and isinstance(output.get("candidate"), Mapping):
+                raw_candidates = [output["candidate"]]
+            if isinstance(raw_candidates, list) and raw_candidates:
+                for candidate in raw_candidates:
+                    if not isinstance(candidate, Mapping):
+                        continue
+                    rows.append({
+                        "candidate_id": str(candidate.get("candidate_id") or job.get("job_id")),
+                        "source": str(candidate.get("source") or candidate.get("agent_id") or job.get("agent_id") or "UNKNOWN"),
+                        "direction": str(candidate.get("direction") or candidate.get("action") or "UNAVAILABLE"),
+                        "strategy_id": str(candidate.get("strategy_id") or candidate.get("strategy") or "AI/LAYA"),
+                        "provider_id": str(candidate.get("provider_id") or candidate.get("provider") or job.get("provider_id") or "UNAVAILABLE"),
+                        "model_id": str(candidate.get("model_id") or candidate.get("model") or job.get("model_id") or "UNAVAILABLE"),
+                        "evidence_ref": str(candidate.get("evidence_ref") or job.get("evidence_ref") or "UNAVAILABLE"),
+                        "status": str(candidate.get("status") or job.get("status") or "UNAVAILABLE"),
+                        "execution_scope": str(candidate.get("execution_scope") or "RISK_GATED_CANDIDATE"),
+                    })
+            else:
+                request = job.get("request") if isinstance(job.get("request"), Mapping) else {}
+                rows.append({
+                    "candidate_id": str(job.get("job_id") or "UNAVAILABLE"),
+                    "source": str(job.get("agent_id") or "UNKNOWN"),
+                    "direction": str(request.get("direction") or request.get("action") or "UNAVAILABLE"),
+                    "strategy_id": str(request.get("strategy_id") or "AI/LAYA"),
+                    "provider_id": str(job.get("provider_id") or "UNAVAILABLE"),
+                    "model_id": str(job.get("model_id") or "UNAVAILABLE"),
+                    "evidence_ref": str(job.get("evidence_ref") or "UNAVAILABLE"),
+                    "status": f"CANDIDATE_JOB_{job.get('status') or 'UNKNOWN'}",
+                    "execution_scope": "RISK_GATED_CANDIDATE",
+                })
+        return rows
 
     def configure_provider(
         self,
@@ -251,6 +300,9 @@ class AIControlService:
             blocked = self._repository.create_job(
                 agent_id={
                     "MARKET_INTELLIGENCE": "laya",
+                    "STRATEGY_REVIEW": "research",
+                    "INDEPENDENT_CANDIDATE": "research",
+                    "STRATEGY_HUNTING": "research",
                     "STRATEGY_RESEARCH": "research",
                     "EVIDENCE_RESEARCH": "research",
                     "RISK_CHALLENGE": "risk-challenger",

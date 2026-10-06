@@ -28,7 +28,6 @@ class AIAvailability(str, Enum):
 
 class AIJobScope(str, Enum):
     RESEARCH = "RESEARCH"
-    SHADOW = "SHADOW"
     BACKTEST = "BACKTEST"
     PAPER = "PAPER"
 

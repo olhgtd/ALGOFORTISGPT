@@ -457,7 +457,7 @@ class LiveIntentValidationRequest(BaseModel):
     quantity: Decimal = Field(gt=0, le=10000000, allow_inf_nan=False)
     timeframe: Literal["1m", "5m", "15m"] = "1m"
     originating_timestamp: AwareDatetime
-    execution_mode: Literal["SHADOW", "LIVE"] = "LIVE"
+    execution_mode: Literal["LIVE"] = "LIVE"
     idempotency_key: str | None = Field(default=None, max_length=128)
 
 
@@ -492,7 +492,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     async def sanitized_live_validation_error(request: Request, exc: RequestValidationError):
         if request.url.path.startswith("/api/v1/auth/"):
             return JSONResponse(status_code=422, content={"detail": "Invalid authentication request"})
-        if "/live-readiness" in request.url.path or request.url.path.startswith("/api/v1/live/") or "/shadow" in request.url.path:
+        if "/live-readiness" in request.url.path or request.url.path.startswith("/api/v1/live/"):
             return JSONResponse(status_code=422, content={"detail": "INVALID_LIVE_READINESS_REQUEST"})
         return await request_validation_exception_handler(request, exc)
     configured_owner = owner or UserIdentity(uuid4(), Role.OWNER, Lifecycle.ACTIVE, "Owner")
@@ -715,13 +715,6 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     def validate_live_intent(body: LiveIntentValidationRequest, session=Depends(session_from_header), service=Depends(live_authority)):
         bind_canonical_user_authority(service, str(session.user.user_id))
         return live_call(service.validate, str(session.user.user_id), body.model_dump())
-
-    @app.post("/api/v1/user/shadow/intents")
-    def validate_shadow_intent(body: LiveIntentValidationRequest, session=Depends(session_from_header), service=Depends(live_authority)):
-        bind_canonical_user_authority(service, str(session.user.user_id))
-        payload = body.model_dump()
-        payload["execution_mode"] = "SHADOW"
-        return live_call(service.validate, str(session.user.user_id), payload)
 
     def _owner_safety_adapter() -> OwnerSafetyAdapter:
         return OwnerSafetyAdapter(
@@ -4041,37 +4034,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             }
             reports.append(_sanitize_report_for_client(rep, is_owner=is_owner))
 
-        # 3. Shadow executions digest
-        if app.state.live_readiness_service is not None:
-            try:
-                shadow_orders = app.state.live_readiness_service.shadow_orders(user_id=user_id, limit=20)
-                if shadow_orders:
-                    timestamps = [o.get("created_at") or o.get("timestamp") for o in shadow_orders if isinstance(o, dict) and (o.get("created_at") or o.get("timestamp"))]
-                    if timestamps:
-                        period = f"{str(min(timestamps))[:10]} to {str(max(timestamps))[:10]}" if str(min(timestamps))[:10] != str(max(timestamps))[:10] else str(min(timestamps))[:10]
-                    else:
-                        period = datetime.now(timezone.utc).date().isoformat()
-
-                    data_bytes = len(json.dumps(shadow_orders, default=str).encode("utf-8"))
-                    rep = {
-                        "id": "rep-shadow-digest",
-                        "reportId": "rep-shadow-digest",
-                        "title": "Shadow Dry-Run Validation Digest",
-                        "category": "RISK_SUMMARY",
-                        "period": period,
-                        "generatedAt": datetime.now(timezone.utc).isoformat(),
-                        "fileSize": _format_file_size(data_bytes),
-                        "format": "JSON",
-                        "status": "AVAILABLE",
-                        "summary": f"Evaluated {len(shadow_orders)} shadow dry-run intents under broker-agnostic constraints.",
-                        "provenance": "SHADOW_VALIDATOR",
-                        "data": {"shadow_orders": shadow_orders},
-                    }
-                    reports.append(_sanitize_report_for_client(rep, is_owner=is_owner))
-            except Exception as exc:
-                logger.warning("Error querying shadow orders for reports: %s", exc)
-
-        # 4. Security & Audit Digest (for owner oversight only)
+        # 3. Security & Audit Digest (for owner oversight only)
         if user_id is None:
             try:
                 adapter = getattr(app.state, "audit_adapter", None)

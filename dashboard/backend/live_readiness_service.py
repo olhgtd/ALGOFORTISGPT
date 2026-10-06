@@ -1,6 +1,6 @@
-"""Live read authority, shadow execution dry-run validation, and validation receipts.
+"""Live read authority and validation receipts.
 
-Execution remains strictly READ_ONLY / SHADOW. There is no executable live order path.
+Execution remains strictly READ_ONLY / DISARMED. There is no executable live order path.
 Real broker mutation call count remains ZERO.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ class LiveExecutionDisabled(PermissionError):
 def execution_boundary(mode: str = "LIVE") -> dict:
     # Deliberately no enable flag, setter, SDK capability override or stored
     # arming value. Enabling execution requires a separately reviewed code change.
-    return {"execution_mode": mode, "arming_state": "READ_ONLY", "mutation_allowed": False,
-            "reason": "EXECUTION_DISABLED" if mode == "LIVE" else "SHADOW_READ_ONLY"}
+    return {"execution_mode": "LIVE", "arming_state": "READ_ONLY", "mutation_allowed": False,
+            "reason": "EXECUTION_DISABLED"}
 
 
 def require_live_mutation() -> None:
@@ -58,62 +58,6 @@ def classify_reconciliation_order(order: dict) -> str:
     if mode == "PAPER" or ("session_id" in order and not mode):
         return "PAPER"
     return "BROKER_REAL"
-
-
-def build_would_be_broker_payload(
-    *,
-    user_id: str,
-    canonical: SignalIntent,
-    entry: Any,
-    observed: dict | None,
-    account: dict | None,
-    quantity: Decimal,
-    order_type: str = "MARKET",
-    risk_result: Any = None,
-    candidate_plan: Any = None,
-    idempotency_key: str,
-    now: datetime,
-) -> dict[str, Any]:
-    """Exact would-be broker request projection.
-
-    Captures all 22+ canonical fields required for live execution if authorized,
-    while guaranteeing that secrets, credentials, and bearer tokens are strictly excluded.
-    """
-    spec = getattr(entry, "specification", None)
-    ident = getattr(entry, "identity", None)
-    lot_size = int(spec.minimum_quantity) if spec and hasattr(spec, "minimum_quantity") else 1
-
-    raw_segment = str(getattr(ident, "segment", "FO")).upper() if ident else "FO"
-    segment = "FO" if raw_segment in ("OPTIONS", "FUTURES", "FO", "NSE_FO") else raw_segment
-
-    return {
-        "broker": account.get("broker", "UPSTOX") if account else "UPSTOX",
-        "account_id": account.get("user_id") if account else None,
-        "instrument_token": str(ident.instrument) if ident and hasattr(ident, "instrument") else str(canonical.symbol),
-        "broker_instrument_token": str(canonical.symbol),
-        "canonical_instrument": getattr(ident, "instrument", str(canonical.symbol)) if ident else str(canonical.symbol),
-        "exchange": str(getattr(ident, "market", "NSE")).upper() if ident else "NSE",
-        "segment": segment,
-        "expiry": str(ident.expiry) if ident and getattr(ident, "expiry", None) else None,
-        "strike": str(ident.strike) if ident and getattr(ident, "strike", None) else None,
-        "option_type": getattr(ident, "option_type", None) if ident else None,
-        "side": canonical.action,
-        "quantity": int(quantity),
-        "lot_size": lot_size,
-        "order_type": order_type,
-        "product_type": "D",
-        "validity": "DAY",
-        "limit_price": None if order_type == "MARKET" else (str(observed.get("ask")) if observed else None),
-        "trigger_price": None,
-        "disclosed_quantity": 0,
-        "strategy_id": canonical.strategy_id,
-        "execution_mode": "SHADOW",
-        "client_order_intent_id": canonical.identity,
-        "idempotency_key": idempotency_key,
-        "request_timestamp": now.isoformat(),
-        "market_data_timestamp": observed.get("exchange_timestamp") if observed else None,
-        "risk_decision_id": getattr(risk_result, "decision_id", f"RISK-{canonical.identity[:12]}"),
-    }
 
 
 @dataclass(frozen=True)
@@ -339,22 +283,10 @@ class LiveReadinessService:
             result["strategies"] = [{"id": s["strategyId"], "name": s["name"], "version": s["version"],
                 "admin_status": s["adminStatus"], "live": s["governance"]["live"]} for s in self.store.list_owner_strategies()]
             result["intents"] = [r["data"] for r in self.store.live_observations(user_id) if r["key"].startswith("intent:")]
-            result["shadow_orders"] = [r["data"] for r in self.store.live_observations(user_id) if r["key"].startswith("shadow:")]
             result["account_equity"] = None
             result["aggregate_exposure"] = None
             result["risk_state"] = "REQUIRES_CANONICAL_LIVE_CONTEXT" if self.risk_provider is None else "VALIDATE_INTENT"
             return result
-
-    def shadow_orders(self, user_id: str | None = None, *, limit: int | None = None) -> list[dict]:
-        with self._lock:
-            observations = self.store.live_observations(user_id)
-            orders = [r["data"] for r in observations if r["key"].startswith("shadow:") or (r["key"].startswith("intent:") and r["data"].get("execution_mode") == "SHADOW")]
-            if limit is not None:
-                try:
-                    return list(orders[: max(0, int(limit))])
-                except (TypeError, ValueError):
-                    pass
-            return orders
 
     def refresh(self, user_id: str) -> dict:
         with self._lock:
@@ -416,6 +348,8 @@ class LiveReadinessService:
     def validate(self, user_id: str, request: dict) -> dict:
         with self._lock:
             mode = request.get("execution_mode", "LIVE")
+            if mode != "LIVE":
+                raise LiveExecutionDisabled("EXECUTION_DISABLED")
             strategy = self.store.get_owner_strategy(request["strategy_id"])
             orig_ts = request["originating_timestamp"]
             if isinstance(orig_ts, str):
@@ -423,7 +357,7 @@ class LiveReadinessService:
             canonical = SignalIntent(action=request["side"], confidence=1.0, symbol=request["instrument_token"],
                 timeframe=request["timeframe"], originating_timestamp=orig_ts,
                 strategy_id=request["strategy_id"], strategy_version=strategy["version"] if strategy else "UNAVAILABLE", metadata={})
-            intent_id = CanonicalCodec.fingerprint("algofortis-live-validation-intent/v1" if mode == "LIVE" else "algofortis-shadow-validation-intent/v1", (
+            intent_id = CanonicalCodec.fingerprint("algofortis-live-validation-intent/v1", (
                 ("user", user_id), ("mode", mode), ("signal", canonical.identity), ("quantity", request["quantity"])))
             idempotency_key = request.get("idempotency_key") or intent_id
             state = self.readiness(user_id)
@@ -512,70 +446,18 @@ class LiveReadinessService:
             if request["side"] != "BUY": block("CLOSE_INTENT_AUTHORITY_UNAVAILABLE")
 
             conn = self.connections.get(user_id)
-            if mode == "SHADOW":
-                conn_order_capability = getattr(conn, "supports_order_placement", True) if conn else False
-                if not conn_order_capability:
-                    block("BROKER_CAPABILITY_MISSING", "Broker capability contract does not support order placement")
-
-                if not reasons:
-                    status = "SHADOW_READY"
-                    would_be = build_would_be_broker_payload(
-                        user_id=user_id,
-                        canonical=canonical,
-                        entry=entry,
-                        observed=observed,
-                        account=state.get("account"),
-                        quantity=Decimal(str(request["quantity"])),
-                        order_type="MARKET",
-                        risk_result=risk_result,
-                        candidate_plan=context.arguments.get("candidate_plan") if context else None,
-                        idempotency_key=idempotency_key,
-                        now=self.clock(),
-                    )
-                else:
-                    status = "SHADOW_REJECTED" if any(r["code"] in ("RISK_REJECTED", "STRATEGY_NOT_LIVE_ELIGIBLE") for r in reasons) else "SHADOW_BLOCKED"
-                    would_be = None
-
-                result = {
-                    "intent_id": intent_id,
-                    "idempotency_key": idempotency_key,
-                    "canonical_signal_id": canonical.identity,
-                    "user_id": user_id,
-                    "execution_mode": "SHADOW",
-                    "strategy_id": canonical.strategy_id,
-                    "instrument_token": request["instrument_token"],
-                    "canonical_instrument": entry.identity.instrument if entry else None,
-                    "side": canonical.action,
-                    "quantity": str(request["quantity"]),
-                    "status": status,
-                    "checked_at": self.clock().isoformat(),
-                    "arming_state": "READ_ONLY",
-                    "reasons": reasons,
-                    "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE",
-                    "broker_mutation_sent": False,
-                    "would_be_payload": would_be,
-                    "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None,
-                }
-                result["audit_id"] = self._audit(user_id, "SHADOW_INTENT_VALIDATED", {
-                    "intent_id": intent_id, "idempotency_key": idempotency_key, "status": status,
-                    "reasons": [r["code"] for r in reasons], "broker_mutation_sent": False},
-                    rejected=status != "SHADOW_READY")
-                self.store.save_live_observation(user_id, "intent:" + intent_id, result)
-                self.store.save_live_observation(user_id, "shadow:" + intent_id, result)
-                return result
-            else:
-                block("BROKER_CAPABILITY_MISSING", "Live mutation connector is intentionally absent")
-                block("EXECUTION_DISABLED")
-                result = {"intent_id": intent_id, "canonical_signal_id": canonical.identity, "user_id": user_id,
-                    "execution_mode": "LIVE", "strategy_id": canonical.strategy_id, "instrument_token": request["instrument_token"],
-                    "side": canonical.action, "quantity": str(request["quantity"]), "status": "BLOCKED",
-                    "checked_at": self.clock().isoformat(), "arming_state": "READ_ONLY", "reasons": reasons,
-                    "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE", "broker_mutation_sent": False,
-                    "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None}
-                result["audit_id"] = self._audit(user_id, "LIVE_INTENT_VALIDATED", {
-                    "intent_id": intent_id, "status": "BLOCKED", "reasons": [r["code"] for r in reasons]}, rejected=True)
-                self.store.save_live_observation(user_id, "intent:" + intent_id, result)
-                return result
+            block("BROKER_CAPABILITY_MISSING", "Live mutation connector is intentionally absent")
+            block("EXECUTION_DISABLED")
+            result = {"intent_id": intent_id, "canonical_signal_id": canonical.identity, "user_id": user_id,
+                "execution_mode": "LIVE", "strategy_id": canonical.strategy_id, "instrument_token": request["instrument_token"],
+                "side": canonical.action, "quantity": str(request["quantity"]), "status": "BLOCKED",
+                "checked_at": self.clock().isoformat(), "arming_state": "READ_ONLY", "reasons": reasons,
+                "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE", "broker_mutation_sent": False,
+                "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None}
+            result["audit_id"] = self._audit(user_id, "LIVE_INTENT_VALIDATED", {
+                "intent_id": intent_id, "status": "BLOCKED", "reasons": [r["code"] for r in reasons]}, rejected=True)
+            self.store.save_live_observation(user_id, "intent:" + intent_id, result)
+            return result
 
     def set_hold(self, actor_id: str, enabled: bool) -> dict:
         with self._lock:

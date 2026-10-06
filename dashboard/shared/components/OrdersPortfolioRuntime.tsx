@@ -59,7 +59,7 @@ export const OrdersPortfolioRuntime: React.FC<{ owner?: boolean; initialTab?: Ta
   };
   useEffect(() => { void refresh(); return () => { generation.current++; }; }, [owner, mode]);
   useEffect(() => { setTab(initialTab); setSelected(null); }, [initialTab]);
-  const authoritative = snapshot?.availability === "AVAILABLE" && (snapshot.source === "PERSISTED_PAPER_RUNTIME" || snapshot.source === "ALGOFORTIS_SHADOW_RUNTIME");
+  const authoritative = snapshot?.availability === "AVAILABLE" && (snapshot.source === "PERSISTED_PAPER_RUNTIME");
   const accounts = snapshot?.accounts ?? [];
   const matching = (rows: RuntimeEvidence[]) => rows.filter(row =>
     !search || Object.values(row).some(v => String(v ?? "").toLowerCase().includes(search.toLowerCase())));
@@ -84,7 +84,7 @@ export const OrdersPortfolioRuntime: React.FC<{ owner?: boolean; initialTab?: Ta
     </div>
     <div className="v3-filter-bar" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
       <label style={{ display: "flex", alignItems: "center", gap: 8 }}>Execution mode <select className="v3-input" style={{ width: 260 }} aria-label="Execution mode" value={mode} onChange={e => { setSnapshot(null); setSelected(null); setMode(e.target.value as OrdersPortfolioMode); }}>
-        <option value="PAPER">PAPER</option><option value="LIVE">LIVE — UNAVAILABLE</option><option value="BACKTEST">BACKTEST — Backtesting screen</option><option value="SHADOW">SHADOW — Dry-Run Validation</option>
+        <option value="PAPER">PAPER</option><option value="LIVE">LIVE — UNAVAILABLE</option><option value="BACKTEST">BACKTEST — Backtesting screen</option>
       </select></label>
       <input className="v3-input" style={{ width: 260 }} aria-label="Search persisted evidence" placeholder="Search session, instrument, status…" value={search} onChange={e => setSearch(e.target.value)} />
       <button type="button" className="v3-btn ghost mini" onClick={() => void refresh()} disabled={loading}>Refresh</button>
