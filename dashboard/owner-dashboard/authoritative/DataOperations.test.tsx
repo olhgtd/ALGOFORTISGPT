@@ -15,9 +15,11 @@ describe("Owner data operations", () => {
     expect(screen).not.toContain("provider.apiKey");
   });
   it("covers providers sync schedule jobs repair and datasets", () => {
-    for (const label of ["Providers", "Manual Sync", "Schedule", "Sync Jobs", "Gap Repair", "Datasets", "Retire", "Replace", "UNAVAILABLE"]) expect(screen).toContain(label);
+    for (const label of ["Providers", "Connection Allowance", "Manual Sync", "Schedule", "Sync Jobs", "Gap Repair", "Datasets", "Retire", "Replace", "UNAVAILABLE"]) expect(screen).toContain(label);
   });
   it("uses step-up for trust-changing provider/data policy", () => {
+    expect(screen).toContain("ownerConnectionAllowance");
+    expect(screen).toContain("ownerCapabilityAllowance");
     expect(client).toContain('actionFamily: "HISTORICAL_PROVIDER_CONFIG"');
     expect(client).toContain('actionFamily: "HISTORICAL_SYNC_POLICY"');
     expect(client).toContain('actionFamily: "HISTORICAL_DATA_REPAIR"');
