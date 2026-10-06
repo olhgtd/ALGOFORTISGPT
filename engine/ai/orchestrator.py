@@ -1,4 +1,4 @@
-"""Prime-owned deterministic routing for research/shadow AI jobs."""
+"""Prime-owned deterministic routing for research and intelligence jobs."""
 from __future__ import annotations
 
 from typing import Any
@@ -43,7 +43,7 @@ class PrimeOrchestrator:
         try:
             scope_enum = AIJobScope(str(scope).upper().strip())
         except ValueError as exc:
-            raise AIUnavailable("AI jobs are restricted to RESEARCH or SHADOW") from exc
+            raise AIUnavailable("AI jobs are restricted to qualified research/intelligence scopes") from exc
 
         role = _JOB_ROLE.get(job_key)
         if role is None:
