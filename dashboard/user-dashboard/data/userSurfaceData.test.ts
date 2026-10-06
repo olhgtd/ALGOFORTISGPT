@@ -73,7 +73,7 @@ describe("userSurfaceData", () => {
   });
 
   it("keeps paper and live runtime authorities separate", async () => {
-    const query = async (_owner: boolean, mode: "PAPER" | "BACKTEST" | "LIVE" | "SHADOW") => {
+    const query = async (_owner: boolean, mode: "PAPER" | "BACKTEST" | "LIVE") => {
       if (mode === "LIVE") throw new Error("offline");
       return {
         execution_mode: mode,
