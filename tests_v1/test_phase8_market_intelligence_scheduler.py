@@ -70,7 +70,7 @@ def test_queue_and_concurrency_are_bounded():
         provider_budget=Budget(True), tool_budget=Budget(True), dispatch=lambda j: None,
     )
     assert scheduler.submit(_job(api, now)).accepted is True
-    second = api.ResearchJob("job-2", api.ResearchJobKind.SHADOW, now, now+timedelta(minutes=5), "p", "pp", "tp")
+    second = api.ResearchJob("job-2", api.ResearchJobKind.INTELLIGENCE, now, now+timedelta(minutes=5), "p", "pp", "tp")
     decision = scheduler.submit(second)
     assert decision.accepted is False
     assert decision.reason == api.SchedulerRejectReason.QUEUE_FULL
