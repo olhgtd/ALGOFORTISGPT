@@ -1,6 +1,6 @@
-"""Live read authority, shadow execution dry-run validation, and validation receipts.
+"""Live read authority and validation receipts.
 
-Execution remains strictly READ_ONLY / SHADOW. There is no executable live order path.
+Execution remains strictly READ_ONLY / DISARMED. There is no executable live order path.
 Real broker mutation call count remains ZERO.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ class LiveExecutionDisabled(PermissionError):
 def execution_boundary(mode: str = "LIVE") -> dict:
     # Deliberately no enable flag, setter, SDK capability override or stored
     # arming value. Enabling execution requires a separately reviewed code change.
-    return {"execution_mode": mode, "arming_state": "READ_ONLY", "mutation_allowed": False,
-            "reason": "EXECUTION_DISABLED" if mode == "LIVE" else "SHADOW_READ_ONLY"}
+    return {"execution_mode": "LIVE", "arming_state": "READ_ONLY", "mutation_allowed": False,
+            "reason": "EXECUTION_DISABLED"}
 
 
 def require_live_mutation() -> None:
@@ -339,22 +339,10 @@ class LiveReadinessService:
             result["strategies"] = [{"id": s["strategyId"], "name": s["name"], "version": s["version"],
                 "admin_status": s["adminStatus"], "live": s["governance"]["live"]} for s in self.store.list_owner_strategies()]
             result["intents"] = [r["data"] for r in self.store.live_observations(user_id) if r["key"].startswith("intent:")]
-            result["shadow_orders"] = [r["data"] for r in self.store.live_observations(user_id) if r["key"].startswith("shadow:")]
             result["account_equity"] = None
             result["aggregate_exposure"] = None
             result["risk_state"] = "REQUIRES_CANONICAL_LIVE_CONTEXT" if self.risk_provider is None else "VALIDATE_INTENT"
             return result
-
-    def shadow_orders(self, user_id: str | None = None, *, limit: int | None = None) -> list[dict]:
-        with self._lock:
-            observations = self.store.live_observations(user_id)
-            orders = [r["data"] for r in observations if r["key"].startswith("shadow:") or (r["key"].startswith("intent:") and r["data"].get("execution_mode") == "SHADOW")]
-            if limit is not None:
-                try:
-                    return list(orders[: max(0, int(limit))])
-                except (TypeError, ValueError):
-                    pass
-            return orders
 
     def refresh(self, user_id: str) -> dict:
         with self._lock:
@@ -416,6 +404,8 @@ class LiveReadinessService:
     def validate(self, user_id: str, request: dict) -> dict:
         with self._lock:
             mode = request.get("execution_mode", "LIVE")
+            if mode != "LIVE":
+                raise LiveExecutionDisabled("EXECUTION_DISABLED")
             strategy = self.store.get_owner_strategy(request["strategy_id"])
             orig_ts = request["originating_timestamp"]
             if isinstance(orig_ts, str):
@@ -512,27 +502,6 @@ class LiveReadinessService:
             if request["side"] != "BUY": block("CLOSE_INTENT_AUTHORITY_UNAVAILABLE")
 
             conn = self.connections.get(user_id)
-            if mode == "SHADOW":
-                conn_order_capability = getattr(conn, "supports_order_placement", True) if conn else False
-                if not conn_order_capability:
-                    block("BROKER_CAPABILITY_MISSING", "Broker capability contract does not support order placement")
-
-                if not reasons:
-                    status = "SHADOW_READY"
-                    would_be = build_would_be_broker_payload(
-                        user_id=user_id,
-                        canonical=canonical,
-                        entry=entry,
-                        observed=observed,
-                        account=state.get("account"),
-                        quantity=Decimal(str(request["quantity"])),
-                        order_type="MARKET",
-                        risk_result=risk_result,
-                        candidate_plan=context.arguments.get("candidate_plan") if context else None,
-                        idempotency_key=idempotency_key,
-                        now=self.clock(),
-                    )
-                else:
                     status = "SHADOW_REJECTED" if any(r["code"] in ("RISK_REJECTED", "STRATEGY_NOT_LIVE_ELIGIBLE") for r in reasons) else "SHADOW_BLOCKED"
                     would_be = None
 
