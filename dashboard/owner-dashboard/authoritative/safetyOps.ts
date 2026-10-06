@@ -19,3 +19,10 @@ export async function releaseGlobalHold(): Promise<any> {
     body: {},
   });
 }
+
+export async function engageKillSwitch(reason: string): Promise<any> {
+  return ownerFetch<any>("/api/v1/owner/safety/kill-switch/engage", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
