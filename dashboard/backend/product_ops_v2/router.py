@@ -64,7 +64,7 @@ def attach_product_ops_routes(app: Any) -> Any:
             raise HTTPException(status_code=503, detail="PRODUCT_OPS_READ_MODEL_UNAVAILABLE") from exc
         payload = asdict(model)
         payload["live_state"] = "READ_ONLY/DISARMED"
-        payload["ai_authority"] = "RESEARCH_SHADOW_ONLY"
+        payload["ai_authority"] = "INDEPENDENT_CANDIDATE_SOURCE"
         return payload
 
     @router.get("/privacy/current")
