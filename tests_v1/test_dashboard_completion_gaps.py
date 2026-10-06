@@ -47,3 +47,45 @@ def test_windows_user_package_rebuilds_on_main_push() -> None:
     assert "push:" in workflow
     assert "branches: [main]" in workflow
     assert "AlgoFortis-User-Setup.exe" in workflow
+
+
+def test_kill_switch_bridge_uses_attached_coordinator_and_stays_fail_closed() -> None:
+    from dashboard.backend.owner_safety_adapter import OwnerSafetyAdapter
+
+    class FakeSafe:
+        enabled = False
+        def set(self, value: bool) -> None:
+            self.enabled = value
+
+    class FakeStore:
+        def live_global_hold(self) -> bool:
+            return False
+
+    class FakeCoordinator:
+        def __init__(self) -> None:
+            self.is_kill_switch_active = False
+            self.calls: list[tuple[str, str]] = []
+
+        def activate_kill_switch(self, *, reason: str, source: str) -> None:
+            self.calls.append((reason, source))
+            self.is_kill_switch_active = True
+
+    coordinator = FakeCoordinator()
+    adapter = OwnerSafetyAdapter(
+        security_store=FakeStore(),
+        safe_mode=FakeSafe(),
+        live_readiness_service=None,
+        kill_switch_authority=coordinator,
+    )
+    assert adapter.snapshot()["kill_switch"]["state"] == "CLEAR"
+    result = adapter.engage_kill_switch("operator emergency")
+    assert result["kill_switch"]["state"] == "ACTIVE"
+    assert coordinator.calls == [("operator emergency", "owner_dashboard")]
+
+    detached = OwnerSafetyAdapter(
+        security_store=FakeStore(),
+        safe_mode=FakeSafe(),
+        live_readiness_service=None,
+        kill_switch_authority=None,
+    )
+    assert detached.snapshot()["kill_switch"]["state"] == "NOT_CONNECTED"
