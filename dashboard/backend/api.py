@@ -741,6 +741,13 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         _record_security_audit(event_type="OWNER_SAFE_MODE_ENGAGED", actor_id=session.user.user_id, details={})
         return result
 
+    @app.post("/api/v1/owner/safety/safe-mode/release")
+    def release_owner_safe_mode(session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        """Release safe-mode only through fresh step-up authority (SAFETY_RELEASE)."""
+        result = _owner_safety_adapter().release_safe_mode()
+        _record_security_audit(event_type="OWNER_SAFE_MODE_RELEASED", actor_id=session.user.user_id, details={})
+        return result
+
     @app.post("/api/v1/owner/safety/kill-switch/engage")
     def engage_owner_kill_switch(body: dict[str, Any], session=Depends(owner_mutable_session)) -> dict[str, Any]:
         reason = str(body.get("reason") or "").strip()
@@ -780,8 +787,27 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
         return service.oversight()
 
     @app.post("/api/v1/owner/live-readiness/hold")
-    def live_global_hold(body: SafeModeChange, session=Depends(owner_session), stepped=Depends(mutable_session), service=Depends(live_authority)):
-        return live_call(service.set_hold, str(session.user.user_id), body.enabled)
+    def live_global_hold(body: SafeModeChange, session=Depends(owner_mutable_session), service=Depends(live_authority)):
+        """Engage global hold only. Release requires the step-up release route.
+
+        Design: engage is allowed here; release must go through
+        POST /api/v1/owner/safety/global-hold/release (SAFETY_RELEASE family).
+        """
+        if not body.enabled:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "global-hold release requires POST /api/v1/owner/safety/global-hold/release "
+                    "with fresh step-up authentication"
+                ),
+            )
+        result = live_call(service.set_hold, str(session.user.user_id), True)
+        _record_security_audit(
+            event_type="OWNER_GLOBAL_HOLD_ENGAGED",
+            actor_id=session.user.user_id,
+            details={"via": "/api/v1/owner/live-readiness/hold"},
+        )
+        return result
 
     # P3: one route object per (path, method) with a unique operation ID so
     # OpenAPI generation stays warning-free. All of them deny mutation.
@@ -1414,10 +1440,26 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             raise HTTPException(status_code=422, detail=msg)
 
     @app.post("/api/v1/settings/safe-mode")
-    def set_safe_mode(change: SafeModeChange, session=Depends(mutable_session)) -> dict[str, bool]:
-        if session.user.role is not Role.OWNER:
-            raise HTTPException(status_code=403, detail="owner role required")
-        app.state.safe_mode.set(change.enabled)
+    def set_safe_mode(change: SafeModeChange, session=Depends(owner_mutable_session)) -> dict[str, bool]:
+        """Engage safe-mode only. Release requires the step-up release route.
+
+        Design: tightening actions are easy; releasing requires explicit step-up
+        via POST /api/v1/owner/safety/safe-mode/release (SAFETY_RELEASE family).
+        """
+        if not change.enabled:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "safe-mode release requires POST /api/v1/owner/safety/safe-mode/release "
+                    "with fresh step-up authentication"
+                ),
+            )
+        app.state.safe_mode.set(True)
+        _record_security_audit(
+            event_type="OWNER_SAFE_MODE_ENGAGED",
+            actor_id=session.user.user_id,
+            details={"via": "/api/v1/settings/safe-mode"},
+        )
         return {"enabled": app.state.safe_mode.enabled}
 
     @app.post("/api/v1/strategies")

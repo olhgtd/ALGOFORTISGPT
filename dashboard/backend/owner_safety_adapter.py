@@ -109,6 +109,13 @@ class OwnerSafetyAdapter:
         self._safe_mode.set(True)
         return self.snapshot()
 
+    def release_safe_mode(self) -> dict[str, Any]:
+        """Release safe-mode only through the step-up release route."""
+        if self._safe_mode is None:
+            raise RuntimeError("SAFE_MODE_AUTHORITY_UNAVAILABLE")
+        self._safe_mode.set(False)
+        return self.snapshot()
+
     def engage_global_hold(self, actor_id: str) -> dict[str, Any]:
         if self._live is None:
             raise RuntimeError("LIVE_SAFETY_AUTHORITY_UNAVAILABLE")
