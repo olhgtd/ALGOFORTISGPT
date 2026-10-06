@@ -502,18 +502,18 @@ class LiveReadinessService:
             if request["side"] != "BUY": block("CLOSE_INTENT_AUTHORITY_UNAVAILABLE")
 
             conn = self.connections.get(user_id)
-                block("BROKER_CAPABILITY_MISSING", "Live mutation connector is intentionally absent")
-                block("EXECUTION_DISABLED")
-                result = {"intent_id": intent_id, "canonical_signal_id": canonical.identity, "user_id": user_id,
-                    "execution_mode": "LIVE", "strategy_id": canonical.strategy_id, "instrument_token": request["instrument_token"],
-                    "side": canonical.action, "quantity": str(request["quantity"]), "status": "BLOCKED",
-                    "checked_at": self.clock().isoformat(), "arming_state": "READ_ONLY", "reasons": reasons,
-                    "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE", "broker_mutation_sent": False,
-                    "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None}
-                result["audit_id"] = self._audit(user_id, "LIVE_INTENT_VALIDATED", {
-                    "intent_id": intent_id, "status": "BLOCKED", "reasons": [r["code"] for r in reasons]}, rejected=True)
-                self.store.save_live_observation(user_id, "intent:" + intent_id, result)
-                return result
+            block("BROKER_CAPABILITY_MISSING", "Live mutation connector is intentionally absent")
+            block("EXECUTION_DISABLED")
+            result = {"intent_id": intent_id, "canonical_signal_id": canonical.identity, "user_id": user_id,
+                "execution_mode": "LIVE", "strategy_id": canonical.strategy_id, "instrument_token": request["instrument_token"],
+                "side": canonical.action, "quantity": str(request["quantity"]), "status": "BLOCKED",
+                "checked_at": self.clock().isoformat(), "arming_state": "READ_ONLY", "reasons": reasons,
+                "risk_status": risk_result.outcome.value if risk_result else "UNAVAILABLE", "broker_mutation_sent": False,
+                "canonical_order": {"order_type": order.order_type.value, "quantity": str(order.quantity), "time_in_force": order.time_in_force.value} if order else None}
+            result["audit_id"] = self._audit(user_id, "LIVE_INTENT_VALIDATED", {
+                "intent_id": intent_id, "status": "BLOCKED", "reasons": [r["code"] for r in reasons]}, rejected=True)
+            self.store.save_live_observation(user_id, "intent:" + intent_id, result)
+            return result
 
     def set_hold(self, actor_id: str, enabled: bool) -> dict:
         with self._lock:
