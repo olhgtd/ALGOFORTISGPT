@@ -167,7 +167,12 @@ jobs:
       - name: Install dashboard package
         run: npm ci --prefix dashboard/web
       - name: Dashboard dependency security audit
-        run: npm audit --prefix dashboard/web --audit-level=high
+        shell: pwsh
+        run: |
+          Push-Location dashboard/web
+          npm audit --audit-level=high --omit=dev
+          if ($LASTEXITCODE -ne 0) { throw "Dashboard production dependency audit failed" }
+          Pop-Location
       - name: Dashboard tests including Phase 9 surfaces
         run: npm --prefix dashboard/web run test:user-dashboard
       - name: Dashboard typecheck
