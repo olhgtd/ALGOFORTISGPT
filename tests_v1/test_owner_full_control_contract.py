@@ -6,7 +6,6 @@ ROOT = Path(__file__).resolve().parents[1]
 OWNER_API = ROOT / "dashboard" / "owner-dashboard" / "authoritative" / "api.ts"
 OWNER_SHELL = ROOT / "dashboard" / "owner-dashboard" / "OwnerDashboardApp.tsx"
 USER_SHELL = ROOT / "dashboard" / "user-dashboard" / "UserDashboardApp.tsx"
-LEGACY_USER_SCREENS = ROOT / "dashboard" / "user-dashboard" / "screens" / "UserScreens.tsx"
 
 
 def _text(path: Path) -> str:
@@ -35,14 +34,12 @@ def test_canonical_owner_client_exposes_no_real_live_or_broker_order_mutation_pa
         assert token not in source
 
 
-def test_legacy_hardcoded_killswitch_claim_is_not_reachable_from_canonical_user_shell() -> None:
+def test_legacy_user_screens_are_retired_and_canonical_user_shell_does_not_reference_them() -> None:
     shell = _text(USER_SHELL)
-    legacy = _text(LEGACY_USER_SCREENS)
-    assert "Killswitch Status:" in legacy
-    assert "ARMED &amp; READY" in legacy
+    legacy = ROOT / "dashboard" / "user-dashboard" / "screens" / "UserScreens.tsx"
+    assert not legacy.exists()
     assert 'from "./screens/UserScreens"' not in shell
     assert "UserScreens" not in shell
-
 
 def test_canonical_owner_shell_uses_authoritative_surfaces_only() -> None:
     shell = _text(OWNER_SHELL)
