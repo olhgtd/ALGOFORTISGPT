@@ -30,7 +30,6 @@ LEGACY_SAMPLE_MODULES = (
     "data/optionsChain",
     "data/userAgents",
     "data/userSecurity",
-    "screens/UserScreens",
 )
 
 FORBIDDEN_EXECUTION_REFERENCES = (
