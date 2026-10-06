@@ -1,4 +1,4 @@
-"""Read-only projections of the existing dashboard paper and shadow execution persistence.
+"""Read-only projections of the existing dashboard paper execution persistence.
 
 No execution, valuation, account arithmetic, or lifecycle reconstruction belongs
 here. Session accounts are independent and are never summed into an account.
@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from .paper_service import PaperService
 
-ExecutionMode = Literal["PAPER", "BACKTEST", "LIVE", "SHADOW"]
+ExecutionMode = Literal["PAPER", "BACKTEST", "LIVE"]
 
 
 class OrdersPortfolioService:
@@ -38,8 +38,8 @@ class OrdersPortfolioService:
                  session_id: str | None = None) -> dict[str, Any]:
         result: dict[str, Any] = {
             "execution_mode": mode,
-            "availability": "AVAILABLE" if mode in ("PAPER", "SHADOW") else "UNAVAILABLE",
-            "source": "PERSISTED_PAPER_RUNTIME" if mode == "PAPER" else ("ALGOFORTIS_SHADOW_RUNTIME" if mode == "SHADOW" else None),
+            "availability": "AVAILABLE" if mode == "PAPER" else "UNAVAILABLE",
+            "source": "PERSISTED_PAPER_RUNTIME" if mode == "PAPER" else None,
             "accounts": [], "positions": [], "orders": [], "events": [],
             "aggregate_exposure": None,
             "limitations": [
@@ -47,62 +47,12 @@ class OrdersPortfolioService:
                 "Reserved cash, protective relationships, per-position realized P&L and Core Audit links are unavailable.",
                 "Historical paper option prices are modeled by the existing paper runtime.",
                 "Account values are persisted PaperService summaries; engine account reconciliation is unavailable.",
-            ] if mode == "PAPER" else [
-                "Shadow records reflect would-be dry-run orders. Real broker execution is disabled.",
-                "Zero broker mutations transmitted; no live holdings or fills created.",
             ],
             "capabilities": {
-                "PAPER": "AVAILABLE", "SHADOW": "AVAILABLE", "LIVE": "UNAVAILABLE",
+                "PAPER": "AVAILABLE", "LIVE": "UNAVAILABLE",
                 "BACKTEST": "BACKTEST_SCREEN", "partial_fills": "UNAVAILABLE",
             },
         }
-        if mode == "SHADOW":
-            shadow_records = []
-            if self.live_readiness is not None:
-                if hasattr(self.live_readiness, "shadow_orders"):
-                    shadow_records = self.live_readiness.shadow_orders(user_id)
-                elif hasattr(self.live_readiness, "store"):
-                    obs = self.live_readiness.store.live_observations(user_id)
-                    shadow_records = [r["data"] for r in obs if r["key"].startswith("shadow:") or (r["key"].startswith("intent:") and r["data"].get("execution_mode") == "SHADOW")]
-
-            for rec in shadow_records:
-                would_be = rec.get("would_be_payload") or {}
-                order_id = rec.get("intent_id", "UNKNOWN")
-                result["orders"].append({
-                    "order_id": order_id,
-                    "session_id": "SHADOW_VALIDATION",
-                    "user_id": rec.get("user_id", user_id or "UNKNOWN"),
-                    "execution_mode": "SHADOW",
-                    "strategy_name": rec.get("strategy_id", "UNKNOWN"),
-                    "instrument": rec.get("canonical_instrument") or would_be.get("canonical_instrument") or rec.get("instrument_token", "UNKNOWN"),
-                    "side": rec.get("side", "BUY"),
-                    "qty": rec.get("quantity", "0"),
-                    "order_type": would_be.get("order_type", "MARKET"),
-                    "limit_price": would_be.get("limit_price") or "-",
-                    "fill_price": None,
-                    "status": rec.get("status", "SHADOW_READY"),
-                    "rejection_reason": "; ".join(r.get("detail", r.get("code", "")) for r in rec.get("reasons", [])) if rec.get("reasons") else None,
-                    "data_source_mode": "SHADOW_DRY_RUN",
-                    "source": "ALGOFORTIS_SHADOW_RUNTIME",
-                    "created_at_utc": rec.get("checked_at"),
-                    "filled_at_utc": None,
-                    "protective_id": None,
-                    "core_audit_id": rec.get("audit_id"),
-                })
-                result["events"].append({
-                    "event_id": rec.get("audit_id") or f"EVT-{order_id[:12]}",
-                    "session_id": "SHADOW_VALIDATION",
-                    "user_id": rec.get("user_id", user_id or "UNKNOWN"),
-                    "execution_mode": "SHADOW",
-                    "event_time": rec.get("checked_at"),
-                    "status": rec.get("status", "SHADOW_READY"),
-                    "source": "ALGOFORTIS_SHADOW_PIPELINE",
-                    "detail": f"Status: {rec.get('status')} | Idempotency: {rec.get('idempotency_key', order_id)} | Reasons: {[r.get('code') for r in rec.get('reasons', [])]}",
-                })
-            return result
-
-        if mode != "PAPER":
-            return result
         if session_id is not None:
             session = self.paper.get_session(session_id, user_id=user_id)
             if session is None:
@@ -137,12 +87,6 @@ class OrdersPortfolioService:
         return result
 
     def order(self, *, user_id: str, session_id: str, order_id: str) -> dict[str, Any]:
-        if session_id == "SHADOW_VALIDATION":
-            snapshot = self.snapshot(user_id=user_id, mode="SHADOW")
-            for o in snapshot["orders"]:
-                if o["order_id"] == order_id:
-                    return o
-            raise LookupError("shadow order unavailable")
         snapshot = self.snapshot(user_id=user_id, session_id=session_id)
         for order in snapshot["orders"]:
             if order["order_id"] == order_id:
