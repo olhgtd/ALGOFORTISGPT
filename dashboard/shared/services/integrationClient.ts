@@ -32,13 +32,13 @@ import { getSessionToken } from "./sessionStore";
 export type IntegrationSource = "BACKEND" | "SAMPLE_FALLBACK" | "UNAVAILABLE";
 export type IntegrationTrust = "FRESH" | "STALE" | "UNKNOWN";
 
-export type OrdersPortfolioMode = "PAPER" | "BACKTEST" | "LIVE" | "SHADOW";
+export type OrdersPortfolioMode = "PAPER" | "BACKTEST" | "LIVE";
 export interface LiveExecutionPolicy { arming_state: "READ_ONLY"; mutation_allowed: false; global_hold: boolean; safe_mode: boolean; }
 export interface LiveIntentReceipt {
   intent_id: string;
-  status: "SHADOW_READY" | "SHADOW_BLOCKED" | "SHADOW_REJECTED" | "BLOCKED";
+  status: "BLOCKED";
   audit_id: string;
-  execution_mode?: "SHADOW" | "LIVE";
+  execution_mode?: "LIVE";
   reasons: { code: string; detail: string }[];
   would_be_payload?: Record<string, unknown> | null;
   idempotency_key?: string;
@@ -55,7 +55,6 @@ export interface LiveReadiness {
   capabilities: Record<string, unknown>[]; execution_policy: LiveExecutionPolicy;
   strategies: { id: string; name: string }[]; instruments: { token: string; symbol: string; lot_size: string }[];
   intents: LiveIntentReceipt[];
-  shadow_orders?: LiveIntentReceipt[];
 }
 export interface LiveOversight { execution_policy: LiveExecutionPolicy; users: LiveReadiness[]; }
 export async function liveReadinessRequest<T>(endpoint: string, body?: object): Promise<T> {
