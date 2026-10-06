@@ -1,4 +1,4 @@
-"""AlgoFortis AI research/shadow control-plane contracts.
+"""AlgoFortis AI intelligence control-plane contracts.
 
 This package has no broker mutation, Live arm, RiskGate approval, account, or
 billing authority. Prime owns orchestration; Laya is market intelligence only.
