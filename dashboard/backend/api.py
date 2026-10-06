@@ -4065,6 +4065,11 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
 
         return reports
 
+    # Expose the existing backend report builder to other backend composition
+    # layers. This is the same tenant-scoped authority used by /api/v1/reports;
+    # no presentation-layer filtering or duplicate report store is introduced.
+    app.state.authoritative_report_reader = _build_authoritative_reports
+
     @app.get("/api/v1/reports")
     def list_user_reports(session=Depends(session_from_header)) -> list[dict[str, Any]]:
         """List authoritative reports for the calling user."""
