@@ -98,7 +98,7 @@ class IntelligenceCandidateValidationResult:
 
 
 class IntelligenceCandidateValidator:
-    """Schema/scope/TTL validator for research/backtest/paper intelligence evidence."""
+    """Schema/scope/TTL validator for independent intelligence candidates."""
 
     def __init__(
         self,
@@ -134,7 +134,7 @@ class IntelligenceCandidateValidator:
                 reasons.append("ACTION_INSTRUMENT_MISMATCH")
             elif candidate.action is TradeCandidateAction.BUY_PE and parts[2] != "PE":
                 reasons.append("ACTION_INSTRUMENT_MISMATCH")
-            if candidate.execution_scope != "RESEARCH_BACKTEST_PAPER_ONLY":
+            if candidate.execution_scope != "RISK_GATED_CANDIDATE":
                 reasons.append("EXECUTION_SCOPE_DENIED")
         normalized = tuple(sorted(set(reasons)))
         fp = CanonicalCodec.fingerprint(
