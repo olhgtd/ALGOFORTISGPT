@@ -1,6 +1,6 @@
 """Authoritative Owner AI control service.
 
-The service owns registry/configuration and research/shadow job evidence only.
+The service owns registry/configuration and research and intelligence job evidence only.
 It never invokes broker mutation, Live arm, RiskGate approval, or account/billing
 mutation. Actual model execution is an injected adapter and is unavailable by
 default. Provider/model availability can only be asserted by that backend
