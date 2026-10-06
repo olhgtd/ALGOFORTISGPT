@@ -413,7 +413,7 @@ class LiveReadinessService:
             canonical = SignalIntent(action=request["side"], confidence=1.0, symbol=request["instrument_token"],
                 timeframe=request["timeframe"], originating_timestamp=orig_ts,
                 strategy_id=request["strategy_id"], strategy_version=strategy["version"] if strategy else "UNAVAILABLE", metadata={})
-            intent_id = CanonicalCodec.fingerprint("algofortis-live-validation-intent/v1" if mode == "LIVE" else "algofortis-shadow-validation-intent/v1", (
+            intent_id = CanonicalCodec.fingerprint("algofortis-live-validation-intent/v1", (
                 ("user", user_id), ("mode", mode), ("signal", canonical.identity), ("quantity", request["quantity"])))
             idempotency_key = request.get("idempotency_key") or intent_id
             state = self.readiness(user_id)
