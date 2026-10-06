@@ -12,7 +12,7 @@ import {
   toggleHistoricalProvider,
 } from "./dataOps";
 import { ownerCapabilityAllowance, ownerConnectionAllowance, ownerDatasetApproval, ownerDatasetReplace, ownerDatasetRetire } from "./mutations";
-import { queryOwnerConnections } from "./api";
+import { queryOwnerConnections } from "../../shared/services/integrationClient";
 
 const rowsFrom = (payload: any, key: string): any[] => Array.isArray(payload) ? payload : Array.isArray(payload?.[key]) ? payload[key] : [];
 
