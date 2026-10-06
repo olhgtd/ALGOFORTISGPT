@@ -477,6 +477,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
                datasets_adapter: OwnerDatasetsReadAdapter | None = None,
                backtest_service: BacktestService | None = None,
                paper_service: PaperService | None = None,
+               kill_switch_authority: Any | None = None,
                historical_data_service: Any | None = None,
                mtls_authority: MtlsAuthority | None = None,
                artifact_root: Path | None = None,
@@ -523,6 +524,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     app.state.live_readiness_service = LiveReadinessService.from_environment(
         store=security_store, audit=core_security_audit, safe_mode=app.state.safe_mode
     ) if security_store is not None else None
+    app.state.kill_switch_authority = kill_switch_authority
     # StrategyService derives the immutable usr_<uuid>/strategies namespace
     # from the authoritative owner; passing a user-derived root here would
     # create a double-nested, non-canonical artifact path.
@@ -726,6 +728,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
             security_store=app.state.security_store,
             safe_mode=app.state.safe_mode,
             live_readiness_service=app.state.live_readiness_service,
+            kill_switch_authority=app.state.kill_switch_authority,
         )
 
     @app.get("/api/v1/owner/safety")
@@ -736,6 +739,22 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     def engage_owner_safe_mode(session=Depends(owner_mutable_session)) -> dict[str, Any]:
         result = _owner_safety_adapter().engage_safe_mode()
         _record_security_audit(event_type="OWNER_SAFE_MODE_ENGAGED", actor_id=session.user.user_id, details={})
+        return result
+
+    @app.post("/api/v1/owner/safety/kill-switch/engage")
+    def engage_owner_kill_switch(body: dict[str, Any], session=Depends(owner_mutable_session)) -> dict[str, Any]:
+        reason = str(body.get("reason") or "").strip()
+        try:
+            result = _owner_safety_adapter().engage_kill_switch(reason)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        _record_security_audit(
+            event_type="OWNER_KILL_SWITCH_ENGAGED",
+            actor_id=session.user.user_id,
+            details={"reason": reason},
+        )
         return result
 
     @app.post("/api/v1/owner/safety/global-hold/engage")
