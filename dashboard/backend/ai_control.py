@@ -300,6 +300,9 @@ class AIControlService:
             blocked = self._repository.create_job(
                 agent_id={
                     "MARKET_INTELLIGENCE": "laya",
+                    "STRATEGY_REVIEW": "research",
+                    "INDEPENDENT_CANDIDATE": "research",
+                    "STRATEGY_HUNTING": "research",
                     "STRATEGY_RESEARCH": "research",
                     "EVIDENCE_RESEARCH": "research",
                     "RISK_CHALLENGE": "risk-challenger",
