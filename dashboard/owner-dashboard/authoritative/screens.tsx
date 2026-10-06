@@ -169,13 +169,19 @@ export const OwnerAccessRegistryScreen: React.FC = () => {
           { key: "sxId", label: "SX ID" }, { key: "displayName", label: "User" },
           { key: "activationStatus", label: "Activation" }, { key: "accountStatus", label: "Account" },
           { key: "serviceTermLabel", label: "Term" }, { key: "serviceStatus", label: "Service" },
-          { key: "actions", label: "Activation", render: (row) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <AsyncActionButton label="Reissue" onRun={() => ownerAccountAction(row.sxId, "reissue-activation", { notes: "Owner reissue" })} onDone={refresh} />
-            <AsyncActionButton label="Revoke invite" tone="danger" onRun={() => ownerAccountAction(row.sxId, "revoke-activation", { notes: "Owner activation revoke" })} onDone={refresh} />
-            <AsyncActionButton label="+3 months" tone="warn" onRun={() => ownerAccountAction(row.sxId, "extend-service", { service_term_type: "3_MONTHS", notes: "Owner extension" })} onDone={refresh} />
-          <AsyncActionButton label="Renew 3 months" tone="warn" onRun={() => ownerAccountAction(row.sxId, "renew-service", { service_term_type: "3_MONTHS", notes: "Owner renewal" })} onDone={refresh} />
-          <AsyncActionButton label="Lifetime" tone="warn" onRun={() => ownerAccountAction(row.sxId, "convert-lifetime", { notes: "Owner lifetime conversion" })} onDone={refresh} />
-          </div> },
+          { key: "actions", label: "Lifecycle & Activation", render: (row) => {
+            const identifier = String(row.sxId || row.id || "");
+            return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <AsyncActionButton label="Suspend" tone="warn" disabled={!identifier} onRun={() => ownerAccountAction(identifier, "suspend", { notes: "Owner account suspension" })} onDone={refresh} />
+              <AsyncActionButton label="Restore" disabled={!identifier} onRun={() => ownerAccountAction(identifier, "restore", { notes: "Owner account restoration" })} onDone={refresh} />
+              <AsyncActionButton label="Revoke" tone="danger" disabled={!identifier} onRun={() => ownerAccountAction(identifier, "revoke", { notes: "Owner account revocation" })} onDone={refresh} />
+              <AsyncActionButton label="Reissue" onRun={() => ownerAccountAction(identifier, "reissue-activation", { notes: "Owner reissue" })} onDone={refresh} />
+              <AsyncActionButton label="Revoke invite" tone="danger" onRun={() => ownerAccountAction(identifier, "revoke-activation", { notes: "Owner activation revoke" })} onDone={refresh} />
+              <AsyncActionButton label="+3 months" tone="warn" onRun={() => ownerAccountAction(identifier, "extend-service", { service_term_type: "3_MONTHS", notes: "Owner extension" })} onDone={refresh} />
+              <AsyncActionButton label="Renew 3 months" tone="warn" onRun={() => ownerAccountAction(identifier, "renew-service", { service_term_type: "3_MONTHS", notes: "Owner renewal" })} onDone={refresh} />
+              <AsyncActionButton label="Lifetime" tone="warn" onRun={() => ownerAccountAction(identifier, "convert-lifetime", { notes: "Owner lifetime conversion" })} onDone={refresh} />
+            </div>;
+          } },
         ]} />
       </section>
     </div>
