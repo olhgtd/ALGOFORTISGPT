@@ -97,6 +97,10 @@ class _FakePhase8:
 
 
 class _FailingLoadPersistence:
+    # Match the real SQLitePaperStateStore health contract used by
+    # LivePaperCoordinator.safety_state.
+    from engine.persistence.sqlite_store import PersistenceHealth
+    health = PersistenceHealth.HEALTHY
     is_healthy = True
 
     def load_state(self) -> object:
