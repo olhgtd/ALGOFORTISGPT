@@ -84,6 +84,6 @@ def test_one_ai_sequential_proposer_and_critic_is_flagged_correlated() -> None:
 def test_independent_intelligence_candidate_remains_research_backtest_paper_only() -> None:
     decision = StrategyDecisionIntelligence().evaluate_independent_candidate(_candidate(), ())
     assert decision.candidate.candidate_id == "intel-1"
-    assert decision.candidate.execution_scope == "RESEARCH_BACKTEST_PAPER_ONLY"
+    assert decision.candidate.execution_scope == "RISK_GATED_CANDIDATE"
     assert decision.executable_authority is False
     assert not hasattr(decision, "approved_order")
