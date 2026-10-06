@@ -60,62 +60,6 @@ def classify_reconciliation_order(order: dict) -> str:
     return "BROKER_REAL"
 
 
-def build_would_be_broker_payload(
-    *,
-    user_id: str,
-    canonical: SignalIntent,
-    entry: Any,
-    observed: dict | None,
-    account: dict | None,
-    quantity: Decimal,
-    order_type: str = "MARKET",
-    risk_result: Any = None,
-    candidate_plan: Any = None,
-    idempotency_key: str,
-    now: datetime,
-) -> dict[str, Any]:
-    """Exact would-be broker request projection.
-
-    Captures all 22+ canonical fields required for live execution if authorized,
-    while guaranteeing that secrets, credentials, and bearer tokens are strictly excluded.
-    """
-    spec = getattr(entry, "specification", None)
-    ident = getattr(entry, "identity", None)
-    lot_size = int(spec.minimum_quantity) if spec and hasattr(spec, "minimum_quantity") else 1
-
-    raw_segment = str(getattr(ident, "segment", "FO")).upper() if ident else "FO"
-    segment = "FO" if raw_segment in ("OPTIONS", "FUTURES", "FO", "NSE_FO") else raw_segment
-
-    return {
-        "broker": account.get("broker", "UPSTOX") if account else "UPSTOX",
-        "account_id": account.get("user_id") if account else None,
-        "instrument_token": str(ident.instrument) if ident and hasattr(ident, "instrument") else str(canonical.symbol),
-        "broker_instrument_token": str(canonical.symbol),
-        "canonical_instrument": getattr(ident, "instrument", str(canonical.symbol)) if ident else str(canonical.symbol),
-        "exchange": str(getattr(ident, "market", "NSE")).upper() if ident else "NSE",
-        "segment": segment,
-        "expiry": str(ident.expiry) if ident and getattr(ident, "expiry", None) else None,
-        "strike": str(ident.strike) if ident and getattr(ident, "strike", None) else None,
-        "option_type": getattr(ident, "option_type", None) if ident else None,
-        "side": canonical.action,
-        "quantity": int(quantity),
-        "lot_size": lot_size,
-        "order_type": order_type,
-        "product_type": "D",
-        "validity": "DAY",
-        "limit_price": None if order_type == "MARKET" else (str(observed.get("ask")) if observed else None),
-        "trigger_price": None,
-        "disclosed_quantity": 0,
-        "strategy_id": canonical.strategy_id,
-        "execution_mode": "SHADOW",
-        "client_order_intent_id": canonical.identity,
-        "idempotency_key": idempotency_key,
-        "request_timestamp": now.isoformat(),
-        "market_data_timestamp": observed.get("exchange_timestamp") if observed else None,
-        "risk_decision_id": getattr(risk_result, "decision_id", f"RISK-{canonical.identity[:12]}"),
-    }
-
-
 @dataclass(frozen=True)
 class LiveRiskContext:
     """Trusted engine adapter inputs, never accepted from HTTP/client payloads.
