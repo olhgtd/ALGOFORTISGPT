@@ -23,7 +23,7 @@ class OrchestrationResult:
     fingerprint: str
 
 
-class ResearchShadowOrchestrator:
+class IntelligenceCandidateOrchestrator:
     def __init__(self, validator: TradeCandidateValidator):
         if not isinstance(validator, TradeCandidateValidator):
             raise TypeError("TradeCandidateValidator required")
@@ -71,12 +71,11 @@ class IntelligenceCandidateDecision:
 
 
 class StrategyDecisionIntelligence:
-    """Evidence-only strategy review and independent-candidate orchestration.
+    """Strategy review and independent-candidate orchestration.
 
-    This class deliberately has no broker, capital-reservation, RiskGate or
-    ApprovedOrder surface.  Deterministic Strategy remains usable when the
-    opinion set is empty; AI/Laya evidence can challenge research/paper
-    candidates but cannot mint execution authority.
+    This class has no broker or ApprovedOrder surface. AI/Laya can originate
+    independent candidates, but deterministic downstream arbitration and
+    RiskGateV2 remain the only route to execution approval.
     """
 
     def review_strategy(
@@ -102,7 +101,7 @@ class StrategyDecisionIntelligence:
     ) -> IntelligenceCandidateDecision:
         if not isinstance(candidate, IntelligenceCandidate):
             raise TypeError("candidate must be IntelligenceCandidate")
-        if candidate.execution_scope != "RESEARCH_BACKTEST_PAPER_ONLY":
+        if candidate.execution_scope != "RISK_GATED_CANDIDATE":
             raise ValueError("independent intelligence candidate scope is not permitted")
         return IntelligenceCandidateDecision(
             candidate=candidate,
@@ -114,7 +113,7 @@ class StrategyDecisionIntelligence:
 __all__ = [
     "IntelligenceCandidateDecision",
     "OrchestrationResult",
-    "ResearchShadowOrchestrator",
+    "IntelligenceCandidateOrchestrator",
     "StrategyDecisionIntelligence",
     "StrategyReviewEvidence",
 ]
