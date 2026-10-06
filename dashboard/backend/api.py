@@ -1530,7 +1530,7 @@ def create_app(*, owner: UserIdentity | None = None, config: SecurityConfigurati
     # ── Slice 9.8: Settings governance ──
 
     @app.post("/api/v1/settings/propose")
-    def propose_setting(proposal: SettingsProposalBody, session=Depends(mutable_session)) -> dict[str, object]:
+    def propose_setting(proposal: SettingsProposalBody, session=Depends(owner_mutable_session)) -> dict[str, object]:
         """§131.10: PROPOSE → VALIDATE → DRY RUN → DIFF → CONFIRM → ATOMIC → VERIFY → AUDIT.
         This endpoint handles PROPOSE + VALIDATE + DRY RUN + DIFF and persists the
         proposal only. No effective setting is mutated here; CONFIRM is separate.
