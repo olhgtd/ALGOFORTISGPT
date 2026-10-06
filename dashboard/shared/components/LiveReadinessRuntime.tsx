@@ -38,11 +38,11 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
   useEffect(() => { void load(); return () => { generation.current++; }; }, [view]);
   // Poll backend-derived freshness; never silently perform external broker reads.
   useEffect(() => { const timer = setInterval(() => { if (!busy) void load(false, true); }, 5000); return () => clearInterval(timer); }, [view, busy]);
-  const validate = async (mode: "SHADOW" | "LIVE" = "SHADOW") => {
+  const validate = async () => {
     setBusy(true); setError(null); setReceipt(null);
     try {
       const rec = await liveReadinessRequest<LiveIntentReceipt>(root + "/intents", {
-        strategy_id: strategy, instrument_token: instrument, side, quantity, timeframe: "1m", originating_timestamp: origin.current, execution_mode: mode,
+        strategy_id: strategy, instrument_token: instrument, side, quantity, timeframe: "1m", originating_timestamp: origin.current, execution_mode: "LIVE",
       });
       setReceipt(rec);
       await load(false, true);
@@ -58,7 +58,7 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
   const brokerConnected = data?.connection_state === "CONNECTED";
   return <div data-testid="live-readiness-runtime" style={{ minWidth: 0 }}>
     <div className="v3-screen-head"><div><h2 className="v3-screen-title">{owner ? "Live Readiness Oversight" : view === "trading" ? "Live Trading Readiness" : "Broker Connections"}</h2>
-      <p className="v3-screen-sub">EXECUTION: SHADOW / READ_ONLY · {brokerConnected ? "BROKER: CONNECTED (TEST-ONLY)" : "BROKER: NOT CONNECTED"} · Real execution disabled</p></div><TruthChip kind={data || oversight ? "REAL" : "DISABLED"} title="Backend readiness authority; broker availability is reported separately" /></div>
+      <p className="v3-screen-sub">EXECUTION: READ_ONLY / DISARMED · {brokerConnected ? "BROKER: CONNECTED (TEST-ONLY)" : "BROKER: NOT CONNECTED"} · Real execution disabled</p></div><TruthChip kind={data || oversight ? "REAL" : "DISABLED"} title="Backend readiness authority; broker availability is reported separately" /></div>
     <div className="v3-filter-bar" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
       <button className="v3-btn ghost" disabled={busy} onClick={() => void load()}>Refresh readiness</button>
       {!owner && <button className="v3-btn" disabled={busy || !data} onClick={() => void load(true)}>Read broker account</button>}
@@ -66,7 +66,7 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
     </div>
     {error && <p role="alert">UNAVAILABLE — {error}</p>}
     <Panel label="Execution policy"><KV k="Execution authorization" v="READ_ONLY / DISARMED — EXECUTION_DISABLED" />
-      <KV k="Execution Mode" v="SHADOW / READ_ONLY" />
+      <KV k="Execution Mode" v="LIVE / READ_ONLY — DISARMED" />
       <KV k="Broker Connection" v={brokerConnected ? "CONNECTED (TEST-ONLY)" : "NOT CONNECTED"} />
       <KV k="Global execution hold" v={policy ? (policy.global_hold ? "HELD" : "RELEASED — execution remains disabled") : "UNAVAILABLE"} />
       <KV k="Safe Mode" v={policy ? (policy.safe_mode ? "ON" : "OFF") : "UNAVAILABLE"} />
@@ -90,9 +90,9 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
           <label>Instrument<select className="v3-input" aria-label="Live instrument" value={instrument} onChange={e => { setInstrument(e.target.value); changed(); }}><option value="UNRESOLVED">UNRESOLVED</option>{data.instruments.map(i => <option key={i.token} value={i.token}>{i.symbol} · lot {i.lot_size}</option>)}</select></label>
           <label>Side<select className="v3-input" value={side} onChange={e => { setSide(e.target.value); changed(); }}><option>BUY</option><option>SELL</option></select></label>
           <label>Quantity<input className="v3-input" aria-label="Live quantity" type="number" min="1" max="10000000" value={quantity} onChange={e => { setQuantity(e.target.value); changed(); }} /></label>
-          <button className="v3-btn" disabled={busy || !strategy || Number(quantity) <= 0} onClick={() => void validate("SHADOW")}>Validate / Shadow Execute</button>
-          <button className="v3-btn ghost" disabled={busy || !strategy || Number(quantity) <= 0} onClick={() => void validate("LIVE")}>Validate intent</button>
-        </div><KV k="Risk authority" v={data.risk_state} /><KV k="Execution Mode" v="SHADOW (Dry-run validation)" />
+          <button className="v3-btn" disabled={busy || !strategy || Number(quantity) <= 0} onClick={() => void validate()}>Validate intent</button>
+          <button className="v3-btn ghost" disabled={busy || !strategy || Number(quantity) <= 0} onClick={() => void validate()}>Validate intent</button>
+        </div><KV k="Risk authority" v={data.risk_state} /><KV k="Execution Mode" v="LIVE — READ_ONLY / DISARMED" />
         {receipt && <div role="status" data-testid="live-intent-result" style={{ marginTop: 16 }}>
           <h3>{receipt.status} · {receipt.execution_mode || "SHADOW"}</h3>
           <p style={{ overflowWrap: "anywhere" }}>{receipt.intent_id}</p>
@@ -110,11 +110,7 @@ export const LiveReadinessRuntime: React.FC<{ view?: "trading" | "connections" |
       <Panel label="Existing broker positions"><Rows rows={data.positions} columns={["trading_symbol", "quantity", "average_price", "last_price", "pnl"]} />
         <h3>Existing broker orders</h3><Rows rows={data.orders} columns={["order_id", "trading_symbol", "transaction_type", "quantity", "filled_quantity", "status"]} />
         <h3>Holdings</h3><Rows rows={data.holdings} columns={["trading_symbol", "quantity", "average_price"]} /></Panel>
-      <Panel label="Shadow Execution History" id="shadow-execution-history-panel">
-        {!data.intents.length ? <p>No shadow executions</p> :
-          <Rows rows={data.intents.map(i => ({ ...i, reasons: i.reasons.map(r => r.code).join(", ") }))} columns={["intent_id", "status", "reasons", "audit_id"]} />
-        }
-      </Panel>
+
     </>}
   </div>;
 };
