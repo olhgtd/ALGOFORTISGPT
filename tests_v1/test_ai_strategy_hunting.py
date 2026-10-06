@@ -81,7 +81,7 @@ def test_cloud_strategy_hunting_allowed_when_od16_and_dataset_policy_allow_it() 
         payload={"instrument": "NIFTY", "purpose": "hypothesis-generation"},
     )
     assert ready.provider_id == "cloud-a"
-    assert ready.execution_scope == "RESEARCH_BACKTEST_PAPER_ONLY"
+    assert ready.execution_scope == "RISK_GATED_CANDIDATE"
     assert ready.dataset_ref == "dataset:session-1"
     assert events
 
@@ -96,4 +96,4 @@ def test_local_strategy_hunting_does_not_require_cloud_egress_permission_but_sti
         payload={"instrument": "BANKNIFTY"},
     )
     assert ready.provider_id == "local-a"
-    assert ready.execution_scope == "RESEARCH_BACKTEST_PAPER_ONLY"
+    assert ready.execution_scope == "RISK_GATED_CANDIDATE"
