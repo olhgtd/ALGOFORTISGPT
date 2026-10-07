@@ -1092,7 +1092,6 @@ class LivePaperCoordinator:
         if not isinstance(market_timestamp, datetime) or market_timestamp.tzinfo is None:
             raise ValueError("market_timestamp must be a timezone-aware datetime")
         self._latest_market_timestamp = market_timestamp
-        self._has_received_quote = True
 
 
     # ------------------------------------------------------------------
