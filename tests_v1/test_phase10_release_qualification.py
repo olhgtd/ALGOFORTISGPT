@@ -158,8 +158,7 @@ def test_telemetry_is_deny_by_default_and_allowlisted_when_opted_in() -> None:
         policy_id="telemetry/privacy/v1",
         version="1",
         opt_in=True,
-        allowed_data_classes=("operational_health",),
-        jurisdiction="GLOBAL",
+        allowed_data_classes=frozenset({"operational_health"}),
     )
     opted_in = TelemetryService(app_version="9.0.0", privacy_policy=policy)
     heartbeat = opted_in.build_operational_heartbeat("READY", 128.0)
