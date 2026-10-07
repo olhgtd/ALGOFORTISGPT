@@ -12,6 +12,7 @@ Derived effective safety precedence:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -19,6 +20,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from engine.data.feeds.live_feed import FeedConnectionState
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from engine.persistence.sqlite_store import PersistenceHealth
@@ -172,9 +175,20 @@ class SafetyManager:
         return self._kill_switch
 
     def emit_alert(self, alert: SafetyAlert) -> None:
-        """Deliver safety alert to registered callback if present."""
+        """Deliver safety alert to registered callback if present.
+
+        F6: callback failure must not be silent; alerts are non-authorizing
+        but safety transitions depend on operator visibility.
+        """
         if self._on_alert is not None:
             try:
                 self._on_alert(alert)
             except Exception:
-                pass
+                logger.critical(
+                    "safety alert delivery failed; alert_id=%s severity=%s source=%s reason=%s",
+                    getattr(alert, "alert_id", None),
+                    getattr(alert, "severity", None),
+                    getattr(alert, "source", None),
+                    getattr(alert, "reason", None),
+                    exc_info=True,
+                )

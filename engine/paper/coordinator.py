@@ -495,7 +495,12 @@ class LivePaperCoordinator:
                         )
                         self._persistence_store.append_audit_events([cleanup_ev])
                     except Exception:
-                        pass
+                        # F5: startup kill cleanup is a safety transition; evidence must not vanish.
+                        self._persistence_failed = True
+                        logger.critical(
+                            "failed to append STARTUP_KILL_CLEANUP_COMPLETED audit; marking persistence failed",
+                            exc_info=True,
+                        )
 
         # Single-authority runtime context resolution
         if virtual_account is not None:
@@ -982,7 +987,28 @@ class LivePaperCoordinator:
                 prior_state=self._risk_gate_state,
             )
         except Exception as exc:
-            logger.error("Failed to advance risk gate state on session rollover: %s", exc)
+            # F4: failed authoritative RiskGate session advance must fail closed.
+            self._persistence_failed = True
+            logger.critical(
+                "Failed to advance risk gate state on session rollover; fail-closed: %s",
+                exc,
+                exc_info=True,
+            )
+            if self._phase8_safety is not None:
+                try:
+                    # Best-effort observe; do not invent a new authority if API differs.
+                    observe = getattr(self._phase8_safety, "observe_protective_failure", None)
+                    if callable(observe):
+                        observe(
+                            strategy_id=None,
+                            strategy_version=None,
+                            integrity_proven_safe=False,
+                        )
+                except Exception:
+                    logger.critical(
+                        "phase8 observe failed during risk-gate rollover failure",
+                        exc_info=True,
+                    )
             return
 
         if self._persistence_store is not None and self.is_persistence_healthy:
@@ -1066,7 +1092,6 @@ class LivePaperCoordinator:
         if not isinstance(market_timestamp, datetime) or market_timestamp.tzinfo is None:
             raise ValueError("market_timestamp must be a timezone-aware datetime")
         self._latest_market_timestamp = market_timestamp
-        self._has_received_quote = True
 
 
     # ------------------------------------------------------------------
@@ -2919,7 +2944,30 @@ class LivePaperCoordinator:
             and self.safety_state not in (SafetyState.PERSISTENCE_FAILED, SafetyState.INTEGRITY_BREACHED)
         ):
             spec = self._find_specification_for_identity(ident, quote.exchange_timestamp.date())
-            if spec is not None:
+            if spec is None:
+                # F2: catalog/spec drift must not silently disable protection.
+                held = False
+                if self._virtual_account is not None:
+                    for pos_key, pos in self._virtual_account.snapshot.positions.items():
+                        if (
+                            pos_key.identity == ident
+                            and getattr(pos, "quantity", 0)
+                            and pos.quantity > 0
+                        ):
+                            held = True
+                            break
+                if held:
+                    logger.critical(
+                        "protective evaluation skipped: instrument specification missing for held position; "
+                        "identity=%s",
+                        ident,
+                    )
+                    book_before = self._protective_book_snapshot()
+                    self._route_protective_evaluation_failure(
+                        RuntimeError(f"protective_specification_missing:{ident}"),
+                        book_before=book_before,
+                    )
+            else:
                 # Phase 8 P1 (§128.12): integrity evidence for the aborted-
                 # pass containment below — exact pre-pass book state.
                 book_before = self._protective_book_snapshot()
@@ -3019,7 +3067,19 @@ class LivePaperCoordinator:
                             submission_quote=quote,
                             submission_market_timestamp=quote.exchange_timestamp,
                         )
-                    except Exception:
+                    except Exception as exc:
+                        # F1: protective close submission failure must escalate,
+                        # not silently discard the trigger.
+                        logger.critical(
+                            "protective close submission failed; routing fail-closed; "
+                            "protective_id=%s position=%s cause=%r",
+                            getattr(trigger.protective, "protective_id", None),
+                            trigger.position_key,
+                            exc,
+                            exc_info=True,
+                        )
+                        book_before = self._protective_book_snapshot()
+                        self._route_protective_evaluation_failure(exc, book_before=book_before)
                         continue
 
                     if submission.accepted:
@@ -3335,7 +3395,8 @@ class LivePaperCoordinator:
         if not isinstance(market_time, datetime) or market_time.tzinfo is None:
             raise ValueError("market_time must be a timezone-aware datetime")
         self._latest_market_timestamp = market_time
-        self._has_received_quote = True
+        # F3: market-clock events advance time only. Fresh-quote evidence remains
+        # owned exclusively by accepted quote processing paths.
         # Phase 8 P1 (§128.11): deterministic heartbeat/staleness observation.
         # Reference = the authoritative advancing market time; latest = the
         # last MARKET-DATA evidence (accepted quotes).  With
