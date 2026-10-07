@@ -1,4 +1,4 @@
-"""Deterministic provenance helpers for AI research/shadow routing and outputs."""
+"""Deterministic provenance helpers for AI intelligence routing and outputs."""
 from __future__ import annotations
 
 import hashlib

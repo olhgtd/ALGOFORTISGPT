@@ -1,4 +1,4 @@
-"""Policy-bound long-term memory domain for Phase 8 research/shadow agents."""
+"""Policy-bound long-term memory domain for Phase 8 research/intelligence agents."""
 from __future__ import annotations
 
 from dataclasses import dataclass

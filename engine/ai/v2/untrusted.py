@@ -1,4 +1,4 @@
-"""Untrusted external-content boundary for Phase 8 research/shadow AI."""
+"""Untrusted external-content boundary for Phase 8 research/intelligence AI."""
 from __future__ import annotations
 
 from dataclasses import dataclass

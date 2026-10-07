@@ -471,7 +471,7 @@
 
 ### 2.9 Orders, Positions & Portfolio Oversight
 
-#### Endpoint: `GET /api/v1/{owner|user}/orders-portfolio?mode={PAPER|BACKTEST|SHADOW|LIVE}`
+#### Endpoint: `GET /api/v1/{owner|user}/orders-portfolio?mode={PAPER|BACKTEST|LIVE}`
 - **Status:** `ACTIVE / USED TODAY`
 - **Purpose:** Consolidated runtime snapshot of active accounts, open positions, working orders, and execution events.
 - **Calling Screen(s):** User Portfolio (`UserScreens.tsx`), Owner Portfolio Oversight (`AdminPortfolioOrdersScreen.tsx`), Shared Runtime (`OrdersPortfolioRuntime.tsx`).

@@ -87,7 +87,7 @@ class UpdateRollbackStore:
         finally:
             Path(temp_meta).unlink(missing_ok=True)
 
-        self._prune()
+        self._prune(keep_path=package_path)
         return RollbackArtifactRef(
             version=version,
             sha256=digest,
@@ -120,12 +120,14 @@ class UpdateRollbackStore:
             raise ValueError("rollback package metadata mismatch")
         return payload
 
-    def _prune(self) -> None:
+    def _prune(self, *, keep_path: Path) -> None:
         packages = sorted(
             self.root.glob("AlgoFortis-Setup-*.exe"),
             key=lambda path: path.stat().st_mtime_ns,
             reverse=True,
         )
-        for package in packages[self.retain_count :]:
+        if keep_path in packages:
+            packages.remove(keep_path)
+        for package in packages[max(0, self.retain_count - 1) :]:
             package.unlink(missing_ok=True)
             package.with_suffix(".json").unlink(missing_ok=True)

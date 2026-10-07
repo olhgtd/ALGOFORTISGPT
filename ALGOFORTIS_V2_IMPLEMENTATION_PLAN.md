@@ -49,7 +49,7 @@
 | 5 | Paper V2, Reconciliation & Recovery | E part | L | 2, 3, 4 | G5 |
 | 6 | Live Execution V2 (still DISARMED) | E part | XL | 5, S2 | G6 |
 | 7 | Portfolio & Risk V2 | F | L | 2, 4 | G7 |
-| 8 | AI / Agents V2 (research + shadow) | G | XL | 4, 5 | G8 |
+| 8 | AI / Agents V2 (research + independent candidate intelligence) | G | XL | 4, 5 | G8 |
 | 9 | Product & Operations | H | L | 5, 6 | G9 |
 | 10 | Release Qualification & Live Pilot | I | L | all, S3 | G10 |
 
@@ -142,7 +142,7 @@ flowchart LR
 - **Deliverables:** capital reservation/release, per-strategy and per-user budgets, portfolio circuit breaker, concentration limits, attribution; event-day risk policy.
 - **Exit (G7):** aggregate-exposure limits enforced through the same gate; circuit-breaker chaos test green.
 
-### Phase 8 — AI / Agents V2 (research + shadow)
+### Phase 8 — AI / Agents V2 (research + independent candidate intelligence)
 - **Goal:** Useful, permissioned AI that cannot touch execution.
 - **Scope:** AIA-001…007, 010; AIA-008/009 deferred (T2).
 - **Deliverables:** provider registry + adapters; tool gateway with allowlists; Prime + Research + Risk-challenger agents; market-intelligence scheduler; `TradeCandidate` contract and deterministic validator; shadow-mode evaluation log; budgets/quotas; prompt-injection defences; agent audit and replay.

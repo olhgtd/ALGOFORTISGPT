@@ -328,7 +328,6 @@ flowchart LR
   CAND --> VAL[Deterministic validation: schema, TTL, policy, freshness]
   VAL --> STRAT[Strategy rules decide whether an OrderIntent exists]
   STRAT --> GATE{Risk Gate}
-  ORCH -. shadow mode .-> SH[(Shadow log vs outcomes)]
 ```
 
 **Tool gateway**: AI has no direct DB, filesystem or broker access. Each tool declares read/write scope; calls are validated, rate-limited, budgeted and audited. Retrieved web/news content is labelled untrusted and never interpreted as instructions.
@@ -348,7 +347,7 @@ TradeCandidate {
 ```
 Rejected by validation if malformed, stale, unsupported, or policy-violating. Committee deadlines ensure a late response cannot create a stale trade. Provider outage degrades to NO_TRADE/HOLD; it never silently changes trading behaviour.
 
-**V2.0 ceiling**: research + shadow mode. Any AI-assisted live eligibility additionally requires paper validation (AF2-AIA-007). Committee/ensemble is T2 behind the same contract.
+**V2.0 ceiling**: research + independent candidate intelligence. Any AI-assisted live eligibility additionally requires paper validation (AF2-AIA-007). Committee/ensemble is T2 behind the same contract.
 
 ---
 
